@@ -241,8 +241,8 @@ app.post('/api/export/docx', async (req, res) => {
                   }),
                   new Paragraph({
                     children: [
-                      new TextRun({ text: "Billing Month: ", bold: true, size: 18, font: "Arial" }),
-                      new TextRun({ text: inv.billingPeriod, size: 18, font: "Arial" })
+                      new TextRun({ text: "Billing Month: ", bold: true, size: 18, font: "Segoe UI" }),
+                      new TextRun({ text: inv.billingPeriod, bold: true, size: 18, font: "Segoe UI" })
                     ]
                   })
                 ]
@@ -253,18 +253,19 @@ app.post('/api/export/docx', async (req, res) => {
                 children: [
                   new Paragraph({
                     alignment: AlignmentType.RIGHT,
-                    children: [new TextRun({ text: "Invoice,", bold: true, size: 20, font: "Arial" })],
+                    children: [new TextRun({ text: "Invoice,", bold: true, size: 20, font: "Segoe UI" })],
                     spacing: { after: 60 }
                   }),
                   new Paragraph({
                     alignment: AlignmentType.RIGHT,
-                    children: [new TextRun({ text: inv.invoiceNumber, bold: true, size: 19, font: "Arial" })],
+                    children: [new TextRun({ text: inv.invoiceNumber, bold: true, size: 19, font: "Segoe UI" })],
                     spacing: { after: 40 }
                   }),
                   new Paragraph({
                     alignment: AlignmentType.RIGHT,
                     children: [
-                      new TextRun({ text: `NTN: ${ntn || "C951537"}`, bold: true, size: 18, font: "Arial" })
+                      new TextRun({ text: "NTN: ", size: 18, font: "Segoe UI" }),
+                      new TextRun({ text: ntn || "C951537", bold: true, size: 18, font: "Segoe UI" })
                     ]
                   })
                 ]
@@ -290,23 +291,23 @@ app.post('/api/export/docx', async (req, res) => {
             children: [
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "CONSUMPTION GALLON", bold: true, size: 16, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "CONSUMPTION GALLON", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "RATE PER GALLON", bold: true, size: 16, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "RATE PER GALLON", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "BILL AMOUNT", bold: true, size: 16, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "BILL AMOUNT", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "PREVIOUS", bold: true, size: 16, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "PREVIOUS", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "TOTAL PAYABLE", bold: true, size: 16, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "TOTAL PAYABLE", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
               })
             ]
           }),
@@ -314,23 +315,23 @@ app.post('/api/export/docx', async (req, res) => {
             children: [
               new TableCell({
                 borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Number(inv.gallons).toLocaleString(), size: 18, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Number(inv.gallons).toLocaleString(), size: 18, font: "Segoe UI" })] })]
               }),
               new TableCell({
                 borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Number(inv.rate).toFixed(2), size: 18, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Number(inv.rate).toFixed(2), size: 18, font: "Segoe UI" })] })]
               }),
               new TableCell({
                 borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${Number(inv.billAmount).toLocaleString()}/-`, size: 18, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${Number(inv.billAmount).toLocaleString()}/-`, size: 18, font: "Segoe UI" })] })]
               }),
               new TableCell({
                 borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: inv.previous === 0 ? "0" : `${Number(inv.previous).toLocaleString()}/-`, size: 18, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: inv.previous === 0 ? "0" : `${Number(inv.previous).toLocaleString()}/-`, size: 18, font: "Segoe UI" })] })]
               }),
               new TableCell({
                 borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${Number(inv.totalPayable).toLocaleString()}/-`, size: 18, font: "Arial" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${Number(inv.totalPayable).toLocaleString()}/-`, size: 18, font: "Segoe UI" })] })]
               })
             ]
           })
@@ -345,7 +346,7 @@ app.post('/api/export/docx', async (req, res) => {
       children.push(
         new Paragraph({
           children: [
-            new TextRun({ text: "• *Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No: 10380109491064 in Meezan Bank.", size: 17, font: "Arial" })
+            new TextRun({ text: "• *Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No: 10380109491064 in Meezan Bank.", size: 17, font: "Segoe UI" })
           ],
           spacing: { after: 120 }
         })
@@ -353,7 +354,9 @@ app.post('/api/export/docx', async (req, res) => {
       children.push(
         new Paragraph({
           children: [
-            new TextRun({ text: "• *If the payment is not received till the last payment date, \"The Mega Mall\" will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.", size: 17, font: "Arial" })
+            new TextRun({ text: "• *If the payment is not received till the last payment date, ", size: 17, font: "Segoe UI" }),
+            new TextRun({ text: "\"The Mega Mall\"", bold: true, size: 17, font: "Segoe UI" }),
+            new TextRun({ text: " will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.", size: 17, font: "Segoe UI" })
           ],
           spacing: { after: 450 }
         })

@@ -932,8 +932,9 @@ input:checked + .slider:before {
   grid-template-columns: 1fr 210px;
   gap: 1.5rem;
   margin-bottom: 2.2rem;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
+  font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .inv-customer-col {
@@ -941,22 +942,25 @@ input:checked + .slider:before {
 }
 
 .inv-customer-col .heading {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 14px;
   margin-bottom: 0.35rem;
 }
 
 .inv-customer-col .line {
   margin-bottom: 0.2rem;
+  font-weight: 400;
 }
 
-.inv-customer-col .label {
-  font-weight: 600;
+/* Entire Billing Month line is bold! */
+.inv-customer-col .line-billing-month {
+  font-weight: 700 !important;
 }
 
 .inv-number-col {
   text-align: right;
   color: #111111;
+  font-size: 14px;
 }
 
 .inv-number-col .title {
@@ -966,14 +970,14 @@ input:checked + .slider:before {
 }
 
 .inv-number-col .number {
-  font-weight: 800;
-  font-size: 13.5px;
+  font-weight: 700;
+  font-size: 14px;
   margin-bottom: 0.25rem;
 }
 
 .inv-number-col .ntn {
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 400;
+  font-size: 14px;
 }
 
 /* Invoice Table with SOLID, GUARANTEED VISIBLE GRIDS */

@@ -260,35 +260,35 @@ function renderInvoiceSheet(inv) {
       <div class="inv-meta-grid">
         <div class="inv-customer-col">
           <div class="heading">Customer</div>
-          <div class="line"><span class="label">Legal Occupier:</span> ${appState.occupier}</div>
-          <div class="line"><span class="label">Location:</span> ${appState.location}</div>
-          <div class="line"><span class="label">Billing Month:</span> ${inv.billingPeriod}</div>
+          <div class="line">Legal Occupier: ${appState.occupier}</div>
+          <div class="line">Location: ${appState.location}</div>
+          <div class="line line-billing-month">Billing Month: ${inv.billingPeriod}</div>
         </div>
         <div class="inv-number-col">
           <div class="title">Invoice,</div>
           <div class="number">${inv.invoiceNumber}</div>
-          <div class="ntn">NTN: ${appState.ntn}</div>
+          <div class="ntn">NTN: <strong style="font-weight:700;">${appState.ntn}</strong></div>
         </div>
       </div>
 
       <!-- Billing Table with SOLID, GUARANTEED VISIBLE GRIDS -->
       <table class="inv-table" style="width:100% !important; border-collapse:collapse !important; border:1.5px solid #000000 !important; margin-bottom:2.2rem;">
         <thead>
-          <tr style="background-color:#f7f7f7 !important;">
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:11px !important; font-weight:700 !important; text-align:center !important; color:#000000 !important;">CONSUMPTION GALLON</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:11px !important; font-weight:700 !important; text-align:center !important; color:#000000 !important;">RATE PER<br>GALLON</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:11px !important; font-weight:700 !important; text-align:center !important; color:#000000 !important;">BILL<br>AMOUNT</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:11px !important; font-weight:700 !important; text-align:center !important; color:#000000 !important;">PREVIOUS</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:11px !important; font-weight:700 !important; text-align:center !important; color:#000000 !important;">TOTAL PAYABLE</th>
+          <tr style="background-color:#fafafa !important;">
+            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">CONSUMPTION GALLON</th>
+            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">RATE PER<br>GALLON</th>
+            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">BILL<br>AMOUNT</th>
+            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">PREVIOUS</th>
+            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">TOTAL PAYABLE</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:13px !important; font-weight:500 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.gallons)}</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:13px !important; font-weight:500 !important; text-align:center !important; color:#000000 !important;">${Number(inv.rate).toFixed(2)}</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:13px !important; font-weight:500 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.billAmount)}/-</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:13px !important; font-weight:500 !important; text-align:center !important; color:#000000 !important;">${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:13px !important; font-weight:500 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.totalPayable)}/-</td>
+            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.gallons)}</td>
+            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${Number(inv.rate).toFixed(2)}</td>
+            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.billAmount)}/-</td>
+            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
+            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.totalPayable)}/-</td>
           </tr>
         </tbody>
       </table>
@@ -297,14 +297,14 @@ function renderInvoiceSheet(inv) {
       <div class="inv-notices">
         <ul>
           <li>*Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No: 10380109491064 in Meezan Bank.</li>
-          <li>*If the payment is not received till the last payment date, "The Mega Mall" will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.</li>
+          <li>*If the payment is not received till the last payment date, <strong style="font-weight:700;">"The Mega Mall"</strong> will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.</li>
         </ul>
       </div>
 
       <!-- Signoff -->
       <div class="inv-signoff">
-        <div class="dept">Account Department</div>
-        <div class="date">Date : ${inv.issueDate}</div>
+        <div class="dept" style="font-weight:700;">Account Department</div>
+        <div class="date" style="font-weight:700;">Date : ${inv.issueDate}</div>
       </div>
 
       <!-- Footer Address -->
