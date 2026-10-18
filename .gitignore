@@ -6,5 +6,11 @@ WhatsApp Image*.jpeg
 test-calc.js
 __pycache__/
 *.pyc
-data/users.json
-
+data/
+refrence/
+reference/
+*.xlsx
+*.xls
+*.csv
+*.tmp*
+temp_*
