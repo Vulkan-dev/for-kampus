@@ -88,6 +88,15 @@ function writeUsersDatabaseAtomic(users) {
   fs.renameSync(tempPath, USERS_JSON_PATH);
 }
 
+function normalizeMonthNames(str) {
+  if (!str) return "";
+  return str
+    .replace(/\bMar\b/gi, "March")
+    .replace(/\bApr\b/gi, "April")
+    .replace(/\bJun\b/gi, "June")
+    .replace(/\bJul\b/gi, "July");
+}
+
 // Security Headers & Cache Control
 app.use((req, res, next) => {
   res.set({
@@ -648,10 +657,10 @@ app.post('/api/import/file', requireAuth, async (req, res) => {
             const inv_num = inv_m ? inv_m[1] : `#INV-${3001 + i}-051026`;
 
             const month_m = text.match(/Billing Month:\s*([\s\S]*?(?:\.\)?|\n))/i);
-            let billing_period = month_m ? month_m[1].replace(/\s+/g, ' ').trim() : '';
+            let billing_period = month_m ? normalizeMonthNames(month_m[1].replace(/\s+/g, ' ').trim()) : '';
 
             const date_m = text.match(/Date\s*:\s*([0-9a-zA-Z\s]+)/i);
-            const issue_date = date_m ? date_m[1].trim() : '';
+            const issue_date = date_m ? normalizeMonthNames(date_m[1].trim()) : '';
 
             const table_m = text.match(/(\d[\d,]*)\s+([\d\.]+)\s+([\d,]+)\/-\s+(\d[\d,]*)\s+([\d,]+)\/-/);
             let gallons, rate, bill_amount, previous, total_payable;
@@ -923,7 +932,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
                   new Paragraph({
                     children: [
                       new TextRun({ text: "Billing Month: ", bold: true, size: 18, font: "Segoe UI" }),
-                      new TextRun({ text: inv.billingPeriod, bold: true, size: 18, font: "Segoe UI" })
+                      new TextRun({ text: normalizeMonthNames(inv.billingPeriod), bold: true, size: 18, font: "Segoe UI" })
                     ]
                   })
                 ]
@@ -1052,7 +1061,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
       );
       children.push(
         new Paragraph({
-          children: [new TextRun({ text: `Date : ${inv.issueDate}`, bold: true, size: 18, font: "Segoe UI" })],
+          children: [new TextRun({ text: `Date : ${normalizeMonthNames(inv.issueDate)}`, bold: true, size: 18, font: "Segoe UI" })],
           spacing: { after: 1200 }
         })
       );

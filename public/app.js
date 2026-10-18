@@ -375,9 +375,18 @@ const MONTH_NAMES_FULL = [
   "July", "August", "September", "October", "November", "December"
 ];
 const MONTH_NAMES_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  "Jan", "Feb", "March", "April", "May", "June",
+  "July", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
+
+function normalizeMonthNames(str) {
+  if (!str) return "";
+  return str
+    .replace(/\bMar\b/gi, "March")
+    .replace(/\bApr\b/gi, "April")
+    .replace(/\bJun\b/gi, "June")
+    .replace(/\bJul\b/gi, "July");
+}
 
 function getOrdinal(n) {
   const s = ["th", "st", "nd", "rd"];
@@ -573,15 +582,15 @@ function calculateInvoices() {
       }
     }
 
-    let billingPeriod = `${m.fullMonthName} ${m.year} (1 ${m.shortMonthName} ${m.year} to ${m.daysInMonth} ${m.shortMonthName} ${m.year}).`;
-    let issueDate = `${getOrdinal(m.daysInMonth)} ${m.shortMonthName} ${m.year}`;
+    let billingPeriod = normalizeMonthNames(`${m.fullMonthName} ${m.year} (1 ${m.shortMonthName} ${m.year} to ${m.daysInMonth} ${m.shortMonthName} ${m.year}).`);
+    let issueDate = normalizeMonthNames(`${getOrdinal(m.daysInMonth)} ${m.shortMonthName} ${m.year}`);
 
     // Apply manual corrections if present
     const custom = appState.manualCorrections[m.ym];
     if (custom) {
       if (custom.invoiceNumber !== undefined) invNum = custom.invoiceNumber;
-      if (custom.billingPeriod !== undefined) billingPeriod = custom.billingPeriod;
-      if (custom.issueDate !== undefined) issueDate = custom.issueDate;
+      if (custom.billingPeriod !== undefined) billingPeriod = normalizeMonthNames(custom.billingPeriod);
+      if (custom.issueDate !== undefined) issueDate = normalizeMonthNames(custom.issueDate);
       if (custom.gallons !== undefined) gallons = Number(custom.gallons);
       if (custom.rate !== undefined) rate = Number(custom.rate);
       if (custom.previous !== undefined) previous = Number(custom.previous);
@@ -601,8 +610,8 @@ function calculateInvoices() {
       monthName: m.fullMonthName,
       shortMonthName: m.shortMonthName,
       invoiceNumber: invNum,
-      billingPeriod,
-      issueDate,
+      billingPeriod: normalizeMonthNames(billingPeriod),
+      issueDate: normalizeMonthNames(issueDate),
       gallons,
       rate,
       billAmount,
@@ -1149,15 +1158,15 @@ async function processImport() {
         if (match) {
           const mName = match[1].toLowerCase();
           const year = match[2];
-          const mIdx = MONTH_NAMES_SHORT.findIndex(s => s.toLowerCase() === mName.slice(0, 3));
+          const mIdx = MONTH_NAMES_SHORT.findIndex(s => s.toLowerCase().startsWith(mName.slice(0, 3)) || s.toLowerCase() === mName);
           if (mIdx >= 0) {
             const ym = `${year}-${String(mIdx + 1).padStart(2, '0')}`;
             if (!minYM || ym < minYM) minYM = ym;
             if (!maxYM || ym > maxYM) maxYM = ym;
             if (!appState.manualCorrections[ym]) appState.manualCorrections[ym] = {};
             if (inv.invoiceNumber) appState.manualCorrections[ym].invoiceNumber = inv.invoiceNumber;
-            if (inv.billingPeriod) appState.manualCorrections[ym].billingPeriod = inv.billingPeriod;
-            if (inv.issueDate) appState.manualCorrections[ym].issueDate = inv.issueDate;
+            if (inv.billingPeriod) appState.manualCorrections[ym].billingPeriod = normalizeMonthNames(inv.billingPeriod);
+            if (inv.issueDate) appState.manualCorrections[ym].issueDate = normalizeMonthNames(inv.issueDate);
             if (inv.gallons) appState.manualCorrections[ym].gallons = inv.gallons;
             if (inv.rate) appState.manualCorrections[ym].rate = inv.rate;
             if (inv.previous !== undefined) appState.manualCorrections[ym].previous = inv.previous;
