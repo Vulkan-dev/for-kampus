@@ -1351,11 +1351,22 @@ function initSplitPaneResizer() {
   const handle = document.getElementById("resizerHandle");
   if (!container || !sidebar || !handle) return;
 
-  // Restore saved width
-  const savedWidth = localStorage.getItem('mega_mall_sidebar_width');
-  if (savedWidth && parseInt(savedWidth, 10) >= 280) {
-    sidebar.style.width = `${parseInt(savedWidth, 10)}px`;
+  function checkSidebarResponsive() {
+    if (window.innerWidth <= 1180) {
+      sidebar.style.width = "";
+    } else {
+      const savedWidth = localStorage.getItem('mega_mall_sidebar_width');
+      if (savedWidth && parseInt(savedWidth, 10) >= 280) {
+        const targetWidth = Math.min(parseInt(savedWidth, 10), Math.round(window.innerWidth * 0.45));
+        sidebar.style.width = `${targetWidth}px`;
+      } else {
+        sidebar.style.width = "420px";
+      }
+    }
   }
+
+  window.addEventListener("resize", checkSidebarResponsive);
+  checkSidebarResponsive();
 
   // Restore preview toggle state
   if (isPreviewHidden) {
@@ -1367,6 +1378,7 @@ function initSplitPaneResizer() {
   let startWidth = 0;
 
   handle.addEventListener("mousedown", (e) => {
+    if (window.innerWidth <= 1180) return;
     isDragging = true;
     startX = e.clientX;
     startWidth = sidebar.getBoundingClientRect().width;
@@ -1380,9 +1392,9 @@ function initSplitPaneResizer() {
     const deltaX = e.clientX - startX;
     let newWidth = startWidth + deltaX;
 
-    // Constrain width between 290px and window width minus 320px
-    const minW = 290;
-    const maxW = Math.max(window.innerWidth - 320, 360);
+    // Constrain width between 280px and max 50vw or window width - 360px
+    const minW = 280;
+    const maxW = Math.max(minW, Math.min(Math.round(window.innerWidth * 0.5), window.innerWidth - 360));
     newWidth = Math.max(minW, Math.min(newWidth, maxW));
 
     sidebar.style.width = `${newWidth}px`;
@@ -1394,16 +1406,19 @@ function initSplitPaneResizer() {
       handle.classList.remove("dragging");
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      const currentWidth = Math.round(sidebar.getBoundingClientRect().width);
-      localStorage.setItem('mega_mall_sidebar_width', currentWidth);
+      if (window.innerWidth > 1180) {
+        const currentWidth = Math.round(sidebar.getBoundingClientRect().width);
+        localStorage.setItem('mega_mall_sidebar_width', currentWidth);
+      }
     }
   });
 
-  // Double click reset to default 440px
+  // Double click reset to default 420px
   handle.addEventListener("dblclick", () => {
-    sidebar.style.width = "440px";
-    localStorage.setItem('mega_mall_sidebar_width', 440);
-    showToast("Sidebar width reset to default (440px)", "info");
+    if (window.innerWidth <= 1180) return;
+    sidebar.style.width = "420px";
+    localStorage.setItem('mega_mall_sidebar_width', 420);
+    showToast("Sidebar width reset to default (420px)", "info");
   });
 }
 
