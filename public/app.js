@@ -245,14 +245,14 @@ function renderInvoiceSheet(inv) {
       <!-- Header -->
       <div class="inv-header">
         <div class="inv-logo-left">
-          <img src="assets/mega-mall-logo.png" alt="THE MEGA MALL" style="width:92px; height:auto; display:block;" />
+          <img src="assets/mega-mall-logo.png" alt="THE MEGA MALL" style="width:128px; height:106px; object-fit:contain; display:block;" />
         </div>
         <div class="inv-title-center">
           <h1>THE MEGA MALL</h1>
           <p>Official Billing Invoice / Reimburstment Note</p>
         </div>
         <div class="inv-logo-right">
-          <img src="assets/kampus-logo.png" alt="KAMPUS Integrated Services" style="width:78px; height:auto; display:block;" />
+          <img src="assets/kampus-logo.png" alt="KAMPUS Integrated Services" style="width:70px; height:108px; object-fit:contain; display:block;" />
         </div>
       </div>
 

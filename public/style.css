@@ -873,17 +873,20 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  width: 100%;
 }
 
 .inv-logo-left {
   display: flex;
   align-items: center;
-  width: 120px;
+  justify-content: flex-start;
+  width: 140px;
 }
 
 .inv-logo-left img {
-  width: 92px;
-  height: auto;
+  width: 128px !important;
+  height: 106px !important;
+  object-fit: contain;
   display: block;
 }
 
@@ -894,16 +897,16 @@ input:checked + .slider:before {
 }
 
 .inv-title-center h1 {
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: #000000;
-  margin: 0 0 4px 0;
+  margin: 0 0 5px 0;
   text-transform: uppercase;
 }
 
 .inv-title-center p {
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 600;
   color: #111111;
   margin: 0;
@@ -913,12 +916,13 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: 120px;
+  width: 140px;
 }
 
 .inv-logo-right img {
-  width: 78px;
-  height: auto;
+  width: 70px !important;
+  height: 108px !important;
+  object-fit: contain;
   display: block;
 }
 

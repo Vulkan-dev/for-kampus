@@ -20,9 +20,18 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Prevent browser from caching stale assets during updates
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  next();
+});
+
 // Body parser with 50mb limit for PDF/Word uploads
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  maxAge: 0
+}));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -125,28 +134,28 @@ app.post('/api/export/docx', async (req, res) => {
     const children = [];
 
     invoices.forEach((inv, index) => {
-      // 1. Header Table (Logo Left, Title Center, Logo Right)
+      // 1. Header Table (Exact PDF Logo Scale: Mega Mall ~128x106, Kampus ~70x108)
       const headerRowCells = [
         new TableCell({
-          width: { size: 25, type: WidthType.PERCENTAGE },
+          width: { size: 26, type: WidthType.PERCENTAGE },
           borders: noBorders,
           alignment: AlignmentType.CENTER,
           children: [
             megaMallLogoBytes
               ? new Paragraph({
-                  alignment: AlignmentType.CENTER,
+                  alignment: AlignmentType.LEFT,
                   children: [
                     new ImageRun({
                       data: megaMallLogoBytes,
-                      transformation: { width: 95, height: 85 }
+                      transformation: { width: 128, height: 106 }
                     })
                   ]
                 })
-              : new Paragraph({ text: "MEGA MALL", alignment: AlignmentType.CENTER })
+              : new Paragraph({ text: "MEGA MALL", alignment: AlignmentType.LEFT })
           ]
         }),
         new TableCell({
-          width: { size: 50, type: WidthType.PERCENTAGE },
+          width: { size: 48, type: WidthType.PERCENTAGE },
           borders: noBorders,
           alignment: AlignmentType.CENTER,
           children: [
@@ -157,7 +166,7 @@ app.post('/api/export/docx', async (req, res) => {
                 new TextRun({
                   text: "THE MEGA MALL",
                   bold: true,
-                  size: 26,
+                  size: 28,
                   font: "Arial"
                 })
               ]
@@ -168,7 +177,7 @@ app.post('/api/export/docx', async (req, res) => {
                 new TextRun({
                   text: "Official Billing Invoice / Reimburstment Note",
                   bold: true,
-                  size: 19,
+                  size: 20,
                   font: "Arial"
                 })
               ]
@@ -176,21 +185,21 @@ app.post('/api/export/docx', async (req, res) => {
           ]
         }),
         new TableCell({
-          width: { size: 25, type: WidthType.PERCENTAGE },
+          width: { size: 26, type: WidthType.PERCENTAGE },
           borders: noBorders,
-          alignment: AlignmentType.CENTER,
+          alignment: AlignmentType.RIGHT,
           children: [
             kampusLogoBytes
               ? new Paragraph({
-                  alignment: AlignmentType.CENTER,
+                  alignment: AlignmentType.RIGHT,
                   children: [
                     new ImageRun({
                       data: kampusLogoBytes,
-                      transformation: { width: 70, height: 90 }
+                      transformation: { width: 70, height: 108 }
                     })
                   ]
                 })
-              : new Paragraph({ text: "KAMPUS", alignment: AlignmentType.CENTER })
+              : new Paragraph({ text: "KAMPUS", alignment: AlignmentType.RIGHT })
           ]
         })
       ];
