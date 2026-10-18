@@ -4,3 +4,6 @@ node_modules/
 Thumbs.db
 WhatsApp Image*.jpeg
 test-calc.js
+__pycache__/
+*.pyc
+

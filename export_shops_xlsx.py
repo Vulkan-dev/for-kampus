@@ -34,10 +34,7 @@ def generate_shops_xlsx(input_json_path, output_xlsx_path):
         "Current Brand",
         "Current Allottee / Owner",
         "Area (Sqft)",
-        "Monthly Rent (PKR)",
-        "CAM Charges (PKR)",
-        "Start Date",
-        "Tenure History & Timeline"
+        "Tenure History & Timeline Changes"
     ]
 
     ws.append(headers)
@@ -73,9 +70,6 @@ def generate_shops_xlsx(input_json_path, output_xlsx_path):
             shop.get("brand", ""),
             shop.get("allottee", ""),
             shop.get("sqft", ""),
-            shop.get("monthly_rent", ""),
-            shop.get("cam", ""),
-            shop.get("start_date", ""),
             history_str
         ]
         ws.append(row_data)
@@ -94,11 +88,9 @@ def generate_shops_xlsx(input_json_path, output_xlsx_path):
             elif col_idx == 2:
                 cell.font = bold_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            elif col_idx in (6, 7, 8):
+            elif col_idx == 6:
                 cell.alignment = Alignment(horizontal="right", vertical="center")
-            elif col_idx == 9:
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-            elif col_idx == 10:
+            elif col_idx == 7:
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")

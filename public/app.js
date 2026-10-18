@@ -49,9 +49,7 @@ async function authFetch(url, options = {}) {
 function showLoginPortal(errorMessage = "") {
   const overlay = document.getElementById("loginScreen");
   const errEl = document.getElementById("loginErrorAlert");
-  const userStatus = document.getElementById("headerUserStatus");
   if (overlay) overlay.classList.remove("hidden");
-  if (userStatus) userStatus.style.display = "none";
   if (errEl) {
     if (errorMessage) {
       errEl.textContent = errorMessage;
@@ -64,13 +62,7 @@ function showLoginPortal(errorMessage = "") {
 
 function hideLoginPortal() {
   const overlay = document.getElementById("loginScreen");
-  const userStatus = document.getElementById("headerUserStatus");
-  const usernameEl = document.getElementById("headerUsername");
   if (overlay) overlay.classList.add("hidden");
-  if (userStatus) userStatus.style.display = "flex";
-  if (usernameEl && authUser) {
-    usernameEl.textContent = authUser.username || "admin";
-  }
 }
 
 async function checkAuthSession() {
@@ -1540,9 +1532,7 @@ function renderShopsTable(shops) {
       ? `<span style="color:var(--text-muted);">${escapeHtml(shop.allottee)}</span>`
       : `<span style="color:var(--text-dim);">—</span>`;
 
-    const sqftDisplay = shop.sqft ? `${shop.sqft}` : `<span style="color:var(--text-dim);">—</span>`;
-    const rentDisplay = shop.monthly_rent ? `PKR ${formatNumber(shop.monthly_rent)}` : `<span style="color:var(--text-dim);">—</span>`;
-    const camDisplay = shop.cam ? `PKR ${formatNumber(shop.cam)}` : `<span style="color:var(--text-dim);">—</span>`;
+    const sqftDisplay = shop.sqft ? `${shop.sqft} Sqft` : `<span style="color:var(--text-dim);">—</span>`;
 
     tr.innerHTML = `
       <td>
@@ -1554,8 +1544,6 @@ function renderShopsTable(shops) {
       <td>${brandDisplay}</td>
       <td>${allotteeDisplay}</td>
       <td style="text-align:right; font-weight:600; color:var(--text-main);">${sqftDisplay}</td>
-      <td style="text-align:right; font-weight:600; color:var(--text-main);">${rentDisplay}</td>
-      <td style="text-align:right; color:var(--text-muted);">${camDisplay}</td>
       <td>
         <div class="timeline-pills-cell">${historyHtml}</div>
       </td>
@@ -1593,8 +1581,6 @@ function renderShopsGrid(shops) {
     const brandDisplay = shop.brand ? escapeHtml(shop.brand) : 'Vacant / Unassigned';
     const allotteeDisplay = shop.allottee ? escapeHtml(shop.allottee) : 'No Allottee Assigned';
     const sqftDisplay = shop.sqft ? `${shop.sqft} Sqft` : '—';
-    const rentDisplay = shop.monthly_rent ? `PKR ${formatNumber(shop.monthly_rent)}` : '—';
-    const camDisplay = shop.cam ? `PKR ${formatNumber(shop.cam)}` : '—';
 
     card.innerHTML = `
       <div class="shop-card-header">
@@ -1611,14 +1597,6 @@ function renderShopsGrid(shops) {
         <div class="shop-card-metric-item">
           <span class="shop-card-metric-label">Area</span>
           <span class="shop-card-metric-val">${sqftDisplay}</span>
-        </div>
-        <div class="shop-card-metric-item">
-          <span class="shop-card-metric-label">Rent</span>
-          <span class="shop-card-metric-val">${rentDisplay}</span>
-        </div>
-        <div class="shop-card-metric-item">
-          <span class="shop-card-metric-label">CAM</span>
-          <span class="shop-card-metric-val">${camDisplay}</span>
         </div>
       </div>
 
@@ -1659,8 +1637,6 @@ function openAddShopModal() {
   document.getElementById("shopModalBrand").value = "";
   document.getElementById("shopModalAllottee").value = "";
   document.getElementById("shopModalSqft").value = "";
-  document.getElementById("shopModalRent").value = "";
-  document.getElementById("shopModalCam").value = "";
   document.getElementById("shopModalHistoryList").innerHTML = "";
 
   const backdrop = document.getElementById("shopModalBackdrop");
@@ -1682,8 +1658,6 @@ function openEditShopModal(canonicalKey) {
   document.getElementById("shopModalBrand").value = shop.brand || "";
   document.getElementById("shopModalAllottee").value = shop.allottee || "";
   document.getElementById("shopModalSqft").value = shop.sqft || "";
-  document.getElementById("shopModalRent").value = shop.monthly_rent || "";
-  document.getElementById("shopModalCam").value = shop.cam || "";
 
   const histContainer = document.getElementById("shopModalHistoryList");
   histContainer.innerHTML = "";
@@ -1733,8 +1707,6 @@ async function saveShopModal() {
   const brand = document.getElementById("shopModalBrand").value.trim();
   const allottee = document.getElementById("shopModalAllottee").value.trim();
   const sqft = document.getElementById("shopModalSqft").value.trim();
-  const monthlyRent = document.getElementById("shopModalRent").value.trim();
-  const cam = document.getElementById("shopModalCam").value.trim();
 
   // Collect history
   const history = [];
@@ -1755,8 +1727,6 @@ async function saveShopModal() {
     brand: brand,
     allottee: allottee,
     sqft: sqft ? (parseFloat(sqft) || sqft) : "",
-    monthly_rent: monthlyRent ? (parseFloat(monthlyRent) || monthlyRent) : "",
-    cam: cam ? (parseFloat(cam) || cam) : "",
     start_date: "",
     history: history
   };
@@ -1811,7 +1781,6 @@ function openAddPeriodModal(canonicalKey) {
   document.getElementById("periodInputBrand").value = shop.brand || "";
   document.getElementById("periodInputAllottee").value = shop.allottee || "";
   document.getElementById("periodInputSqft").value = shop.sqft || "";
-  document.getElementById("periodInputRent").value = shop.monthly_rent || "";
 
   const backdrop = document.getElementById("periodModalBackdrop");
   if (backdrop) {
@@ -1842,7 +1811,6 @@ async function savePeriodModal() {
   const brand = document.getElementById("periodInputBrand").value.trim();
   const allottee = document.getElementById("periodInputAllottee").value.trim();
   const sqft = document.getElementById("periodInputSqft").value.trim();
-  const rent = document.getElementById("periodInputRent").value.trim();
 
   if (!Array.isArray(shop.history)) {
     shop.history = [];
@@ -1852,8 +1820,7 @@ async function savePeriodModal() {
     period: years,
     brand: brand,
     allottee: allottee,
-    sqft: sqft ? (parseFloat(sqft) || sqft) : "",
-    rent: rent ? (parseFloat(rent) || rent) : ""
+    sqft: sqft ? (parseFloat(sqft) || sqft) : ""
   });
 
   saveCustomShopsLocally();
