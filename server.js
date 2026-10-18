@@ -418,6 +418,74 @@ app.post('/api/export/docx', async (req, res) => {
   }
 });
 
+// ----------------------------------------------------
+// Shops Directory & Identifier Endpoints
+// ----------------------------------------------------
+const SHOPS_JSON_PATH = path.join(__dirname, 'public', 'data', 'shops.json');
+
+app.get('/api/shops', (req, res) => {
+  try {
+    if (!fs.existsSync(SHOPS_JSON_PATH)) {
+      return res.json([]);
+    }
+    const data = fs.readFileSync(SHOPS_JSON_PATH, 'utf-8');
+    res.json(JSON.parse(data));
+  } catch (error) {
+    console.error('Failed to read shops.json:', error);
+    res.status(500).json({ error: 'Failed to read shops directory' });
+  }
+});
+
+app.post('/api/shops', (req, res) => {
+  try {
+    const { shops } = req.body;
+    if (!Array.isArray(shops)) {
+      return res.status(400).json({ error: 'Shops array required' });
+    }
+    fs.writeFileSync(SHOPS_JSON_PATH, JSON.stringify(shops, null, 2), 'utf-8');
+    res.json({ success: true, count: shops.length });
+  } catch (error) {
+    console.error('Failed to save shops:', error);
+    res.status(500).json({ error: 'Failed to save shops directory' });
+  }
+});
+
+app.post('/api/shops/export/xlsx', (req, res) => {
+  try {
+    const { shops } = req.body;
+    const shopsData = Array.isArray(shops) && shops.length > 0
+      ? shops
+      : (fs.existsSync(SHOPS_JSON_PATH) ? JSON.parse(fs.readFileSync(SHOPS_JSON_PATH, 'utf-8')) : []);
+
+    const tempJsonPath = path.join(__dirname, `temp_shops_${Date.now()}.json`);
+    const tempXlsxPath = path.join(__dirname, `temp_shops_${Date.now()}.xlsx`);
+
+    fs.writeFileSync(tempJsonPath, JSON.stringify(shopsData, null, 2), 'utf-8');
+
+    const pythonScript = path.join(__dirname, 'export_shops_xlsx.py');
+    execFile('python', [pythonScript, tempJsonPath, tempXlsxPath], (err, stdout, stderr) => {
+      if (fs.existsSync(tempJsonPath)) fs.unlinkSync(tempJsonPath);
+
+      if (err || !fs.existsSync(tempXlsxPath)) {
+        console.error('XLSX export error:', err, stderr);
+        if (fs.existsSync(tempXlsxPath)) fs.unlinkSync(tempXlsxPath);
+        return res.status(500).json({ error: 'Failed to generate Excel file' });
+      }
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="Mega_Mall_Shops_Directory.xlsx"');
+      const fileStream = fs.createReadStream(tempXlsxPath);
+      fileStream.pipe(res);
+      fileStream.on('close', () => {
+        if (fs.existsSync(tempXlsxPath)) fs.unlinkSync(tempXlsxPath);
+      });
+    });
+  } catch (error) {
+    console.error('Export xlsx error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Fallback to index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

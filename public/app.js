@@ -474,14 +474,25 @@ function resetManualCorrections() {
 function switchTab(tab) {
   appState.activeTab = tab;
   const isPreview = tab === "preview";
+  const isEditor = tab === "editor";
+  const isShops = tab === "shops";
 
   document.getElementById("tabInvoicePreview").classList.toggle("active", isPreview);
-  document.getElementById("tabDataEditor").classList.toggle("active", !isPreview);
+  document.getElementById("tabDataEditor").classList.toggle("active", isEditor);
+  document.getElementById("tabShopIdentifier").classList.toggle("active", isShops);
 
   document.getElementById("mainContainer").style.display = isPreview ? "grid" : "none";
-  document.getElementById("dataEditorSection").classList.toggle("active", !isPreview);
+  document.getElementById("dataEditorSection").classList.toggle("active", isEditor);
+  document.getElementById("shopIdentifierSection").classList.toggle("active", isShops);
 
-  if (!isPreview) {
+  const headerXlsxBtn = document.getElementById("exportShopsXlsxHeaderBtn");
+  if (headerXlsxBtn) {
+    headerXlsxBtn.style.display = isShops ? "inline-flex" : "none";
+  }
+
+  if (isShops) {
+    renderShopsDirectory();
+  } else if (isEditor) {
     renderDataEditor();
   } else {
     renderPreview();
@@ -896,6 +907,682 @@ function syncInputsWithState() {
   endCalYear = eY;
 }
 
+// Helper to escape HTML characters in templates
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// ==========================================================
+// Shop Identifier & Mall Directory Module
+// ==========================================================
+let shopsList = [];
+let shopFilter = {
+  floor: 'ALL',
+  search: '',
+  viewMode: localStorage.getItem('mega_mall_shop_view_mode') || 'table'
+};
+
+async function loadShopsData() {
+  try {
+    let loaded = null;
+    try {
+      const res = await fetch('/api/shops');
+      if (res.ok) {
+        loaded = await res.json();
+      }
+    } catch (e) {
+      console.warn("Could not fetch /api/shops, attempting static data file", e);
+    }
+
+    if (!Array.isArray(loaded) || loaded.length === 0) {
+      try {
+        const res2 = await fetch('data/shops.json');
+        if (res2.ok) {
+          loaded = await res2.json();
+        }
+      } catch (e2) {
+        console.warn("Could not fetch data/shops.json", e2);
+      }
+    }
+
+    if (Array.isArray(loaded) && loaded.length > 0) {
+      shopsList = loaded;
+      // Merge any local additions / edits stored in localStorage
+      const localCustom = localStorage.getItem('mega_mall_custom_shops');
+      if (localCustom) {
+        try {
+          const parsedLocal = JSON.parse(localCustom);
+          if (Array.isArray(parsedLocal)) {
+            parsedLocal.forEach(cs => {
+              const idx = shopsList.findIndex(s => s.canonical_key === cs.canonical_key);
+              if (idx >= 0) {
+                shopsList[idx] = cs;
+              } else {
+                shopsList.unshift(cs);
+              }
+            });
+          }
+        } catch (le) {
+          console.error("Error merging local custom shops:", le);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load shops:", err);
+  }
+  updateShopPillsCount();
+  renderShopsDirectory();
+}
+
+function normalizeShopInput(s) {
+  if (!s) return "";
+  s = s.trim().toUpperCase();
+  // Match prefix UG, G, KIOSK followed by optional spaces/dashes/zeros and numbers/suffixes
+  const m = s.match(/^(UG|G|KIOSK)[\s\-_0]*(\d+)([A-Z]?)$/i);
+  if (m) {
+    const prefix = m[1].toUpperCase();
+    const num = parseInt(m[2], 10);
+    const suffix = m[3] ? m[3].toUpperCase() : "";
+    return `${prefix}${num}${suffix}`;
+  }
+  // Sub-shops like G-1-A or G1A
+  const m2 = s.match(/^(UG|G)[\s\-_0]*(\d+)[\s\-_]+([A-Z])$/i);
+  if (m2) {
+    return `${m2[1].toUpperCase()}${parseInt(m2[2], 10)}${m2[3].toUpperCase()}`;
+  }
+  return s.replace(/[^A-Z0-9]/g, "");
+}
+
+function formatShopNo(s) {
+  if (!s) return "";
+  s = s.trim();
+  const m = s.match(/^(UG|G|KIOSK)[\s\-_0]*(\d+)([A-Z]?)$/i);
+  if (m) {
+    const prefix = m[1].toUpperCase();
+    const num = parseInt(m[2], 10);
+    const suffix = m[3] ? m[3].toUpperCase() : "";
+    const pad = (num < 10) ? `0${num}` : `${num}`;
+    return `${prefix}-${pad}${suffix}`;
+  }
+  const m2 = s.match(/^(UG|G)[\s\-_0]*(\d+)[\s\-_]+([A-Z])$/i);
+  if (m2) {
+    const prefix = m2[1].toUpperCase();
+    const num = parseInt(m2[2], 10);
+    const pad = (num < 10) ? `0${num}` : `${num}`;
+    return `${prefix}-${pad}-${m2[3].toUpperCase()}`;
+  }
+  return s;
+}
+
+function filterShops() {
+  const query = (shopFilter.search || "").trim();
+  const normQuery = normalizeShopInput(query);
+  const floor = shopFilter.floor;
+
+  let filtered = shopsList.filter(shop => {
+    // Floor filter
+    if (floor !== 'ALL') {
+      if (floor === 'Kiosk') {
+        const isKiosk = (shop.floor && shop.floor.toLowerCase().includes('kiosk')) ||
+                        (shop.shop_no && shop.shop_no.toLowerCase().includes('kiosk')) ||
+                        (shop.canonical_key && shop.canonical_key.toLowerCase().includes('kiosk'));
+        if (!isKiosk) return false;
+      } else if (shop.floor !== floor) {
+        return false;
+      }
+    }
+
+    if (!query) return true;
+
+    // Exact canonical match
+    if (normQuery && shop.canonical_key === normQuery) {
+      return true;
+    }
+
+    const qLower = query.toLowerCase();
+    const shopNoLower = (shop.shop_no || "").toLowerCase();
+    const brandLower = (shop.brand || "").toLowerCase();
+    const allotteeLower = (shop.allottee || "").toLowerCase();
+    const floorLower = (shop.floor || "").toLowerCase();
+
+    if (shopNoLower.includes(qLower) || brandLower.includes(qLower) || allotteeLower.includes(qLower) || floorLower.includes(qLower)) {
+      return true;
+    }
+
+    // Check history entries
+    if (Array.isArray(shop.history)) {
+      for (const h of shop.history) {
+        if ((h.brand && String(h.brand).toLowerCase().includes(qLower)) ||
+            (h.allottee && String(h.allottee).toLowerCase().includes(qLower)) ||
+            (h.period && String(h.period).toLowerCase().includes(qLower))) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  });
+
+  // If there's an exact canonical key match, prioritize it to the top!
+  let exactMatch = null;
+  if (normQuery) {
+    const exactIdx = filtered.findIndex(s => s.canonical_key === normQuery);
+    if (exactIdx >= 0) {
+      exactMatch = filtered[exactIdx];
+      filtered.splice(exactIdx, 1);
+      filtered.unshift(exactMatch);
+    } else {
+      exactMatch = shopsList.find(s => s.canonical_key === normQuery);
+      if (exactMatch && !filtered.includes(exactMatch)) {
+        filtered.unshift(exactMatch);
+      }
+    }
+  }
+
+  // Smart Match detection banner
+  const banner = document.getElementById("shopSmartMatchBar");
+  if (banner) {
+    if (exactMatch) {
+      const histCount = Array.isArray(exactMatch.history) ? exactMatch.history.length : 0;
+      const histBadge = histCount > 0
+        ? `<span style="background:var(--accent-amber-bg); border:1px solid rgba(234,179,8,0.3); color:var(--accent-amber); padding:0.15rem 0.45rem; border-radius:4px; font-size:0.72rem; font-weight:600;">${histCount} Timeline Periods</span>`
+        : "";
+      banner.style.display = "flex";
+      banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span class="smart-match-badge">Exact Shop Match</span>
+          <span style="font-weight:700; color:#fff; font-size:0.95rem;">${escapeHtml(exactMatch.shop_no)}</span>
+          <span style="color:var(--text-muted);">&bull;</span>
+          <span style="color:#ffffff;">Brand: <strong style="color:var(--accent-green);">${escapeHtml(exactMatch.brand || 'Vacant / Unassigned')}</strong></span>
+          <span style="color:var(--text-muted);">&bull;</span>
+          <span>Allottee: <strong style="color:#ffffff;">${escapeHtml(exactMatch.allottee || 'N/A')}</strong></span>
+          <span style="color:var(--text-muted);">&bull;</span>
+          <span>Area: <strong style="color:#ffffff;">${exactMatch.sqft ? exactMatch.sqft + ' Sqft' : '—'}</strong></span>
+          ${histBadge}
+        </div>
+        <div style="display:flex; gap:0.4rem;">
+          <button class="btn btn-secondary btn-sm" onclick="openAddPeriodModal('${exactMatch.canonical_key}')">+ Add Period</button>
+          <button class="btn btn-green btn-sm" onclick="openEditShopModal('${exactMatch.canonical_key}')">Edit Details</button>
+        </div>
+      `;
+    } else if (query && filtered.length === 0) {
+      const suggestion = findClosestShop(query);
+      if (suggestion) {
+        banner.style.display = "flex";
+        banner.innerHTML = `
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px; color:var(--accent-amber);"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span>No exact shop for "${escapeHtml(query)}". Did you mean <strong style="color:#ffffff; cursor:pointer; text-decoration:underline;" onclick="applyFuzzySuggestion('${suggestion.shop_no}')">${escapeHtml(suggestion.shop_no)}</strong> (${escapeHtml(suggestion.brand || 'Vacant')}, ${escapeHtml(suggestion.floor)})?</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="applyFuzzySuggestion('${suggestion.shop_no}')">Show ${escapeHtml(suggestion.shop_no)}</button>
+        `;
+      } else {
+        banner.style.display = "none";
+      }
+    } else {
+      banner.style.display = "none";
+    }
+  }
+
+  return filtered;
+}
+
+function findClosestShop(q) {
+  const norm = normalizeShopInput(q);
+  if (!norm) return null;
+  return shopsList.find(s => s.canonical_key.startsWith(norm) || norm.startsWith(s.canonical_key)) || null;
+}
+
+function applyFuzzySuggestion(shopNo) {
+  const input = document.getElementById("shopSearchInput");
+  if (input) {
+    input.value = shopNo;
+    shopFilter.search = shopNo;
+    renderShopsDirectory();
+  }
+}
+
+function updateShopPillsCount() {
+  const cAll = shopsList.length;
+  const cUG = shopsList.filter(s => s.floor === 'Upper Ground').length;
+  const cG = shopsList.filter(s => s.floor === 'Ground Floor').length;
+  const cP1 = shopsList.filter(s => s.floor && s.floor.toLowerCase().includes('phase 1')).length;
+  const cP2 = shopsList.filter(s => s.floor && s.floor.toLowerCase().includes('phase 2')).length;
+  const cKiosk = shopsList.filter(s =>
+    (s.floor && s.floor.toLowerCase().includes('kiosk')) ||
+    (s.shop_no && s.shop_no.toLowerCase().includes('kiosk')) ||
+    (s.canonical_key && s.canonical_key.toLowerCase().includes('kiosk'))
+  ).length;
+
+  document.getElementById("countAll").textContent = cAll;
+  document.getElementById("countUG").textContent = cUG;
+  document.getElementById("countG").textContent = cG;
+  document.getElementById("countP1").textContent = cP1;
+  document.getElementById("countP2").textContent = cP2;
+  document.getElementById("countKiosk").textContent = cKiosk;
+}
+
+function renderShopsDirectory() {
+  const filtered = filterShops();
+
+  document.getElementById("statShowingCount").textContent = `${filtered.length} of ${shopsList.length}`;
+  const totalSqft = filtered.reduce((acc, s) => {
+    const num = parseFloat(s.sqft);
+    return !isNaN(num) ? acc + num : acc;
+  }, 0);
+  document.getElementById("statTotalSqft").textContent = totalSqft > 0 ? `${formatNumber(totalSqft)} Sqft` : '—';
+
+  const clearBtn = document.getElementById("shopSearchClearBtn");
+  if (clearBtn) {
+    clearBtn.style.display = shopFilter.search ? "block" : "none";
+  }
+
+  const isTable = shopFilter.viewMode === 'table';
+  document.getElementById("shopTableWrapper").style.display = isTable ? "block" : "none";
+  document.getElementById("shopGridWrapper").style.display = !isTable ? "grid" : "none";
+  document.getElementById("viewModeTableBtn").classList.toggle("active", isTable);
+  document.getElementById("viewModeGridBtn").classList.toggle("active", !isTable);
+
+  const emptyState = document.getElementById("shopEmptyState");
+  if (filtered.length === 0) {
+    emptyState.style.display = "block";
+    return;
+  } else {
+    emptyState.style.display = "none";
+  }
+
+  if (isTable) {
+    renderShopsTable(filtered);
+  } else {
+    renderShopsGrid(filtered);
+  }
+}
+
+function renderShopsTable(shops) {
+  const tbody = document.getElementById("shopTableBody");
+  tbody.innerHTML = "";
+
+  shops.forEach(shop => {
+    const tr = document.createElement("tr");
+
+    // Format timeline pills
+    let historyHtml = '';
+    if (Array.isArray(shop.history) && shop.history.length > 0) {
+      historyHtml = shop.history.map(h => `
+        <span class="timeline-pill" title="Period: ${escapeHtml(h.period || '')} | Brand: ${escapeHtml(h.brand || '')} | Allottee: ${escapeHtml(h.allottee || '')}">
+          <span class="timeline-pill-year">${escapeHtml(h.period || '')}</span>
+          <span class="timeline-pill-brand">${escapeHtml(h.brand || h.allottee || 'Tenure')}</span>
+        </span>
+      `).join('');
+    } else {
+      historyHtml = `<span style="color:var(--text-dim); font-size:0.73rem;">Current only</span>`;
+    }
+    historyHtml += ` <button class="timeline-add-mini-btn" onclick="openAddPeriodModal('${shop.canonical_key}')" title="Add historical tenure period">+ Period</button>`;
+
+    const brandDisplay = shop.brand
+      ? `<span style="font-weight:600; color:var(--text-main);">${escapeHtml(shop.brand)}</span>`
+      : `<span style="color:var(--text-dim); font-style:italic;">Vacant / Available</span>`;
+
+    const allotteeDisplay = shop.allottee
+      ? `<span style="color:var(--text-muted);">${escapeHtml(shop.allottee)}</span>`
+      : `<span style="color:var(--text-dim);">—</span>`;
+
+    const sqftDisplay = shop.sqft ? `${shop.sqft}` : `<span style="color:var(--text-dim);">—</span>`;
+    const rentDisplay = shop.monthly_rent ? `PKR ${formatNumber(shop.monthly_rent)}` : `<span style="color:var(--text-dim);">—</span>`;
+    const camDisplay = shop.cam ? `PKR ${formatNumber(shop.cam)}` : `<span style="color:var(--text-dim);">—</span>`;
+
+    tr.innerHTML = `
+      <td>
+        <span style="font-size:0.86rem; color:#ffffff; font-weight:700;">${escapeHtml(shop.shop_no)}</span>
+      </td>
+      <td>
+        <span style="font-size:0.75rem; color:var(--text-muted); background:rgba(255,255,255,0.04); padding:0.15rem 0.4rem; border-radius:4px;">${escapeHtml(shop.floor)}</span>
+      </td>
+      <td>${brandDisplay}</td>
+      <td>${allotteeDisplay}</td>
+      <td style="text-align:right; font-weight:600; color:var(--text-main);">${sqftDisplay}</td>
+      <td style="text-align:right; font-weight:600; color:var(--text-main);">${rentDisplay}</td>
+      <td style="text-align:right; color:var(--text-muted);">${camDisplay}</td>
+      <td>
+        <div class="timeline-pills-cell">${historyHtml}</div>
+      </td>
+      <td style="text-align:center; white-space:nowrap;">
+        <button class="btn btn-secondary btn-sm" onclick="openEditShopModal('${shop.canonical_key}')" style="padding:0.25rem 0.55rem; font-size:0.74rem;">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px; height:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          Edit
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderShopsGrid(shops) {
+  const container = document.getElementById("shopGridWrapper");
+  container.innerHTML = "";
+
+  shops.forEach(shop => {
+    const card = document.createElement("div");
+    card.className = "shop-card";
+
+    let historyHtml = '';
+    if (Array.isArray(shop.history) && shop.history.length > 0) {
+      historyHtml = shop.history.map(h => `
+        <span class="timeline-pill" title="Period: ${escapeHtml(h.period || '')} | Brand: ${escapeHtml(h.brand || '')} | Allottee: ${escapeHtml(h.allottee || '')}">
+          <span class="timeline-pill-year">${escapeHtml(h.period || '')}</span>
+          <span class="timeline-pill-brand">${escapeHtml(h.brand || h.allottee || 'Tenure')}</span>
+        </span>
+      `).join('');
+    } else {
+      historyHtml = `<span style="color:var(--text-dim); font-size:0.73rem;">No past recorded tenures</span>`;
+    }
+
+    const brandDisplay = shop.brand ? escapeHtml(shop.brand) : 'Vacant / Unassigned';
+    const allotteeDisplay = shop.allottee ? escapeHtml(shop.allottee) : 'No Allottee Assigned';
+    const sqftDisplay = shop.sqft ? `${shop.sqft} Sqft` : '—';
+    const rentDisplay = shop.monthly_rent ? `PKR ${formatNumber(shop.monthly_rent)}` : '—';
+    const camDisplay = shop.cam ? `PKR ${formatNumber(shop.cam)}` : '—';
+
+    card.innerHTML = `
+      <div class="shop-card-header">
+        <span class="shop-card-number">${escapeHtml(shop.shop_no)}</span>
+        <span class="shop-card-floor">${escapeHtml(shop.floor)}</span>
+      </div>
+
+      <div>
+        <div class="shop-card-brand-title">${brandDisplay}</div>
+        <div class="shop-card-allottee">${allotteeDisplay}</div>
+      </div>
+
+      <div class="shop-card-metrics">
+        <div class="shop-card-metric-item">
+          <span class="shop-card-metric-label">Area</span>
+          <span class="shop-card-metric-val">${sqftDisplay}</span>
+        </div>
+        <div class="shop-card-metric-item">
+          <span class="shop-card-metric-label">Rent</span>
+          <span class="shop-card-metric-val">${rentDisplay}</span>
+        </div>
+        <div class="shop-card-metric-item">
+          <span class="shop-card-metric-label">CAM</span>
+          <span class="shop-card-metric-val">${camDisplay}</span>
+        </div>
+      </div>
+
+      <div class="shop-card-timeline-block">
+        <div class="shop-card-timeline-title">
+          <span>Tenure History &amp; Timeline</span>
+          <button class="timeline-add-mini-btn" onclick="openAddPeriodModal('${shop.canonical_key}')">+ Add Period</button>
+        </div>
+        <div class="timeline-pills-cell" style="margin-top:0.35rem;">
+          ${historyHtml}
+        </div>
+      </div>
+
+      <div class="shop-card-footer">
+        <button class="btn btn-secondary btn-sm" onclick="openEditShopModal('${shop.canonical_key}')" style="width:100%; justify-content:center;">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px; height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          Edit Shop Details
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function setShopViewMode(mode) {
+  shopFilter.viewMode = mode;
+  localStorage.setItem('mega_mall_shop_view_mode', mode);
+  renderShopsDirectory();
+}
+
+// Modal Handlers: Add / Edit Shop
+function openAddShopModal() {
+  document.getElementById("shopModalTitle").textContent = "Add New Shop";
+  document.getElementById("editShopOriginalKey").value = "";
+  document.getElementById("shopModalNo").value = "";
+  document.getElementById("shopModalNo").readOnly = false;
+  document.getElementById("shopModalFloor").value = "Upper Ground";
+  document.getElementById("shopModalBrand").value = "";
+  document.getElementById("shopModalAllottee").value = "";
+  document.getElementById("shopModalSqft").value = "";
+  document.getElementById("shopModalRent").value = "";
+  document.getElementById("shopModalCam").value = "";
+  document.getElementById("shopModalHistoryList").innerHTML = "";
+
+  document.getElementById("shopModalBackdrop").classList.add("active");
+}
+
+function openEditShopModal(canonicalKey) {
+  const shop = shopsList.find(s => s.canonical_key === canonicalKey);
+  if (!shop) return;
+
+  document.getElementById("shopModalTitle").textContent = `Edit Shop: ${shop.shop_no}`;
+  document.getElementById("editShopOriginalKey").value = canonicalKey;
+  document.getElementById("shopModalNo").value = shop.shop_no;
+  document.getElementById("shopModalNo").readOnly = false;
+  document.getElementById("shopModalFloor").value = shop.floor || "Upper Ground";
+  document.getElementById("shopModalBrand").value = shop.brand || "";
+  document.getElementById("shopModalAllottee").value = shop.allottee || "";
+  document.getElementById("shopModalSqft").value = shop.sqft || "";
+  document.getElementById("shopModalRent").value = shop.monthly_rent || "";
+  document.getElementById("shopModalCam").value = shop.cam || "";
+
+  const histContainer = document.getElementById("shopModalHistoryList");
+  histContainer.innerHTML = "";
+  if (Array.isArray(shop.history)) {
+    shop.history.forEach(h => addHistoryEditorRow(h.period, h.brand, h.allottee));
+  }
+
+  document.getElementById("shopModalBackdrop").classList.add("active");
+}
+
+function closeShopModal() {
+  document.getElementById("shopModalBackdrop").classList.remove("active");
+}
+
+function addHistoryEditorRow(period = '', brand = '', allottee = '') {
+  const container = document.getElementById("shopModalHistoryList");
+  const row = document.createElement("div");
+  row.className = "history-editor-row";
+  row.innerHTML = `
+    <input type="text" placeholder="Period (e.g. 2024-25)" value="${escapeHtml(period)}" style="width:130px;" class="hist-period" />
+    <input type="text" placeholder="Brand Name" value="${escapeHtml(brand)}" style="flex:1;" class="hist-brand" />
+    <input type="text" placeholder="Allottee Name" value="${escapeHtml(allottee)}" style="flex:1;" class="hist-allottee" />
+    <button type="button" class="history-remove-btn" onclick="this.parentElement.remove()" title="Remove period">&times;</button>
+  `;
+  container.appendChild(row);
+}
+
+async function saveShopModal() {
+  const originalKey = document.getElementById("editShopOriginalKey").value;
+  const rawNo = document.getElementById("shopModalNo").value.trim();
+  if (!rawNo) {
+    showToast("Shop Number is required", "error");
+    return;
+  }
+
+  const formattedNo = formatShopNo(rawNo);
+  const canonicalKey = normalizeShopInput(rawNo);
+  const floor = document.getElementById("shopModalFloor").value;
+  const brand = document.getElementById("shopModalBrand").value.trim();
+  const allottee = document.getElementById("shopModalAllottee").value.trim();
+  const sqft = document.getElementById("shopModalSqft").value.trim();
+  const monthlyRent = document.getElementById("shopModalRent").value.trim();
+  const cam = document.getElementById("shopModalCam").value.trim();
+
+  // Collect history
+  const history = [];
+  const rows = document.querySelectorAll("#shopModalHistoryList .history-editor-row");
+  rows.forEach(r => {
+    const p = r.querySelector(".hist-period").value.trim();
+    const b = r.querySelector(".hist-brand").value.trim();
+    const a = r.querySelector(".hist-allottee").value.trim();
+    if (p || b || a) {
+      history.push({ period: p, brand: b, allottee: a });
+    }
+  });
+
+  const updatedShop = {
+    shop_no: formattedNo,
+    canonical_key: canonicalKey,
+    floor: floor,
+    brand: brand,
+    allottee: allottee,
+    sqft: sqft ? (parseFloat(sqft) || sqft) : "",
+    monthly_rent: monthlyRent ? (parseFloat(monthlyRent) || monthlyRent) : "",
+    cam: cam ? (parseFloat(cam) || cam) : "",
+    start_date: "",
+    history: history
+  };
+
+  if (originalKey) {
+    const idx = shopsList.findIndex(s => s.canonical_key === originalKey);
+    if (idx >= 0) {
+      shopsList[idx] = updatedShop;
+    } else {
+      shopsList.unshift(updatedShop);
+    }
+  } else {
+    // Check if shop already exists
+    const existingIdx = shopsList.findIndex(s => s.canonical_key === canonicalKey);
+    if (existingIdx >= 0) {
+      shopsList[existingIdx] = updatedShop;
+    } else {
+      shopsList.unshift(updatedShop);
+    }
+  }
+
+  // Persist locally
+  saveCustomShopsLocally();
+
+  // Try sync with backend
+  try {
+    fetch('/api/shops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shops: shopsList })
+    }).catch(e => console.warn("Backend save skipped", e));
+  } catch (e) {}
+
+  closeShopModal();
+  updateShopPillsCount();
+  renderShopsDirectory();
+  showToast(`Shop ${formattedNo} saved successfully!`, "success");
+}
+
+function openAddPeriodModal(canonicalKey) {
+  const shop = shopsList.find(s => s.canonical_key === canonicalKey);
+  if (!shop) return;
+
+  document.getElementById("periodShopKey").value = canonicalKey;
+  document.getElementById("periodShopLabel").innerHTML = `Adding tenure entry for <strong>${escapeHtml(shop.shop_no)}</strong> (${escapeHtml(shop.brand || 'Vacant')})`;
+  document.getElementById("periodInputYears").value = "";
+  document.getElementById("periodInputBrand").value = shop.brand || "";
+  document.getElementById("periodInputAllottee").value = shop.allottee || "";
+  document.getElementById("periodInputSqft").value = shop.sqft || "";
+  document.getElementById("periodInputRent").value = shop.monthly_rent || "";
+
+  document.getElementById("periodModalBackdrop").classList.add("active");
+}
+
+function closePeriodModal() {
+  document.getElementById("periodModalBackdrop").classList.remove("active");
+}
+
+function savePeriodModal() {
+  const key = document.getElementById("periodShopKey").value;
+  const shop = shopsList.find(s => s.canonical_key === key);
+  if (!shop) return;
+
+  const years = document.getElementById("periodInputYears").value.trim();
+  if (!years) {
+    showToast("Period / Years (e.g. 2024-25) is required", "error");
+    return;
+  }
+
+  const brand = document.getElementById("periodInputBrand").value.trim();
+  const allottee = document.getElementById("periodInputAllottee").value.trim();
+  const sqft = document.getElementById("periodInputSqft").value.trim();
+  const rent = document.getElementById("periodInputRent").value.trim();
+
+  if (!Array.isArray(shop.history)) {
+    shop.history = [];
+  }
+
+  shop.history.push({
+    period: years,
+    brand: brand,
+    allottee: allottee,
+    sqft: sqft ? (parseFloat(sqft) || sqft) : "",
+    rent: rent ? (parseFloat(rent) || rent) : ""
+  });
+
+  saveCustomShopsLocally();
+
+  // Try sync with backend
+  try {
+    fetch('/api/shops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shops: shopsList })
+    }).catch(e => console.warn("Backend save skipped", e));
+  } catch (e) {}
+
+  closePeriodModal();
+  renderShopsDirectory();
+  showToast(`Tenure period (${years}) added to ${shop.shop_no}!`, "success");
+}
+
+function saveCustomShopsLocally() {
+  try {
+    localStorage.setItem('mega_mall_custom_shops', JSON.stringify(shopsList));
+  } catch (e) {
+    console.warn("Could not save to localStorage", e);
+  }
+}
+
+// Export Shops to Microsoft Excel (.xlsx)
+async function exportShopsToExcel() {
+  const filtered = filterShops();
+  const listToExport = (filtered.length > 0 && shopFilter.search) ? filtered : shopsList;
+
+  showToast(`Generating Excel (.xlsx) file with ${listToExport.length} shops...`, "info");
+
+  try {
+    const res = await fetch('/api/shops/export/xlsx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shops: listToExport })
+    });
+
+    if (!res.ok) {
+      throw new Error(`Server returned ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Mega_Mall_Shops_Directory.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+
+    showToast("Shops Directory exported to Excel (.xlsx) successfully!", "success");
+  } catch (err) {
+    console.error("Excel export failed:", err);
+    showToast("Failed to generate Excel file: " + err.message, "error");
+  }
+}
+
 // Setup Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("preset-falaknaz")?.addEventListener("click", () => applyPreset("falaknaz"));
@@ -969,6 +1656,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("tabInvoicePreview").addEventListener("click", () => switchTab("preview"));
   document.getElementById("tabDataEditor").addEventListener("click", () => switchTab("editor"));
+  document.getElementById("tabShopIdentifier").addEventListener("click", () => switchTab("shops"));
+
+  // Shop Identifier Toolbar Events
+  document.getElementById("exportShopsXlsxHeaderBtn")?.addEventListener("click", exportShopsToExcel);
+  document.getElementById("exportShopsXlsxBtn")?.addEventListener("click", exportShopsToExcel);
+  document.getElementById("openAddShopModalBtn")?.addEventListener("click", openAddShopModal);
+  document.getElementById("closeShopModalBtn")?.addEventListener("click", closeShopModal);
+  document.getElementById("cancelShopModalBtn")?.addEventListener("click", closeShopModal);
+  document.getElementById("saveShopModalBtn")?.addEventListener("click", saveShopModal);
+  document.getElementById("shopModalAddHistoryBtn")?.addEventListener("click", () => addHistoryEditorRow());
+
+  document.getElementById("closePeriodModalBtn")?.addEventListener("click", closePeriodModal);
+  document.getElementById("cancelPeriodModalBtn")?.addEventListener("click", closePeriodModal);
+  document.getElementById("savePeriodModalBtn")?.addEventListener("click", savePeriodModal);
+
+  document.getElementById("viewModeTableBtn")?.addEventListener("click", () => setShopViewMode("table"));
+  document.getElementById("viewModeGridBtn")?.addEventListener("click", () => setShopViewMode("grid"));
+
+  const shopSearchInput = document.getElementById("shopSearchInput");
+  if (shopSearchInput) {
+    let debounceTimer = null;
+    shopSearchInput.addEventListener("input", (e) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        shopFilter.search = e.target.value;
+        renderShopsDirectory();
+      }, 100);
+    });
+  }
+
+  document.getElementById("shopSearchClearBtn")?.addEventListener("click", () => {
+    const input = document.getElementById("shopSearchInput");
+    if (input) input.value = "";
+    shopFilter.search = "";
+    renderShopsDirectory();
+  });
+
+  document.getElementById("resetShopSearchBtn")?.addEventListener("click", () => {
+    const input = document.getElementById("shopSearchInput");
+    if (input) input.value = "";
+    shopFilter.search = "";
+    shopFilter.floor = "ALL";
+    document.querySelectorAll(".shop-pill").forEach(p => p.classList.toggle("active", p.dataset.floor === "ALL"));
+    renderShopsDirectory();
+  });
+
+  // Filter Pills Click Handlers
+  document.querySelectorAll(".shop-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".shop-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      shopFilter.floor = pill.dataset.floor;
+      renderShopsDirectory();
+    });
+  });
 
   document.getElementById("prevPageBtn").addEventListener("click", prevPage);
   document.getElementById("nextPageBtn").addEventListener("click", nextPage);
@@ -1023,4 +1765,5 @@ document.addEventListener("DOMContentLoaded", () => {
   updateYearConfigsUI();
   renderPreview();
   renderDataEditor();
+  loadShopsData();
 });

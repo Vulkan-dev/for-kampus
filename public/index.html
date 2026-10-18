@@ -25,10 +25,18 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
         Data Editor &amp; Corrections
       </button>
+      <button class="tab-btn" id="tabShopIdentifier">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+        Shop Identifier
+      </button>
     </div>
 
     <!-- Separate Export Options -->
     <div class="header-actions">
+      <button class="btn btn-xlsx" id="exportShopsXlsxHeaderBtn" style="display:none;" title="Export all shops to Microsoft Excel (.xlsx)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Excel (.xlsx)
+      </button>
       <button class="btn btn-docx" id="exportDocxBtn" title="Export all invoices to editable Microsoft Word document">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
         Word (.docx)
@@ -298,6 +306,228 @@
       </table>
     </div>
   </section>
+
+  <!-- Complete New Section: Shop Identifier View -->
+  <section class="shop-identifier-section" id="shopIdentifierSection">
+    
+    <!-- Top Control Banner -->
+    <div class="shop-id-toolbar">
+      <div class="shop-id-header-row">
+        <div class="shop-id-title-block">
+          <div class="shop-id-heading">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            <h2>Shop Identifier &amp; Mall Directory</h2>
+          </div>
+          <span class="shop-id-sub">Smart lookup by shop number (e.g. UG-09, ug9, G-81), brand, allottee, area, or historical timeline.</span>
+        </div>
+
+        <div class="shop-id-actions">
+          <button class="btn btn-xlsx" id="exportShopsXlsxBtn" title="Export all shops to Microsoft Excel (.xlsx)">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            Export Excel (.xlsx)
+          </button>
+          <button class="btn btn-green" id="openAddShopModalBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+            + Add New Shop
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Filters Container -->
+      <div class="shop-id-controls-row">
+        <!-- Smart Search Box with Intelligent Matcher -->
+        <div class="shop-search-wrapper">
+          <svg class="shop-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <input type="text" id="shopSearchInput" class="shop-search-input" placeholder="Search shop (e.g. UG-09, ug009, ug 9, G81, g-81), brand, allottee..." autocomplete="off" />
+          <button class="shop-search-clear" id="shopSearchClearBtn" title="Clear search">&times;</button>
+        </div>
+
+        <!-- View Mode Switcher -->
+        <div class="shop-view-toggle">
+          <button class="view-toggle-btn active" id="viewModeTableBtn" title="Dense Accounting Table">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            <span>Table</span>
+          </button>
+          <button class="view-toggle-btn" id="viewModeGridBtn" title="Responsive Cards">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            <span>Cards</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Smart Match / Intelligent Detection Banner -->
+      <div class="shop-smart-match-bar" id="shopSmartMatchBar" style="display:none;"></div>
+
+      <!-- Floor Filter Pills & Live Stats Bar -->
+      <div class="shop-filter-stats-row">
+        <div class="shop-filter-pills" id="shopFilterPills">
+          <button class="shop-pill active" data-floor="ALL">All Units (<span id="countAll">0</span>)</button>
+          <button class="shop-pill" data-floor="Upper Ground">Upper Ground (<span id="countUG">0</span>)</button>
+          <button class="shop-pill" data-floor="Ground Floor">Ground Floor (<span id="countG">0</span>)</button>
+          <button class="shop-pill" data-floor="Gul Plaza Phase 1">Gul Phase 1 (<span id="countP1">0</span>)</button>
+          <button class="shop-pill" data-floor="Gul Plaza Phase 2">Gul Phase 2 (<span id="countP2">0</span>)</button>
+          <button class="shop-pill" data-floor="Kiosk">Kiosks (<span id="countKiosk">0</span>)</button>
+        </div>
+
+        <div class="shop-quick-stats">
+          <span class="stat-badge">Showing: <strong id="statShowingCount" style="color:var(--text-main);">0</strong></span>
+          <span class="stat-badge">Total Area: <strong id="statTotalSqft" style="color:var(--text-main);">0 Sqft</strong></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Main Results Stage -->
+    <div class="shop-results-stage" id="shopResultsStage">
+      <!-- Dense Table View Container -->
+      <div class="shop-table-wrapper" id="shopTableWrapper">
+        <table class="shop-table">
+          <thead>
+            <tr>
+              <th style="width:115px;">Shop #</th>
+              <th style="width:130px;">Floor</th>
+              <th style="width:160px;">Brand</th>
+              <th style="width:180px;">Allottee / Owner</th>
+              <th style="width:90px; text-align:right;">Sqft</th>
+              <th style="width:125px; text-align:right;">Monthly Rent</th>
+              <th style="width:110px; text-align:right;">CAM</th>
+              <th>Tenure History &amp; Timeline Changes</th>
+              <th style="width:120px; text-align:center;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="shopTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Card Grid Container -->
+      <div class="shop-grid-wrapper" id="shopGridWrapper" style="display:none;"></div>
+
+      <!-- Empty State -->
+      <div class="shop-empty-state" id="shopEmptyState" style="display:none;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <h3>No matching shops found</h3>
+        <p>Try searching by normalized shop number like <code>UG-09</code>, <code>G-81</code>, or check brand/allottee name.</p>
+        <button class="btn btn-secondary btn-sm" id="resetShopSearchBtn" style="margin-top:0.75rem;">Reset Filter &amp; Search</button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Add / Edit Shop Modal -->
+  <div class="modal-backdrop" id="shopModalBackdrop">
+    <div class="modal-card" style="width:640px; max-width:96vw;">
+      <div class="modal-header">
+        <div class="modal-title" id="shopModalTitle">Add New Shop</div>
+        <button class="btn btn-secondary btn-sm" id="closeShopModalBtn">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height:75vh; overflow-y:auto;">
+        <input type="hidden" id="editShopOriginalKey" value="" />
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Shop Number <span style="color:var(--accent-red);">*</span></label>
+            <input type="text" id="shopModalNo" class="form-input" placeholder="e.g. UG-09, G-81, KIOSK-01" required />
+            <span style="font-size:0.72rem; color:var(--text-dim); margin-top:2px;">Normalized automatically (e.g. ug9 &rarr; UG-09)</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Floor / Section</label>
+            <select id="shopModalFloor" class="form-select">
+              <option value="Upper Ground">Upper Ground</option>
+              <option value="Ground Floor">Ground Floor</option>
+              <option value="Gul Plaza Phase 1">Gul Plaza Phase 1</option>
+              <option value="Gul Plaza Phase 2">Gul Plaza Phase 2</option>
+              <option value="Kiosk">Kiosk</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Current Brand Name</label>
+            <input type="text" id="shopModalBrand" class="form-input" placeholder="e.g. Bonanza Satrangi, Pekachu" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Allottee / Owner</label>
+            <input type="text" id="shopModalAllottee" class="form-input" placeholder="e.g. Aliya Begum, Falaknaz Group" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Shop Area (Sqft)</label>
+            <input type="number" step="0.01" id="shopModalSqft" class="form-input" placeholder="e.g. 96" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monthly Rent (PKR)</label>
+            <input type="text" id="shopModalRent" class="form-input" placeholder="e.g. 14400" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">CAM Charges (PKR)</label>
+            <input type="text" id="shopModalCam" class="form-input" placeholder="e.g. 6300" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tenure History &amp; Timeline Records</label>
+          <div style="font-size:0.73rem; color:var(--text-muted); margin-bottom:0.5rem;">
+            Track historical tenure changes across years (e.g. <em>Bonanza 2024-25, Bonade 2026-28</em>).
+          </div>
+          <div id="shopModalHistoryList" class="history-editor-list"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="shopModalAddHistoryBtn" style="margin-top:0.5rem;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+            + Add Historical Period
+          </button>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelShopModalBtn">Cancel</button>
+        <button class="btn btn-green" id="saveShopModalBtn">Save Shop Details</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Quick Period Modal -->
+  <div class="modal-backdrop" id="periodModalBackdrop">
+    <div class="modal-card" style="width:480px; max-width:96vw;">
+      <div class="modal-header">
+        <div class="modal-title" id="periodModalTitle">Add Tenure Period</div>
+        <button class="btn btn-secondary btn-sm" id="closePeriodModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="periodShopKey" value="" />
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.75rem;" id="periodShopLabel"></p>
+        
+        <div class="form-group">
+          <label class="form-label">Period / Years <span style="color:var(--accent-red);">*</span></label>
+          <input type="text" id="periodInputYears" class="form-input" placeholder="e.g. 2024-25 or 2026-28" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Brand Name During This Period</label>
+          <input type="text" id="periodInputBrand" class="form-input" placeholder="e.g. Bonanza" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Allottee / Owner Name</label>
+          <input type="text" id="periodInputAllottee" class="form-input" placeholder="e.g. Aliya Begum" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Sqft (Optional)</label>
+            <input type="number" step="0.01" id="periodInputSqft" class="form-input" placeholder="e.g. 96" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rent (Optional)</label>
+            <input type="text" id="periodInputRent" class="form-input" placeholder="e.g. 14400" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelPeriodModalBtn">Cancel</button>
+        <button class="btn btn-green" id="savePeriodModalBtn">Save Period</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Enhanced Import Modal (PDF, DOCX, CSV) -->
   <div class="modal-backdrop" id="importModalBackdrop">
