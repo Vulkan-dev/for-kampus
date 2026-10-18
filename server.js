@@ -848,7 +848,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
                   text: "THE MEGA MALL",
                   bold: true,
                   size: 28,
-                  font: "Arial"
+                  font: "Segoe UI"
                 })
               ]
             }),
@@ -858,8 +858,8 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
                 new TextRun({
                   text: "Official Billing Invoice / Reimburstment Note",
                   bold: true,
-                  size: 20,
-                  font: "Arial"
+                  size: 24,
+                  font: "Segoe UI"
                 })
               ]
             })
@@ -891,7 +891,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
       });
 
       children.push(headerTable);
-      children.push(new Paragraph({ spacing: { after: 200 } }));
+      children.push(new Paragraph({ spacing: { after: 300 } }));
 
       // 2. Customer & Invoice Info Table
       const metaTable = new Table({
@@ -903,20 +903,20 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
                 borders: noBorders,
                 children: [
                   new Paragraph({
-                    children: [new TextRun({ text: "Customer", bold: true, size: 20, font: "Arial" })],
-                    spacing: { after: 60 }
+                    children: [new TextRun({ text: "Customer", bold: true, size: 20, font: "Segoe UI" })],
+                    spacing: { after: 180 }
                   }),
                   new Paragraph({
                     children: [
-                      new TextRun({ text: "Legal Occupier: ", bold: true, size: 18, font: "Arial" }),
-                      new TextRun({ text: occupier || "FALAKNAZ SPRINGS,", size: 18, font: "Arial" })
+                      new TextRun({ text: "Legal Occupier: ", bold: false, size: 18, font: "Segoe UI" }),
+                      new TextRun({ text: occupier || "FALAKNAZ SPRINGS,", size: 18, font: "Segoe UI" })
                     ],
                     spacing: { after: 40 }
                   }),
                   new Paragraph({
                     children: [
-                      new TextRun({ text: "Location: ", bold: true, size: 18, font: "Arial" }),
-                      new TextRun({ text: location || "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,", size: 18, font: "Arial" })
+                      new TextRun({ text: "Location: ", bold: false, size: 18, font: "Segoe UI" }),
+                      new TextRun({ text: location || "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,", size: 18, font: "Segoe UI" })
                     ],
                     spacing: { after: 40 }
                   }),
@@ -935,7 +935,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
                   new Paragraph({
                     alignment: AlignmentType.RIGHT,
                     children: [new TextRun({ text: "Invoice,", bold: true, size: 20, font: "Segoe UI" })],
-                    spacing: { after: 60 }
+                    spacing: { after: 180 }
                   }),
                   new Paragraph({
                     alignment: AlignmentType.RIGHT,
@@ -958,7 +958,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
       });
 
       children.push(metaTable);
-      children.push(new Paragraph({ spacing: { after: 260 } }));
+      children.push(new Paragraph({ spacing: { after: 350 } }));
 
       // 3. Billing Table
       const thStyle = {
@@ -972,23 +972,23 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
             children: [
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "CONSUMPTION GALLON", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "CONSUMPTION GALLON", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "RATE PER GALLON", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "RATE PER GALLON", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "BILL AMOUNT", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "BILL AMOUNT", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "PREVIOUS", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "PREVIOUS", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
               }),
               new TableCell({
                 ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "TOTAL PAYABLE", bold: true, size: 15, font: "Segoe UI", color: "555555" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "TOTAL PAYABLE", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
               })
             ]
           }),
@@ -996,7 +996,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
             children: [
               new TableCell({
                 borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Number(inv.gallons).toLocaleString(), size: 18, font: "Segoe UI" })] })]
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(inv.gallons).replace(/,/g, ''), size: 18, font: "Segoe UI" })] })]
               }),
               new TableCell({
                 borders: cellBorders,
@@ -1039,20 +1039,20 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
             new TextRun({ text: "\"The Mega Mall\"", bold: true, size: 17, font: "Segoe UI" }),
             new TextRun({ text: " will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.", size: 17, font: "Segoe UI" })
           ],
-          spacing: { after: 450 }
+          spacing: { after: 350 }
         })
       );
 
       // 5. Signoff
       children.push(
         new Paragraph({
-          children: [new TextRun({ text: "Account Department", bold: true, size: 18, font: "Arial" })],
+          children: [new TextRun({ text: "Account Department", bold: true, size: 18, font: "Segoe UI" })],
           spacing: { after: 50 }
         })
       );
       children.push(
         new Paragraph({
-          children: [new TextRun({ text: `Date : ${inv.issueDate}`, bold: true, size: 18, font: "Arial" })],
+          children: [new TextRun({ text: `Date : ${inv.issueDate}`, bold: true, size: 18, font: "Segoe UI" })],
           spacing: { after: 1200 }
         })
       );
@@ -1066,7 +1066,7 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
               text: "4 Floor, Mega Mall, Block-18, Gulishtan-E-Jauhar, Karachi.",
               bold: true,
               size: 17,
-              font: "Arial"
+              font: "Segoe UI"
             })
           ]
         })

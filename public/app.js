@@ -573,8 +573,8 @@ function calculateInvoices() {
       }
     }
 
-    let billingPeriod = `${m.fullMonthName} ${m.year} (1 ${m.fullMonthName} ${m.year} to ${m.daysInMonth} ${m.fullMonthName} ${m.year}).`;
-    let issueDate = `${getOrdinal(m.daysInMonth)} ${m.fullMonthName} ${m.year}`;
+    let billingPeriod = `${m.fullMonthName} ${m.year} (1 ${m.shortMonthName} ${m.year} to ${m.daysInMonth} ${m.shortMonthName} ${m.year}).`;
+    let issueDate = `${getOrdinal(m.daysInMonth)} ${m.shortMonthName} ${m.year}`;
 
     // Apply manual corrections if present
     const custom = appState.manualCorrections[m.ym];
@@ -646,23 +646,23 @@ function renderInvoiceSheet(inv) {
       </div>
 
       <!-- Billing Table with Clean 1px Light Borders Matching Original Template -->
-      <table class="inv-table" style="width:100% !important; border-collapse:collapse !important; border:1px solid #d0d5dd !important; margin-bottom:2.2rem; background:#ffffff !important;">
+      <table class="inv-table">
         <thead>
-          <tr style="background-color:#fafbfc !important;">
-            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">CONSUMPTION GALLON</th>
-            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">RATE PER<br>GALLON</th>
-            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">BILL<br>AMOUNT</th>
-            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">PREVIOUS</th>
-            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">TOTAL PAYABLE</th>
+          <tr>
+            <th style="width:26.1%;">CONSUMPTION GALLON</th>
+            <th style="width:16.5%;">RATE PER<br>GALLON</th>
+            <th style="width:19.1%;">BILL<br>AMOUNT</th>
+            <th style="width:18.9%;">PREVIOUS</th>
+            <th style="width:19.4%;">TOTAL PAYABLE</th>
           </tr>
         </thead>
         <tbody>
-          <tr style="background-color:#ffffff !important;">
-            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.gallons)}</td>
-            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${Number(inv.rate).toFixed(2)}</td>
-            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.billAmount)}/-</td>
-            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
-            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.totalPayable)}/-</td>
+          <tr>
+            <td>${inv.gallons ? String(inv.gallons).replace(/,/g, '') : 0}</td>
+            <td>${Number(inv.rate).toFixed(2)}</td>
+            <td>${formatNumber(inv.billAmount)}/-</td>
+            <td>${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
+            <td>${formatNumber(inv.totalPayable)}/-</td>
           </tr>
         </tbody>
       </table>
@@ -670,15 +670,15 @@ function renderInvoiceSheet(inv) {
       <!-- Bullet Notices -->
       <div class="inv-notices">
         <ul>
-          <li>*Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No: 10380109491064 in Meezan Bank.</li>
-          <li>*If the payment is not received till the last payment date, <strong style="font-weight:700;">"The Mega Mall"</strong> will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.</li>
+          <li>*Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No:<br>10380109491064 in Meezan Bank.</li>
+          <li>*If the payment is not received till the last payment date, <strong style="font-weight:700;">"The Mega Mall"</strong> will hold the services of your<br>lincensed area and will not held responsible for any losses Whats so ever there for.</li>
         </ul>
       </div>
 
       <!-- Signoff -->
       <div class="inv-signoff">
-        <div class="dept" style="font-weight:700;">Account Department</div>
-        <div class="date" style="font-weight:700;">Date : ${inv.issueDate}</div>
+        <div class="dept">Account Department</div>
+        <div class="date">Date : ${inv.issueDate}</div>
       </div>
 
       <!-- Footer Address -->
