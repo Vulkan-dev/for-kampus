@@ -49,6 +49,8 @@ async function authFetch(url, options = {}) {
 function showLoginPortal(errorMessage = "") {
   const overlay = document.getElementById("loginScreen");
   const errEl = document.getElementById("loginErrorAlert");
+  const adminBtn = document.getElementById("adminPanelBtn");
+  if (adminBtn) adminBtn.style.display = "none";
   if (overlay) overlay.classList.remove("hidden");
   if (errEl) {
     if (errorMessage) {
@@ -60,9 +62,17 @@ function showLoginPortal(errorMessage = "") {
   }
 }
 
+function updateAdminButtonVisibility() {
+  const adminBtn = document.getElementById("adminPanelBtn");
+  if (adminBtn) {
+    adminBtn.style.display = (authUser && authUser.role === "Administrator") ? "inline-flex" : "none";
+  }
+}
+
 function hideLoginPortal() {
   const overlay = document.getElementById("loginScreen");
   if (overlay) overlay.classList.add("hidden");
+  updateAdminButtonVisibility();
 }
 
 async function checkAuthSession() {
@@ -355,8 +365,8 @@ function calculateInvoices() {
       }
     }
 
-    let billingPeriod = `${m.fullMonthName} ${m.year} (1 ${m.shortMonthName} ${m.year} to ${m.daysInMonth} ${m.shortMonthName.toUpperCase()} ${m.year}).`;
-    let issueDate = `${getOrdinal(m.daysInMonth)} ${m.shortMonthName} ${m.year}`;
+    let billingPeriod = `${m.fullMonthName} ${m.year} (1 ${m.fullMonthName} ${m.year} to ${m.daysInMonth} ${m.fullMonthName} ${m.year}).`;
+    let issueDate = `${getOrdinal(m.daysInMonth)} ${m.fullMonthName} ${m.year}`;
 
     // Apply manual corrections if present
     const custom = appState.manualCorrections[m.ym];
@@ -427,24 +437,24 @@ function renderInvoiceSheet(inv) {
         </div>
       </div>
 
-      <!-- Billing Table with SOLID, GUARANTEED VISIBLE GRIDS AT ANY SCALE -->
-      <table class="inv-table" style="width:100% !important; border-collapse:collapse !important; border:2px solid #000000 !important; box-shadow:0 0 0 1px #000000 !important; margin-bottom:2.2rem;">
+      <!-- Billing Table with Clean 1px Light Borders Matching Original Template -->
+      <table class="inv-table" style="width:100% !important; border-collapse:collapse !important; border:1px solid #d0d5dd !important; margin-bottom:2.2rem; background:#ffffff !important;">
         <thead>
-          <tr style="background-color:#fafafa !important;">
-            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">CONSUMPTION GALLON</th>
-            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">RATE PER<br>GALLON</th>
-            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">BILL<br>AMOUNT</th>
-            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">PREVIOUS</th>
-            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">TOTAL PAYABLE</th>
+          <tr style="background-color:#fafbfc !important;">
+            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">CONSUMPTION GALLON</th>
+            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">RATE PER<br>GALLON</th>
+            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">BILL<br>AMOUNT</th>
+            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">PREVIOUS</th>
+            <th style="border:1px solid #d0d5dd !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">TOTAL PAYABLE</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.gallons)}</td>
-            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${Number(inv.rate).toFixed(2)}</td>
-            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.billAmount)}/-</td>
-            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
-            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.totalPayable)}/-</td>
+          <tr style="background-color:#ffffff !important;">
+            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.gallons)}</td>
+            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${Number(inv.rate).toFixed(2)}</td>
+            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.billAmount)}/-</td>
+            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
+            <td style="border:1px solid #d0d5dd !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.totalPayable)}/-</td>
           </tr>
         </tbody>
       </table>
@@ -1886,6 +1896,192 @@ async function exportShopsToExcel() {
   }
 }
 
+// ==========================================================
+// Security Safeguards: Block Developer Tools & Context Menu
+// ==========================================================
+(function initSecuritySafeguards() {
+  // 1. Block right-click context menu everywhere
+  document.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  // 2. Block DevTools keyboard shortcuts (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+  document.addEventListener("keydown", (e) => {
+    // F12
+    if (e.key === "F12" || e.keyCode === 123) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+      const k = (e.key || "").toLowerCase();
+      if (k === "i" || k === "j" || k === "c" || e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }
+    // Ctrl+U (View Source)
+    if ((e.ctrlKey || e.metaKey) && ((e.key || "").toLowerCase() === "u" || e.keyCode === 85)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    // Ctrl+S (Save Page)
+    if ((e.ctrlKey || e.metaKey) && ((e.key || "").toLowerCase() === "s" || e.keyCode === 83)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  }, true);
+
+  // 3. Clear console periodically
+  setInterval(() => {
+    try {
+      console.clear();
+    } catch (err) {}
+  }, 2000);
+})();
+
+// ==========================================================
+// Admin Panel: User Account Management
+// ==========================================================
+async function openAdminPanelModal() {
+  const backdrop = document.getElementById("adminPanelModalBackdrop");
+  if (!backdrop) return;
+  backdrop.classList.add("open");
+  backdrop.classList.add("active");
+  await loadAdminUsers();
+}
+
+function closeAdminPanelModal() {
+  const backdrop = document.getElementById("adminPanelModalBackdrop");
+  if (!backdrop) return;
+  backdrop.classList.remove("open");
+  backdrop.classList.remove("active");
+}
+
+async function loadAdminUsers() {
+  const tbody = document.getElementById("adminUsersTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1rem; color:var(--text-muted);">Loading users...</td></tr>`;
+
+  try {
+    const res = await authFetch('/api/admin/users');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const users = data.users || [];
+
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1rem; color:var(--text-dim);">No user accounts found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+      const isRoot = u.id === 'usr_root_admin' || u.username === 'admin';
+      const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'System';
+      const actionBtn = isRoot
+        ? `<span style="color:var(--text-dim); font-size:0.7rem;">Primary Root</span>`
+        : `<button type="button" class="btn btn-danger btn-sm" onclick="deleteAdminUser('${escapeHtml(u.id)}', '${escapeHtml(u.username)}')" style="padding:2px 6px; font-size:0.7rem;">Delete</button>`;
+
+      return `
+        <tr style="border-bottom:1px solid #1a1e28;">
+          <td style="padding:0.45rem 0.75rem; font-weight:600; color:var(--text-main);">${escapeHtml(u.username)}</td>
+          <td style="padding:0.45rem 0.75rem;"><span class="badge" style="background:rgba(59,130,246,0.12); color:#60a5fa; padding:2px 6px; border-radius:4px; font-size:0.7rem;">${escapeHtml(u.role || 'Administrator')}</span></td>
+          <td style="padding:0.45rem 0.75rem; color:var(--text-muted); font-size:0.72rem;">${dateStr}</td>
+          <td style="padding:0.45rem 0.75rem; text-align:right;">${actionBtn}</td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    console.error("Failed to load users:", err);
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1rem; color:var(--accent-red);">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function handleAdminAddUser(e) {
+  e.preventDefault();
+  const userInput = document.getElementById("newUserIdInput");
+  const passInput = document.getElementById("newUserPasswordInput");
+  const roleInput = document.getElementById("newUserRoleInput");
+  const submitBtn = document.getElementById("adminCreateUserBtn");
+
+  const username = userInput.value.trim();
+  const password = passInput.value.trim();
+  const role = roleInput.value;
+
+  if (!username || !password) {
+    showToast("Please provide both username and password.", "error");
+    return;
+  }
+
+  submitBtn.disabled = true;
+  try {
+    const res = await authFetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to create user.");
+
+    showToast(`User account "${username}" created successfully!`, "success");
+    userInput.value = "";
+    passInput.value = "";
+    await loadAdminUsers();
+  } catch (err) {
+    showToast(err.message, "error");
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function deleteAdminUser(userId, username) {
+  showConfirm(
+    "Delete User Account",
+    `Are you sure you want to delete user "${username}"? They will immediately lose access.`,
+    async () => {
+      try {
+        const res = await authFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to delete user.");
+        showToast(`User "${username}" deleted.`, "success");
+        await loadAdminUsers();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+  );
+}
+
+// ==========================================================
+// Route Isolation & View Initialization (/shopslist vs /)
+// ==========================================================
+function checkRouteMode() {
+  const isShopsRoute = window.location.pathname.startsWith('/shopslist');
+
+  if (isShopsRoute) {
+    // Standalone Shop Directory Mode
+    document.body.classList.add("shops-standalone-mode");
+    switchTab("shops");
+    document.title = "The Mega Mall - Shop & Tenant Directory";
+  } else {
+    // Standard Root Invoice Mode
+    document.body.classList.remove("shops-standalone-mode");
+    const shopTabBtn = document.getElementById("tabShopIdentifier");
+    if (shopTabBtn) shopTabBtn.style.display = "none";
+    const shopsSection = document.getElementById("shopIdentifierSection");
+    if (shopsSection) {
+      shopsSection.classList.remove("active");
+      shopsSection.style.display = "none";
+    }
+    switchTab("preview");
+  }
+}
+
 // Setup Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("preset-falaknaz")?.addEventListener("click", () => applyPreset("falaknaz"));
@@ -2080,19 +2276,31 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("confirmModalCancelBtn")?.addEventListener("click", closeConfirmModal);
   document.getElementById("confirmModalCloseBtn")?.addEventListener("click", closeConfirmModal);
 
+  // Admin Panel Event Handlers
+  document.getElementById("adminPanelBtn")?.addEventListener("click", openAdminPanelModal);
+  document.getElementById("closeAdminPanelBtn")?.addEventListener("click", closeAdminPanelModal);
+  document.getElementById("adminPanelCloseFooterBtn")?.addEventListener("click", closeAdminPanelModal);
+  document.getElementById("adminAddUserForm")?.addEventListener("submit", handleAdminAddUser);
+
   document.getElementById("togglePreviewBtn")?.addEventListener("click", togglePreview);
   initSplitPaneResizer();
 
   initCalendarPopovers();
   syncInputsWithState();
   updateYearConfigsUI();
-  renderPreview();
-  renderDataEditor();
+
+  // Route check for /shopslist vs root /
+  checkRouteMode();
 
   // Initialize Session Authentication
   checkAuthSession().then(isAuth => {
     if (isAuth) {
-      loadShopsData();
+      if (window.location.pathname.startsWith('/shopslist')) {
+        loadShopsData();
+      } else {
+        renderPreview();
+        renderDataEditor();
+      }
     }
   });
 });

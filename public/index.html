@@ -76,14 +76,18 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
         Data Editor &amp; Corrections
       </button>
-      <button class="tab-btn" id="tabShopIdentifier">
+      <button class="tab-btn" id="tabShopIdentifier" style="display:none;">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
         Shop Identifier
       </button>
     </div>
 
-    <!-- Separate Export Options, Preview Toggle & Logout -->
+    <!-- Separate Export Options, Preview Toggle & Admin Panel -->
     <div class="header-actions">
+      <button class="btn btn-secondary" id="adminPanelBtn" title="Manage User Accounts and Credentials">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+        Admin Panel
+      </button>
       <button class="btn btn-secondary" id="togglePreviewBtn" title="Toggle Live Preview on/off to free up screen space">
         <svg id="togglePreviewIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
         <span id="togglePreviewText">Hide Preview</span>
@@ -603,6 +607,72 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancelImportBtn">Cancel</button>
         <button class="btn btn-green" id="confirmImportBtn">Apply Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Panel / Multi-User Management Modal -->
+  <div class="modal-backdrop" id="adminPanelModalBackdrop">
+    <div class="modal-card" style="width: 580px; max-width: 95vw;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px; height:18px; color:var(--accent-blue);"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          Admin Panel • User Accounts &amp; Credentials
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="closeAdminPanelBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Add New User Form -->
+        <div style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem;">
+          <div style="font-size:0.85rem; font-weight:600; color:var(--text-main); margin-bottom:0.75rem;">Create New User Account</div>
+          <form id="adminAddUserForm" style="display:flex; flex-direction:column; gap:0.65rem;" autocomplete="off">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="newUserIdInput">User ID / Username</label>
+                <input type="text" id="newUserIdInput" class="form-input" placeholder="e.g. accountant1" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newUserPasswordInput">Password</label>
+                <input type="password" id="newUserPasswordInput" class="form-input" placeholder="Minimum 6 characters" required />
+              </div>
+            </div>
+            <div class="form-row" style="align-items:flex-end;">
+              <div class="form-group">
+                <label class="form-label" for="newUserRoleInput">Role / Privilege</label>
+                <select id="newUserRoleInput" class="form-select">
+                  <option value="Administrator">Administrator</option>
+                  <option value="Staff">Staff</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary" id="adminCreateUserBtn" style="height:36px; justify-content:center;">
+                + Add User
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Existing Users Table -->
+        <div style="margin-top:0.5rem;">
+          <div style="font-size:0.82rem; font-weight:600; color:var(--text-muted); margin-bottom:0.5rem;">Authorized Corporate Accounts</div>
+          <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-subtle); border-radius:6px; background:var(--bg-card);">
+            <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+              <thead>
+                <tr style="background:#0c0d12; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); text-align:left;">
+                  <th style="padding:0.5rem 0.75rem;">Username</th>
+                  <th style="padding:0.5rem 0.75rem;">Role</th>
+                  <th style="padding:0.5rem 0.75rem;">Created</th>
+                  <th style="padding:0.5rem 0.75rem; text-align:right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminUsersTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="adminPanelCloseFooterBtn">Close</button>
       </div>
     </div>
   </div>

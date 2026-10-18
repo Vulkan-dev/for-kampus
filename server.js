@@ -27,10 +27,60 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MegaMall@Kampus2026!';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'MegaMall_SuperSecret_Cryptographic_Key_2026_Corporate#991!';
 const DATA_DIR = path.join(__dirname, 'data');
 const SHOPS_JSON_PATH = path.join(DATA_DIR, 'shops.json');
+const USERS_JSON_PATH = path.join(DATA_DIR, 'users.json');
 
 // Ensure private data directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Password hashing helper
+function hashPassword(password, salt = 'MegaMall_Salt_2026') {
+  return crypto.createHash('sha256').update(password + salt).digest('hex');
+}
+
+// Multi-User Credential Storage Helpers
+function initializeUsersDatabase() {
+  if (!fs.existsSync(USERS_JSON_PATH)) {
+    const defaultUsers = [
+      {
+        id: 'usr_root_admin',
+        username: ADMIN_USERNAME,
+        passwordHash: hashPassword(ADMIN_PASSWORD),
+        role: 'Administrator',
+        createdAt: new Date().toISOString()
+      }
+    ];
+    fs.writeFileSync(USERS_JSON_PATH, JSON.stringify(defaultUsers, null, 2), 'utf-8');
+  }
+}
+initializeUsersDatabase();
+
+function readUsersDatabase() {
+  try {
+    if (!fs.existsSync(USERS_JSON_PATH)) {
+      initializeUsersDatabase();
+    }
+    const data = fs.readFileSync(USERS_JSON_PATH, 'utf-8');
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('Error reading users database:', err);
+    return [
+      {
+        id: 'usr_root_admin',
+        username: ADMIN_USERNAME,
+        passwordHash: hashPassword(ADMIN_PASSWORD),
+        role: 'Administrator',
+        createdAt: new Date().toISOString()
+      }
+    ];
+  }
+}
+
+function writeUsersDatabaseAtomic(users) {
+  const tempPath = `${USERS_JSON_PATH}.tmp.${Date.now()}`;
+  fs.writeFileSync(tempPath, JSON.stringify(users, null, 2), 'utf-8');
+  fs.renameSync(tempPath, USERS_JSON_PATH);
 }
 
 // Security Headers & Cache Control
@@ -183,6 +233,14 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Middleware: require administrator role
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'Administrator') {
+    return res.status(403).json({ error: 'Administrative privilege required.' });
+  }
+  next();
+}
+
 // ==========================================================
 // Authentication Endpoints
 // ==========================================================
@@ -194,10 +252,23 @@ app.post('/api/auth/login', loginRateLimiter, (req, res) => {
     return res.status(400).json({ error: 'Username and password are required.' });
   }
 
-  const isUserValid = (username.trim().toLowerCase() === ADMIN_USERNAME.toLowerCase());
-  const isPassValid = (password.trim() === ADMIN_PASSWORD);
+  const trimmedUser = username.trim().toLowerCase();
+  const trimmedPass = password.trim();
 
-  if (!isUserValid || !isPassValid) {
+  // Check multi-user database
+  const users = readUsersDatabase();
+  const hashedInput = hashPassword(trimmedPass);
+  let matchedUser = users.find(u => u.username.toLowerCase() === trimmedUser && u.passwordHash === hashedInput);
+
+  // Fallback check against env admin credentials
+  if (!matchedUser && trimmedUser === ADMIN_USERNAME.toLowerCase() && trimmedPass === ADMIN_PASSWORD) {
+    matchedUser = {
+      username: ADMIN_USERNAME,
+      role: 'Administrator'
+    };
+  }
+
+  if (!matchedUser) {
     const record = req.loginRateRecord || { count: 0 };
     record.count++;
     if (record.count >= LOGIN_MAX_ATTEMPTS) {
@@ -219,8 +290,8 @@ app.post('/api/auth/login', loginRateLimiter, (req, res) => {
 
   // Generate Session Token (24 hours valid)
   const token = generateToken({
-    username: ADMIN_USERNAME,
-    role: 'Administrator',
+    username: matchedUser.username,
+    role: matchedUser.role || 'Administrator',
     organization: 'The Mega Mall & Kampus Integrated Services',
     exp: Date.now() + 24 * 60 * 60 * 1000
   });
@@ -229,11 +300,85 @@ app.post('/api/auth/login', loginRateLimiter, (req, res) => {
     success: true,
     token,
     user: {
-      username: ADMIN_USERNAME,
-      role: 'Administrator',
+      username: matchedUser.username,
+      role: matchedUser.role || 'Administrator',
       organization: 'The Mega Mall & Kampus Integrated Services'
     }
   });
+});
+
+// ==========================================================
+// Admin Multi-User Management Endpoints
+// ==========================================================
+app.get('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
+  const users = readUsersDatabase().map(u => ({
+    id: u.id,
+    username: u.username,
+    role: u.role,
+    createdAt: u.createdAt
+  }));
+  res.json({ users });
+});
+
+app.post('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
+  const { username, password, role } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  const cleanUser = username.trim().toLowerCase();
+  const cleanPass = password.trim();
+
+  if (cleanUser.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters long.' });
+  }
+  if (cleanPass.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+  }
+
+  const users = readUsersDatabase();
+  const exists = users.some(u => u.username.toLowerCase() === cleanUser);
+  if (exists) {
+    return res.status(409).json({ error: `User "${cleanUser}" already exists.` });
+  }
+
+  const newUser = {
+    id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    username: cleanUser,
+    passwordHash: hashPassword(cleanPass),
+    role: role === 'Staff' ? 'Staff' : 'Administrator',
+    createdAt: new Date().toISOString()
+  };
+
+  users.push(newUser);
+  writeUsersDatabaseAtomic(users);
+
+  res.json({
+    success: true,
+    user: {
+      id: newUser.id,
+      username: newUser.username,
+      role: newUser.role,
+      createdAt: newUser.createdAt
+    }
+  });
+});
+
+app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const users = readUsersDatabase();
+  const target = users.find(u => u.id === id);
+
+  if (!target) {
+    return res.status(404).json({ error: 'User account not found.' });
+  }
+  if (target.id === 'usr_root_admin' || target.username.toLowerCase() === ADMIN_USERNAME.toLowerCase()) {
+    return res.status(403).json({ error: 'Root administrator account cannot be deleted.' });
+  }
+
+  const filtered = users.filter(u => u.id !== id);
+  writeUsersDatabaseAtomic(filtered);
+  res.json({ success: true, message: `User "${target.username}" deleted.` });
 });
 
 app.get('/api/auth/verify', (req, res) => {
@@ -748,6 +893,11 @@ app.post('/api/shops/export/xlsx', requireAuth, (req, res) => {
     console.error('Export xlsx error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Dedicated route for standalone Shop Directory
+app.get('/shopslist', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Fallback to index.html

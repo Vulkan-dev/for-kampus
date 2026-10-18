@@ -1074,39 +1074,35 @@ input:checked + .slider:before {
   font-size: 14px;
 }
 
-/* Invoice Table with SOLID, GUARANTEED INDESTRUCTIBLE GRIDS AT ANY SCALE */
+/* Invoice Table Matching Original Template with Clean 1px Light Borders */
 .inv-table {
   width: 100% !important;
   border-collapse: collapse !important;
-  border: 2px solid #000000 !important;
-  box-shadow: 0 0 0 1px #000000 !important;
+  border: 1px solid #d0d5dd !important;
   margin-bottom: 2.2rem;
+  background-color: #ffffff !important;
   -webkit-print-color-adjust: exact !important;
   print-color-adjust: exact !important;
 }
 
 .inv-table th {
-  border: 1.5px solid #000000 !important;
-  box-shadow: inset 0 0 0 0.5px #000000 !important;
-  outline: 0.5px solid rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid #d0d5dd !important;
   padding: 8px 6px !important;
   font-size: 11px !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   text-align: center !important;
-  color: #222222 !important;
+  color: #555555 !important;
   text-transform: uppercase !important;
-  background-color: #f7f7f7 !important;
+  background-color: #fafbfc !important;
   -webkit-print-color-adjust: exact !important;
   print-color-adjust: exact !important;
 }
 
 .inv-table td {
-  border: 1.5px solid #000000 !important;
-  box-shadow: inset 0 0 0 0.5px #000000 !important;
-  outline: 0.5px solid rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid #d0d5dd !important;
   padding: 9px 6px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
   text-align: center !important;
   color: #000000 !important;
   background-color: #ffffff !important;
@@ -2074,6 +2070,41 @@ input:checked + .slider:before {
 }
 
 /* ----------------------------------------------------------
+   Standalone Shop Directory Mode (/shopslist)
+   ---------------------------------------------------------- */
+body.shops-standalone-mode .header-center-tabs,
+body.shops-standalone-mode #tabInvoicePreview,
+body.shops-standalone-mode #tabDataEditor,
+body.shops-standalone-mode #togglePreviewBtn,
+body.shops-standalone-mode #exportDocxBtn,
+body.shops-standalone-mode #exportPdfBtn,
+body.shops-standalone-mode #printBtn,
+body.shops-standalone-mode .settings-sidebar,
+body.shops-standalone-mode .preview-stage,
+body.shops-standalone-mode .data-editor-section {
+  display: none !important;
+}
+
+body.shops-standalone-mode .shop-identifier-section {
+  display: flex !important;
+  width: 100% !important;
+  height: calc(100vh - 56px) !important;
+}
+
+body.shops-standalone-mode #exportShopsXlsxHeaderBtn {
+  display: inline-flex !important;
+}
+
+/* On standard root URL (/), completely hide shop identifier tab button and section */
+body:not(.shops-standalone-mode) #tabShopIdentifier {
+  display: none !important;
+}
+
+body:not(.shops-standalone-mode) .shop-identifier-section {
+  display: none !important;
+}
+
+/* ----------------------------------------------------------
    Print Stylesheet (@media print)
    ---------------------------------------------------------- */
 @media print {
@@ -2133,18 +2164,25 @@ input:checked + .slider:before {
   }
 
   .inv-table {
-    border: 2px solid #000000 !important;
+    border: 1px solid #d0d5dd !important;
     border-collapse: collapse !important;
-    box-shadow: 0 0 0 1px #000000 !important;
+    background-color: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .inv-table th,
+  .inv-table th {
+    border: 1px solid #d0d5dd !important;
+    background-color: #fafbfc !important;
+    color: #555555 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   .inv-table td {
-    border: 1.5px solid #000000 !important;
-    box-shadow: inset 0 0 0 0.5px #000000 !important;
-    outline: 0.5px solid rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid #d0d5dd !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
