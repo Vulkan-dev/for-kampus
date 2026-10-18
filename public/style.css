@@ -991,10 +991,12 @@ input:checked + .slider:before {
 .invoice-sheet {
   background-color: #ffffff !important;
   color: #000000 !important;
-  width: 210mm;
-  min-height: 297mm;
-  height: 297mm;
-  padding: 15mm 12mm 11mm 12mm;
+  width: 595.28pt;
+  height: 841.89pt;
+  min-height: 841.89pt;
+  max-height: 841.89pt;
+  /* Exact PDF Margins: Top: 41.4pt, Right: 52.9pt, Bottom: 26.6pt, Left: 32.5pt */
+  padding: 41.4pt 52.9pt 26.6pt 32.5pt;
   margin: 0 auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0,0,0,0.3);
   display: flex;
@@ -1004,6 +1006,7 @@ input:checked + .slider:before {
   box-sizing: border-box;
   position: relative;
   flex-shrink: 0;
+  overflow: hidden;
   -webkit-print-color-adjust: exact !important;
   print-color-adjust: exact !important;
 }
@@ -1013,20 +1016,21 @@ input:checked + .slider:before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2.8rem;
+  margin-bottom: 0;
   width: 100%;
+  height: 80pt;
 }
 
 .inv-logo-left {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  width: 135px;
+  width: 96pt;
 }
 
 .inv-logo-left img {
-  width: 128px !important;
-  height: 106px !important;
+  width: 96pt !important;
+  height: 79.5pt !important;
   object-fit: contain;
   display: block;
 }
@@ -1034,151 +1038,166 @@ input:checked + .slider:before {
 .inv-title-center {
   text-align: center;
   flex: 1;
-  padding: 0 10px;
+  padding: 0 10pt;
 }
 
 .inv-title-center h1 {
   font-family: 'Segoe UI', Arial, sans-serif;
-  font-size: 19.3px;
+  font-size: 14.5pt;
   font-weight: 700;
-  letter-spacing: normal;
+  letter-spacing: 0.2pt;
   color: #000000;
-  margin: 0 0 6px 0;
+  margin: 0 0 4.5pt 0;
   text-transform: uppercase;
+  line-height: 1.2;
 }
 
 .inv-title-center p {
   font-family: 'Segoe UI', Arial, sans-serif;
-  font-size: 16px;
+  font-size: 12.0pt;
   font-weight: 600;
   color: #000000;
   margin: 0;
+  line-height: 1.2;
 }
 
 .inv-logo-right {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: 135px;
+  width: 96pt;
 }
 
 .inv-logo-right img {
-  width: 70px !important;
-  height: 108px !important;
+  width: 52.5pt !important;
+  height: 81pt !important;
   object-fit: contain;
   display: block;
+}
+
+/* Faint Divider Line below Header: top 132.7pt */
+.inv-header-divider {
+  width: 100%;
+  height: 0;
+  border-top: 0.75pt solid #e6e6e6;
+  margin-top: 11.3pt;
+  margin-bottom: 31.0pt;
 }
 
 /* Customer & Invoice Meta */
 .inv-meta-grid {
   display: grid;
-  grid-template-columns: 1fr 220px;
-  gap: 1.5rem;
-  margin-bottom: 3.2rem;
-  font-size: 14px;
-  line-height: 1.4;
+  grid-template-columns: 1fr 180pt;
+  gap: 10pt;
+  margin-bottom: 33.3pt;
+  font-size: 10.5pt;
   font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .inv-customer-col {
   color: #000000;
+  text-align: left;
 }
 
 .inv-customer-col .heading {
   font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 1.25rem;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  margin-bottom: 11.6pt;
+  line-height: 12.2pt;
 }
 
 .inv-customer-col .line {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0;
   font-weight: 400;
-  font-size: 14px;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  line-height: 12.2pt;
 }
 
 /* Entire Billing Month line is bold Segoe UI matching original template */
 .inv-customer-col .line-billing-month {
   font-weight: 700 !important;
-  max-width: 330px;
+  max-width: 250pt;
 }
 
 .inv-number-col {
   text-align: right;
+  padding-right: 16.2pt;
   color: #000000;
-  font-size: 14px;
+  font-size: 10.5pt;
 }
 
 .inv-number-col .title {
   font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 1.25rem;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  margin-bottom: 11.6pt;
+  line-height: 12.2pt;
 }
 
 .inv-number-col .number {
   font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 0.35rem;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  margin-bottom: 0;
+  line-height: 12.2pt;
 }
 
 .inv-number-col .ntn {
   font-weight: 400;
-  font-size: 14px;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  line-height: 12.2pt;
 }
 
 .inv-number-col .ntn strong {
   font-weight: 700;
 }
 
-/* Invoice Table Matching Original Template with Clean 1px Light Borders */
+/* Invoice Table Matching Original Template with Exact 0.75pt Borders */
 .inv-table {
   width: 100% !important;
   border-collapse: collapse !important;
-  border: 1px solid #dee2e6 !important;
-  margin-bottom: 2.2rem;
+  border: 0.75pt solid #dee2e6 !important;
+  margin-bottom: 12.4pt;
   background-color: #ffffff !important;
   -webkit-print-color-adjust: exact !important;
   print-color-adjust: exact !important;
 }
 
 .inv-table th {
-  border: 1px solid #dee2e6 !important;
-  padding: 8px 4px !important;
-  font-size: 10px !important;
+  border: 0.75pt solid #dee2e6 !important;
+  padding: 2pt 4pt !important;
+  font-size: 7.5pt !important;
   font-weight: 600 !important;
   text-align: center !important;
   vertical-align: middle !important;
   color: #5e616f !important;
   text-transform: uppercase !important;
   background-color: #fafbfc !important;
-  height: 48px;
+  height: 45.0pt;
+  box-sizing: border-box;
+  line-height: 1.25;
   -webkit-print-color-adjust: exact !important;
   print-color-adjust: exact !important;
 }
 
 .inv-table td {
-  border: 1px solid #dee2e6 !important;
-  padding: 8px 4px !important;
-  font-size: 14px !important;
+  border: 0.75pt solid #dee2e6 !important;
+  padding: 2pt 4pt !important;
+  font-size: 10.5pt !important;
   font-weight: 400 !important;
   text-align: center !important;
   vertical-align: middle !important;
   color: #000000 !important;
   background-color: #ffffff !important;
-  height: 32px;
+  height: 23.35pt;
+  box-sizing: border-box;
   -webkit-print-color-adjust: exact !important;
   print-color-adjust: exact !important;
 }
 
 /* Bullet Notice Section */
 .inv-notices {
-  margin-bottom: 2.2rem;
-  font-size: 14px;
-  line-height: 1.45;
+  margin-bottom: 20.3pt;
+  font-size: 10.5pt;
+  line-height: 14.9pt;
   color: #000000;
   font-family: 'Segoe UI', Arial, sans-serif;
 }
@@ -1191,51 +1210,55 @@ input:checked + .slider:before {
 
 .inv-notices li {
   position: relative;
-  padding-left: 1.25rem;
-  margin-bottom: 0.9rem;
+  padding-left: 24.0pt;
+  margin-bottom: 2.0pt;
+  line-height: 14.9pt;
 }
 
 .inv-notices li::before {
   content: "•";
   position: absolute;
-  left: 0.25rem;
+  left: 12.45pt;
   font-weight: 700;
-  font-size: 15px;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  line-height: 14.9pt;
 }
 
 /* Sign-off / Signature section */
 .inv-signoff {
   margin-bottom: 0;
-  font-size: 14px;
+  font-size: 10.5pt;
   color: #000000;
   font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .inv-signoff .dept {
   font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 0.35rem;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  margin-bottom: 2.3pt;
+  line-height: 10.5pt;
 }
 
 .inv-signoff .date {
   font-weight: 700;
-  font-size: 14px;
-  line-height: 1.35;
+  font-size: 10.5pt;
+  line-height: 10.5pt;
+  margin: 0;
 }
 
 /* Bottom Page Footer */
 .inv-footer-address {
   text-align: center;
-  font-size: 14.7px;
+  font-size: 11.0pt;
   font-weight: 600;
   color: #000000;
   font-family: 'Segoe UI', Arial, sans-serif;
-  padding-top: 10px;
-  border-top: 1px solid #dee2e6;
+  padding-top: 16.2pt;
+  border-top: 0.75pt solid #dee2e6;
   margin-top: auto;
+  margin-bottom: 0;
   width: 100%;
+  line-height: 1.2;
 }
 
 /* ----------------------------------------------------------
@@ -1597,19 +1620,20 @@ input:checked + .slider:before {
   .invoice-sheet {
     box-shadow: none !important;
     margin: 0 !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    min-height: 297mm !important;
-    max-height: 297mm !important;
-    padding: 15mm 12mm 11mm 12mm !important;
+    width: 595.28pt !important;
+    height: 841.89pt !important;
+    min-height: 841.89pt !important;
+    max-height: 841.89pt !important;
+    padding: 41.4pt 52.9pt 26.6pt 32.5pt !important;
     page-break-after: always !important;
     break-after: page !important;
     justify-content: flex-start !important;
     font-family: 'Segoe UI', Arial, sans-serif !important;
+    overflow: hidden !important;
   }
 
   .inv-table {
-    border: 1px solid #dee2e6 !important;
+    border: 0.75pt solid #dee2e6 !important;
     border-collapse: collapse !important;
     background-color: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
@@ -1617,7 +1641,7 @@ input:checked + .slider:before {
   }
 
   .inv-table th {
-    border: 1px solid #dee2e6 !important;
+    border: 0.75pt solid #dee2e6 !important;
     background-color: #fafbfc !important;
     color: #5e616f !important;
     -webkit-print-color-adjust: exact !important;
@@ -1625,7 +1649,7 @@ input:checked + .slider:before {
   }
 
   .inv-table td {
-    border: 1px solid #dee2e6 !important;
+    border: 0.75pt solid #dee2e6 !important;
     background-color: #ffffff !important;
     color: #000000 !important;
     -webkit-print-color-adjust: exact !important;

@@ -628,16 +628,19 @@ function renderInvoiceSheet(inv) {
       <!-- Header -->
       <div class="inv-header">
         <div class="inv-logo-left">
-          <img src="assets/mega-mall-logo.png" alt="THE MEGA MALL" style="width:128px; height:106px; object-fit:contain; display:block;" />
+          <img src="assets/mega-mall-logo.png" alt="THE MEGA MALL" style="width:96pt; height:79.5pt; object-fit:contain; display:block;" />
         </div>
         <div class="inv-title-center">
           <h1>THE MEGA MALL</h1>
           <p>Official Billing Invoice / Reimburstment Note</p>
         </div>
         <div class="inv-logo-right">
-          <img src="assets/kampus-logo.png" alt="KAMPUS Integrated Services" style="width:70px; height:108px; object-fit:contain; display:block;" />
+          <img src="assets/kampus-logo.png" alt="KAMPUS Integrated Services" style="width:52.5pt; height:81pt; object-fit:contain; display:block;" />
         </div>
       </div>
+
+      <!-- Faint Divider Line below Header matching template -->
+      <div class="inv-header-divider"></div>
 
       <!-- Customer & Invoice Metadata -->
       <div class="inv-meta-grid">
@@ -658,11 +661,11 @@ function renderInvoiceSheet(inv) {
       <table class="inv-table">
         <thead>
           <tr>
-            <th style="width:26.1%;">CONSUMPTION GALLON</th>
-            <th style="width:16.5%;">RATE PER<br>GALLON</th>
-            <th style="width:19.1%;">BILL<br>AMOUNT</th>
-            <th style="width:18.9%;">PREVIOUS</th>
-            <th style="width:19.4%;">TOTAL PAYABLE</th>
+            <th style="width:26.12%;">CONSUMPTION GALLON</th>
+            <th style="width:16.46%;">RATE PER<br>GALLON</th>
+            <th style="width:19.14%;">BILL<br>AMOUNT</th>
+            <th style="width:18.94%;">PREVIOUS</th>
+            <th style="width:19.34%;">TOTAL PAYABLE</th>
           </tr>
         </thead>
         <tbody>
@@ -680,7 +683,7 @@ function renderInvoiceSheet(inv) {
       <div class="inv-notices">
         <ul>
           <li>*Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No:<br>10380109491064 in Meezan Bank.</li>
-          <li>*If the payment is not received till the last payment date, <strong style="font-weight:700;">"The Mega Mall"</strong> will hold the services of your<br>lincensed area and will not held responsible for any losses Whats so ever there for.</li>
+          <li>*If the payment is not received till the last payment date, "<strong>The Mega Mall</strong>" will hold the services of your<br>lincensed area and will not held responsible for any losses Whats so ever there for.</li>
         </ul>
       </div>
 
