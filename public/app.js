@@ -271,24 +271,24 @@ function renderInvoiceSheet(inv) {
         </div>
       </div>
 
-      <!-- Billing Table with SOLID, GUARANTEED VISIBLE GRIDS -->
-      <table class="inv-table" style="width:100% !important; border-collapse:collapse !important; border:1.5px solid #000000 !important; margin-bottom:2.2rem;">
+      <!-- Billing Table with SOLID, GUARANTEED VISIBLE GRIDS AT ANY SCALE -->
+      <table class="inv-table" style="width:100% !important; border-collapse:collapse !important; border:2px solid #000000 !important; box-shadow:0 0 0 1px #000000 !important; margin-bottom:2.2rem;">
         <thead>
           <tr style="background-color:#fafafa !important;">
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">CONSUMPTION GALLON</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">RATE PER<br>GALLON</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">BILL<br>AMOUNT</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">PREVIOUS</th>
-            <th style="border:1.5px solid #000000 !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">TOTAL PAYABLE</th>
+            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">CONSUMPTION GALLON</th>
+            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">RATE PER<br>GALLON</th>
+            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">BILL<br>AMOUNT</th>
+            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">PREVIOUS</th>
+            <th style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:8px 6px !important; font-size:10.5px !important; font-weight:600 !important; text-align:center !important; color:#555555 !important;">TOTAL PAYABLE</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.gallons)}</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${Number(inv.rate).toFixed(2)}</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.billAmount)}/-</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
-            <td style="border:1.5px solid #000000 !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.totalPayable)}/-</td>
+            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.gallons)}</td>
+            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${Number(inv.rate).toFixed(2)}</td>
+            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.billAmount)}/-</td>
+            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
+            <td style="border:1.5px solid #000000 !important; box-shadow:inset 0 0 0 0.5px #000000 !important; outline:0.5px solid rgba(0,0,0,0.4) !important; padding:9px 6px !important; font-size:14px !important; font-weight:400 !important; text-align:center !important; color:#000000 !important;">${formatNumber(inv.totalPayable)}/-</td>
           </tr>
         </tbody>
       </table>
@@ -481,9 +481,14 @@ function switchTab(tab) {
   document.getElementById("tabDataEditor").classList.toggle("active", isEditor);
   document.getElementById("tabShopIdentifier").classList.toggle("active", isShops);
 
-  document.getElementById("mainContainer").style.display = isPreview ? "grid" : "none";
+  document.getElementById("mainContainer").style.display = isPreview ? "flex" : "none";
   document.getElementById("dataEditorSection").classList.toggle("active", isEditor);
   document.getElementById("shopIdentifierSection").classList.toggle("active", isShops);
+
+  const toggleBtn = document.getElementById("togglePreviewBtn");
+  if (toggleBtn) {
+    toggleBtn.style.display = isPreview ? "inline-flex" : "none";
+  }
 
   const headerXlsxBtn = document.getElementById("exportShopsXlsxHeaderBtn");
   if (headerXlsxBtn) {
@@ -578,28 +583,73 @@ async function exportToWord() {
 async function exportToPdf() {
   const btn = document.getElementById("exportPdfBtn");
   const originalText = btn.innerHTML;
-  btn.innerHTML = "Generating PDF...";
   btn.disabled = true;
 
   try {
     const invoices = calculateInvoices();
-    const tempContainer = document.createElement("div");
-    tempContainer.style.background = "#ffffff";
-    tempContainer.style.color = "#000000";
-    tempContainer.style.width = "210mm";
-    tempContainer.innerHTML = invoices.map(inv => renderInvoiceSheet(inv)).join("");
+    if (!invoices.length) {
+      showToast("No invoices to export", "error");
+      return;
+    }
 
-    const opt = {
-      margin: 0,
-      filename: `Water_Invoices_${appState.occupier.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+    const JsPdfConstructor = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+    if (!JsPdfConstructor) {
+      throw new Error("jsPDF library not loaded");
+    }
 
-    await html2pdf().set(opt).from(tempContainer).save();
-    showToast("PDF document downloaded successfully", "success");
+    const pdf = new JsPdfConstructor({
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: true
+    });
+
+    // Create an isolated single-page off-screen staging container
+    const stage = document.createElement("div");
+    stage.style.position = "fixed";
+    stage.style.left = "-9999px";
+    stage.style.top = "0";
+    stage.style.width = "210mm";
+    stage.style.background = "#ffffff";
+    stage.style.color = "#000000";
+    stage.style.padding = "0";
+    stage.style.margin = "0";
+    stage.style.zIndex = "-9999";
+    document.body.appendChild(stage);
+
+    showToast(`Generating PDF (${invoices.length} pages)...`, "info");
+
+    for (let i = 0; i < invoices.length; i++) {
+      btn.innerHTML = `PDF (${i + 1}/${invoices.length})...`;
+      const inv = invoices[i];
+      stage.innerHTML = renderInvoiceSheet(inv);
+      const sheet = stage.querySelector(".invoice-sheet");
+
+      // Render exactly one A4 page to canvas at 2x crisp resolution
+      const canvas = await html2canvas(sheet, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 1000
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.96);
+
+      if (i > 0) {
+        pdf.addPage("a4", "portrait");
+      }
+      pdf.addImage(imgData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
+    }
+
+    document.body.removeChild(stage);
+
+    const safeOccupier = (appState.occupier || "Invoices").replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `Water_Invoices_${safeOccupier}.pdf`;
+    pdf.save(filename);
+    showToast(`Exported all ${invoices.length} invoices to PDF successfully!`, "success");
   } catch (err) {
+    console.error("PDF export error:", err);
     showToast("Could not export PDF: " + err.message, "error");
   } finally {
     btn.innerHTML = originalText;
@@ -905,6 +955,102 @@ function syncInputsWithState() {
   const [eY] = appState.endMonth.split("-").map(Number);
   startCalYear = sY;
   endCalYear = eY;
+}
+
+// ----------------------------------------------------------
+// Resizable Split-Pane & Live Preview Toggle Handlers
+// ----------------------------------------------------------
+let isPreviewHidden = localStorage.getItem('mega_mall_preview_hidden') === 'true';
+
+function initSplitPaneResizer() {
+  const container = document.getElementById("mainContainer");
+  const sidebar = document.getElementById("settingsSidebar");
+  const handle = document.getElementById("resizerHandle");
+  if (!container || !sidebar || !handle) return;
+
+  // Restore saved width
+  const savedWidth = localStorage.getItem('mega_mall_sidebar_width');
+  if (savedWidth && parseInt(savedWidth, 10) >= 280) {
+    sidebar.style.width = `${parseInt(savedWidth, 10)}px`;
+  }
+
+  // Restore preview toggle state
+  if (isPreviewHidden) {
+    applyPreviewToggle(true, false);
+  }
+
+  let isDragging = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  handle.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    handle.classList.add("dragging");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - startX;
+    let newWidth = startWidth + deltaX;
+
+    // Constrain width between 290px and window width minus 320px
+    const minW = 290;
+    const maxW = Math.max(window.innerWidth - 320, 360);
+    newWidth = Math.max(minW, Math.min(newWidth, maxW));
+
+    sidebar.style.width = `${newWidth}px`;
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+      handle.classList.remove("dragging");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      const currentWidth = Math.round(sidebar.getBoundingClientRect().width);
+      localStorage.setItem('mega_mall_sidebar_width', currentWidth);
+    }
+  });
+
+  // Double click reset to default 440px
+  handle.addEventListener("dblclick", () => {
+    sidebar.style.width = "440px";
+    localStorage.setItem('mega_mall_sidebar_width', 440);
+    showToast("Sidebar width reset to default (440px)", "info");
+  });
+}
+
+function togglePreview() {
+  isPreviewHidden = !isPreviewHidden;
+  localStorage.setItem('mega_mall_preview_hidden', isPreviewHidden ? 'true' : 'false');
+  applyPreviewToggle(isPreviewHidden, true);
+}
+
+function applyPreviewToggle(hide, showNotification = true) {
+  const container = document.getElementById("mainContainer");
+  const btn = document.getElementById("togglePreviewBtn");
+  const text = document.getElementById("togglePreviewText");
+  const icon = document.getElementById("togglePreviewIcon");
+  if (!container || !btn || !text || !icon) return;
+
+  container.classList.toggle("preview-hidden", hide);
+  if (hide) {
+    text.textContent = "Show Preview";
+    btn.title = "Show Live Invoice Preview";
+    // Eye icon (view)
+    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
+    if (showNotification) showToast("Live preview hidden (settings expanded)", "info");
+  } else {
+    text.textContent = "Hide Preview";
+    btn.title = "Hide Live Preview to maximize settings space";
+    // Eye-slash icon (hide)
+    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />`;
+    if (showNotification) showToast("Live preview restored", "info");
+  }
 }
 
 // Helper to escape HTML characters in templates
@@ -1759,6 +1905,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("confirmModalCancelBtn").addEventListener("click", closeConfirmModal);
   document.getElementById("confirmModalCloseBtn").addEventListener("click", closeConfirmModal);
+
+  document.getElementById("togglePreviewBtn")?.addEventListener("click", togglePreview);
+  initSplitPaneResizer();
 
   initCalendarPopovers();
   syncInputsWithState();
