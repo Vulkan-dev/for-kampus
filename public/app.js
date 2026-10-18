@@ -156,7 +156,7 @@ async function handleLoginSubmit(e) {
     errorEl.style.display = "block";
   } finally {
     submitBtn.disabled = false;
-    submitText.textContent = "Sign In to Corporate Workspace";
+    submitText.textContent = "Sign In";
   }
 }
 

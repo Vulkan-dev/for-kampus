@@ -16,17 +16,16 @@
       <div class="login-header">
         <div class="login-brand-badge">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-          <span>Corporate Portal • Mega Mall &amp; Kampus</span>
+          <span>The Mega Mall &amp; Kampus</span>
         </div>
-        <h1 class="login-title">Administrative Sign In</h1>
-        <p class="login-subtitle">Confidential financial and tenant directory. Authorized corporate personnel only.</p>
+        <h1 class="login-title">Sign In</h1>
       </div>
 
       <form id="loginForm" class="login-form" autocomplete="off">
         <div id="loginErrorAlert" class="login-error-alert" style="display:none;"></div>
 
         <div class="form-group">
-          <label class="form-label" for="loginUsername">Username / Admin ID</label>
+          <label class="form-label" for="loginUsername">Username / ID</label>
           <div class="input-with-icon">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
             <input type="text" id="loginUsername" class="form-input" placeholder="Enter username" required autofocus />
@@ -34,7 +33,7 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="loginPassword">Corporate Password</label>
+          <label class="form-label" for="loginPassword">Password</label>
           <div class="input-with-icon">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
             <input type="password" id="loginPassword" class="form-input" placeholder="••••••••••••" required />
@@ -44,17 +43,9 @@
           </div>
         </div>
 
-        <div class="login-meta-row">
-          <span class="session-badge">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px; height:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-            SessionStorage Authenticated
-          </span>
-          <span style="font-size:0.71rem; color:var(--text-dim);">Clears upon closing browser tab</span>
-        </div>
-
-        <button type="submit" class="btn btn-primary login-submit-btn" id="loginSubmitBtn">
+        <button type="submit" class="btn btn-primary login-submit-btn" id="loginSubmitBtn" style="margin-top:0.4rem;">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-          <span id="loginSubmitText">Sign In to Corporate Workspace</span>
+          <span id="loginSubmitText">Sign In</span>
         </button>
       </form>
     </div>
