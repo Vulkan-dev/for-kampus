@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { execFile } = require('child_process');
 const {
   Document,
@@ -20,26 +21,250 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Prevent browser from caching stale assets during updates
+// Security & Authentication Configuration
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MegaMall@Kampus2026!';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'MegaMall_SuperSecret_Cryptographic_Key_2026_Corporate#991!';
+const DATA_DIR = path.join(__dirname, 'data');
+const SHOPS_JSON_PATH = path.join(DATA_DIR, 'shops.json');
+
+// Ensure private data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Security Headers & Cache Control
 app.use((req, res, next) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block'
+  });
   next();
 });
 
-// Body parser with 50mb limit for PDF/Word uploads
+// Body parser with 50mb limit for uploads & exports
 app.use(express.json({ limit: '50mb' }));
+
+// Serve public static assets (confidential files NOT in public)
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
   maxAge: 0
 }));
+
+// ==========================================================
+// In-Memory Rate Limiter (Brute-force & DDoS Protection)
+// ==========================================================
+const loginAttempts = new Map(); // IP -> { count, firstAttempt, lockedUntil }
+const apiRequests = new Map();   // IP -> { count, resetTime }
+
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minute lock
+
+const API_MAX_REQUESTS = 180;
+const API_WINDOW_MS = 60 * 1000; // 1 minute
+
+function loginRateLimiter(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const record = loginAttempts.get(ip) || { count: 0, firstAttempt: now, lockedUntil: 0 };
+
+  if (record.lockedUntil > now) {
+    const remainingSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+    return res.status(429).json({
+      error: `Too many failed login attempts. Corporate access is temporarily locked for this IP. Please try again in ${remainingSeconds} seconds.`
+    });
+  }
+
+  // Reset window if expired
+  if (now - record.firstAttempt > LOGIN_WINDOW_MS) {
+    record.count = 0;
+    record.firstAttempt = now;
+  }
+
+  loginAttempts.set(ip, record);
+  req.loginRateRecord = record;
+  next();
+}
+
+function globalApiRateLimiter(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const record = apiRequests.get(ip) || { count: 0, resetTime: now + API_WINDOW_MS };
+
+  if (now > record.resetTime) {
+    record.count = 1;
+    record.resetTime = now + API_WINDOW_MS;
+  } else {
+    record.count++;
+  }
+
+  apiRequests.set(ip, record);
+
+  if (record.count > API_MAX_REQUESTS) {
+    return res.status(429).json({
+      error: 'Rate limit exceeded. Too many requests. Please slow down.'
+    });
+  }
+
+  next();
+}
+
+// Clean up rate limiter tables every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, rec] of loginAttempts.entries()) {
+    if (rec.lockedUntil <= now && (now - rec.firstAttempt > LOGIN_WINDOW_MS)) {
+      loginAttempts.delete(ip);
+    }
+  }
+  for (const [ip, rec] of apiRequests.entries()) {
+    if (now > rec.resetTime) {
+      apiRequests.delete(ip);
+    }
+  }
+}, 10 * 60 * 1000);
+
+// ==========================================================
+// Cryptographic Token Helpers (HMAC-SHA256)
+// ==========================================================
+function generateToken(payload) {
+  const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(base64Payload).digest('base64url');
+  return `${base64Payload}.${signature}`;
+}
+
+function verifyToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+
+  const [base64Payload, signature] = parts;
+  const expectedSignature = crypto.createHmac('sha256', SESSION_SECRET).update(base64Payload).digest('base64url');
+
+  const sigBuffer = Buffer.from(signature);
+  const expBuffer = Buffer.from(expectedSignature);
+  if (sigBuffer.length !== expBuffer.length || !crypto.timingSafeEqual(sigBuffer, expBuffer)) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(base64Payload, 'base64url').toString('utf-8'));
+    if (payload.exp && Date.now() > payload.exp) {
+      return null; // Expired
+    }
+    return payload;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Strong Authentication Middleware
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      error: 'Access Denied: Corporate authentication token required.'
+    });
+  }
+
+  const token = authHeader.substring(7).trim();
+  const verifiedUser = verifyToken(token);
+
+  if (!verifiedUser) {
+    return res.status(401).json({
+      error: 'Session Expired or Invalid: Please log in again.'
+    });
+  }
+
+  req.user = verifiedUser;
+  next();
+}
+
+// ==========================================================
+// Authentication Endpoints
+// ==========================================================
+app.post('/api/auth/login', loginRateLimiter, (req, res) => {
+  const { username, password } = req.body || {};
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  const isUserValid = (username.trim().toLowerCase() === ADMIN_USERNAME.toLowerCase());
+  const isPassValid = (password.trim() === ADMIN_PASSWORD);
+
+  if (!isUserValid || !isPassValid) {
+    const record = req.loginRateRecord || { count: 0 };
+    record.count++;
+    if (record.count >= LOGIN_MAX_ATTEMPTS) {
+      record.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+      loginAttempts.set(ip, record);
+      return res.status(429).json({
+        error: `Maximum login attempts exceeded. Access locked for 15 minutes.`
+      });
+    }
+    loginAttempts.set(ip, record);
+    const attemptsRemaining = LOGIN_MAX_ATTEMPTS - record.count;
+    return res.status(401).json({
+      error: `Invalid credentials. ${attemptsRemaining} attempt(s) remaining before security lockout.`
+    });
+  }
+
+  // Clear failed login attempts on success
+  loginAttempts.delete(ip);
+
+  // Generate Session Token (24 hours valid)
+  const token = generateToken({
+    username: ADMIN_USERNAME,
+    role: 'Administrator',
+    organization: 'The Mega Mall & Kampus Integrated Services',
+    exp: Date.now() + 24 * 60 * 60 * 1000
+  });
+
+  res.json({
+    success: true,
+    token,
+    user: {
+      username: ADMIN_USERNAME,
+      role: 'Administrator',
+      organization: 'The Mega Mall & Kampus Integrated Services'
+    }
+  });
+});
+
+app.get('/api/auth/verify', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ valid: false });
+  }
+  const token = authHeader.substring(7).trim();
+  const payload = verifyToken(token);
+  if (!payload) {
+    return res.status(401).json({ valid: false });
+  }
+  res.json({ valid: true, user: payload });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// Apply global rate limiting to all protected /api/* endpoints
+app.use('/api', globalApiRateLimiter);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Import endpoint for PDF, DOCX, and CSV files
-app.post('/api/import/file', async (req, res) => {
+// ==========================================================
+// Protected File Import Endpoint (PDF, DOCX, CSV)
+// ==========================================================
+app.post('/api/import/file', requireAuth, async (req, res) => {
   try {
     const { filename, fileBase64 } = req.body;
     if (!filename || !fileBase64) {
@@ -57,7 +282,7 @@ app.post('/api/import/file', async (req, res) => {
 
     if (ext === '.csv' || ext === '.txt') {
       const text = buffer.toString('utf-8');
-      fs.unlinkSync(tempFilePath);
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       return res.json({ type: 'csv', rawText: text });
     }
 
@@ -90,8 +315,10 @@ app.post('/api/import/file', async (req, res) => {
   }
 });
 
-// Export to Microsoft Word (.docx) endpoint
-app.post('/api/export/docx', async (req, res) => {
+// ==========================================================
+// Protected Word Export Endpoint (.docx)
+// ==========================================================
+app.post('/api/export/docx', requireAuth, async (req, res) => {
   try {
     const { invoices, occupier, location, ntn } = req.body;
 
@@ -134,7 +361,7 @@ app.post('/api/export/docx', async (req, res) => {
     const children = [];
 
     invoices.forEach((inv, index) => {
-      // 1. Header Table (Exact PDF Logo Scale: Mega Mall ~128x106, Kampus ~70x108)
+      // 1. Header Table
       const headerRowCells = [
         new TableCell({
           width: { size: 26, type: WidthType.PERCENTAGE },
@@ -418,31 +645,42 @@ app.post('/api/export/docx', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------
-// Shops Directory & Identifier Endpoints
-// ----------------------------------------------------
-const SHOPS_JSON_PATH = path.join(__dirname, 'public', 'data', 'shops.json');
+// ==========================================================
+// Protected Shops Database Endpoints (Atomic Disk Operations)
+// ==========================================================
+function readShopsDatabase() {
+  if (!fs.existsSync(SHOPS_JSON_PATH)) {
+    return [];
+  }
+  const raw = fs.readFileSync(SHOPS_JSON_PATH, 'utf-8');
+  return JSON.parse(raw);
+}
 
-app.get('/api/shops', (req, res) => {
+function writeShopsDatabaseAtomic(data) {
+  const tempPath = `${SHOPS_JSON_PATH}.tmp_${Date.now()}`;
+  fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(tempPath, SHOPS_JSON_PATH);
+}
+
+// GET all shops (Protected by requireAuth)
+app.get('/api/shops', requireAuth, (req, res) => {
   try {
-    if (!fs.existsSync(SHOPS_JSON_PATH)) {
-      return res.json([]);
-    }
-    const data = fs.readFileSync(SHOPS_JSON_PATH, 'utf-8');
-    res.json(JSON.parse(data));
+    const shops = readShopsDatabase();
+    res.json(shops);
   } catch (error) {
-    console.error('Failed to read shops.json:', error);
+    console.error('Failed to read shops database:', error);
     res.status(500).json({ error: 'Failed to read shops directory' });
   }
 });
 
-app.post('/api/shops', (req, res) => {
+// POST all shops (bulk save or full sync, Protected by requireAuth)
+app.post('/api/shops', requireAuth, (req, res) => {
   try {
     const { shops } = req.body;
     if (!Array.isArray(shops)) {
       return res.status(400).json({ error: 'Shops array required' });
     }
-    fs.writeFileSync(SHOPS_JSON_PATH, JSON.stringify(shops, null, 2), 'utf-8');
+    writeShopsDatabaseAtomic(shops);
     res.json({ success: true, count: shops.length });
   } catch (error) {
     console.error('Failed to save shops:', error);
@@ -450,12 +688,38 @@ app.post('/api/shops', (req, res) => {
   }
 });
 
-app.post('/api/shops/export/xlsx', (req, res) => {
+// PUT single shop update (Protected by requireAuth)
+app.put('/api/shops/:canonical_key', requireAuth, (req, res) => {
+  try {
+    const targetKey = req.params.canonical_key;
+    const updatedShop = req.body;
+    if (!updatedShop || !updatedShop.canonical_key) {
+      return res.status(400).json({ error: 'Valid shop data required' });
+    }
+
+    const shops = readShopsDatabase();
+    const index = shops.findIndex(s => s.canonical_key === targetKey);
+    if (index >= 0) {
+      shops[index] = updatedShop;
+    } else {
+      shops.unshift(updatedShop);
+    }
+
+    writeShopsDatabaseAtomic(shops);
+    res.json({ success: true, shop: updatedShop });
+  } catch (error) {
+    console.error('Failed to update single shop:', error);
+    res.status(500).json({ error: 'Failed to update shop record' });
+  }
+});
+
+// Protected Excel Export (.xlsx)
+app.post('/api/shops/export/xlsx', requireAuth, (req, res) => {
   try {
     const { shops } = req.body;
     const shopsData = Array.isArray(shops) && shops.length > 0
       ? shops
-      : (fs.existsSync(SHOPS_JSON_PATH) ? JSON.parse(fs.readFileSync(SHOPS_JSON_PATH, 'utf-8')) : []);
+      : readShopsDatabase();
 
     const tempJsonPath = path.join(__dirname, `temp_shops_${Date.now()}.json`);
     const tempXlsxPath = path.join(__dirname, `temp_shops_${Date.now()}.xlsx`);
@@ -491,6 +755,8 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Start Server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running at http://0.0.0.0:${PORT}`);
+  console.log(`Corporate Server running securely at http://0.0.0.0:${PORT}`);
+  console.log(`Protected shops directory located at: ${SHOPS_JSON_PATH}`);
 });

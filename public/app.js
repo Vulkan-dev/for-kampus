@@ -3,6 +3,170 @@
  * Professional Matte Dark Architecture with Full Data Editing & Multi-Format Exports
  */
 
+// ==========================================================
+// Corporate Session & Authentication Manager (SessionStorage)
+// ==========================================================
+let authUser = null;
+
+function getAuthToken() {
+  return sessionStorage.getItem('mega_mall_auth_token');
+}
+
+function setAuthSession(token, user) {
+  if (token) {
+    sessionStorage.setItem('mega_mall_auth_token', token);
+  }
+  if (user) {
+    sessionStorage.setItem('mega_mall_auth_user', JSON.stringify(user));
+    authUser = user;
+  }
+}
+
+function clearAuthSession() {
+  sessionStorage.removeItem('mega_mall_auth_token');
+  sessionStorage.removeItem('mega_mall_auth_user');
+  authUser = null;
+}
+
+// Authenticated Fetch Wrapper
+async function authFetch(url, options = {}) {
+  const token = getAuthToken();
+  const headers = Object.assign({}, options.headers || {});
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  options.headers = headers;
+
+  const response = await fetch(url, options);
+  if (response.status === 401) {
+    clearAuthSession();
+    showLoginPortal("Your corporate session has expired. Please sign in again.");
+    throw new Error("Unauthorized - session expired");
+  }
+  return response;
+}
+
+function showLoginPortal(errorMessage = "") {
+  const overlay = document.getElementById("loginScreen");
+  const errEl = document.getElementById("loginErrorAlert");
+  const userStatus = document.getElementById("headerUserStatus");
+  if (overlay) overlay.classList.remove("hidden");
+  if (userStatus) userStatus.style.display = "none";
+  if (errEl) {
+    if (errorMessage) {
+      errEl.textContent = errorMessage;
+      errEl.style.display = "block";
+    } else {
+      errEl.style.display = "none";
+    }
+  }
+}
+
+function hideLoginPortal() {
+  const overlay = document.getElementById("loginScreen");
+  const userStatus = document.getElementById("headerUserStatus");
+  const usernameEl = document.getElementById("headerUsername");
+  if (overlay) overlay.classList.add("hidden");
+  if (userStatus) userStatus.style.display = "flex";
+  if (usernameEl && authUser) {
+    usernameEl.textContent = authUser.username || "admin";
+  }
+}
+
+async function checkAuthSession() {
+  const token = getAuthToken();
+  const storedUser = sessionStorage.getItem('mega_mall_auth_user');
+  if (storedUser) {
+    try { authUser = JSON.parse(storedUser); } catch (e) {}
+  }
+
+  if (!token) {
+    showLoginPortal();
+    return false;
+  }
+
+  try {
+    const res = await fetch('/api/auth/verify', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.valid) {
+        authUser = data.user;
+        hideLoginPortal();
+        return true;
+      }
+    }
+  } catch (e) {
+    console.warn("Auth verification error:", e);
+  }
+
+  clearAuthSession();
+  showLoginPortal();
+  return false;
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const userEl = document.getElementById("loginUsername");
+  const passEl = document.getElementById("loginPassword");
+  const submitBtn = document.getElementById("loginSubmitBtn");
+  const submitText = document.getElementById("loginSubmitText");
+  const errorEl = document.getElementById("loginErrorAlert");
+
+  const username = userEl.value.trim();
+  const password = passEl.value;
+
+  if (!username || !password) {
+    errorEl.textContent = "Please enter both username and password.";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitText.textContent = "Verifying Credentials...";
+  errorEl.style.display = "none";
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Authentication failed.");
+    }
+
+    setAuthSession(data.token, data.user);
+    hideLoginPortal();
+    passEl.value = "";
+    showToast(`Welcome, ${data.user.username}!`, "success");
+
+    // Load protected data now that authenticated
+    loadShopsData();
+    renderPreview();
+    renderDataEditor();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = "block";
+  } finally {
+    submitBtn.disabled = false;
+    submitText.textContent = "Sign In to Corporate Workspace";
+  }
+}
+
+async function handleLogout() {
+  try {
+    await authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  } catch (e) {}
+  clearAuthSession();
+  showLoginPortal("You have been signed out.");
+  showToast("Logged out successfully.", "info");
+}
+
 // Preset Configurations
 const PRESETS = {
   falaknaz: {
@@ -552,7 +716,7 @@ async function exportToWord() {
       ntn: appState.ntn
     };
 
-    const response = await fetch('/api/export/docx', {
+    const response = await authFetch('/api/export/docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -751,7 +915,7 @@ async function processImport() {
   statusEl.textContent = "Uploading & parsing on server...";
 
   try {
-    const res = await fetch('/api/import/file', {
+    const res = await authFetch('/api/import/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(stagedFileData)
@@ -807,10 +971,18 @@ function openImportModal() {
   stagedFileData = null;
   document.getElementById("fileUploadStatus").style.display = "none";
   document.getElementById("importTextarea").value = "";
-  document.getElementById("importModalBackdrop").classList.add("open");
+  const el = document.getElementById("importModalBackdrop");
+  if (el) {
+    el.classList.add("open");
+    el.classList.add("active");
+  }
 }
 function closeImportModal() {
-  document.getElementById("importModalBackdrop").classList.remove("open");
+  const el = document.getElementById("importModalBackdrop");
+  if (el) {
+    el.classList.remove("open");
+    el.classList.remove("active");
+  }
 }
 
 // ----------------------------------------------------------
@@ -1078,23 +1250,12 @@ async function loadShopsData() {
   try {
     let loaded = null;
     try {
-      const res = await fetch('/api/shops');
+      const res = await authFetch('/api/shops');
       if (res.ok) {
         loaded = await res.json();
       }
     } catch (e) {
-      console.warn("Could not fetch /api/shops, attempting static data file", e);
-    }
-
-    if (!Array.isArray(loaded) || loaded.length === 0) {
-      try {
-        const res2 = await fetch('data/shops.json');
-        if (res2.ok) {
-          loaded = await res2.json();
-        }
-      } catch (e2) {
-        console.warn("Could not fetch data/shops.json", e2);
-      }
+      console.warn("Could not fetch /api/shops", e);
     }
 
     if (Array.isArray(loaded) && loaded.length > 0) {
@@ -1502,7 +1663,11 @@ function openAddShopModal() {
   document.getElementById("shopModalCam").value = "";
   document.getElementById("shopModalHistoryList").innerHTML = "";
 
-  document.getElementById("shopModalBackdrop").classList.add("active");
+  const backdrop = document.getElementById("shopModalBackdrop");
+  if (backdrop) {
+    backdrop.classList.add("open");
+    backdrop.classList.add("active");
+  }
 }
 
 function openEditShopModal(canonicalKey) {
@@ -1526,11 +1691,19 @@ function openEditShopModal(canonicalKey) {
     shop.history.forEach(h => addHistoryEditorRow(h.period, h.brand, h.allottee));
   }
 
-  document.getElementById("shopModalBackdrop").classList.add("active");
+  const backdrop = document.getElementById("shopModalBackdrop");
+  if (backdrop) {
+    backdrop.classList.add("open");
+    backdrop.classList.add("active");
+  }
 }
 
 function closeShopModal() {
-  document.getElementById("shopModalBackdrop").classList.remove("active");
+  const backdrop = document.getElementById("shopModalBackdrop");
+  if (backdrop) {
+    backdrop.classList.remove("open");
+    backdrop.classList.remove("active");
+  }
 }
 
 function addHistoryEditorRow(period = '', brand = '', allottee = '') {
@@ -1608,19 +1781,24 @@ async function saveShopModal() {
   // Persist locally
   saveCustomShopsLocally();
 
-  // Try sync with backend
-  try {
-    fetch('/api/shops', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shops: shopsList })
-    }).catch(e => console.warn("Backend save skipped", e));
-  } catch (e) {}
-
   closeShopModal();
   updateShopPillsCount();
   renderShopsDirectory();
-  showToast(`Shop ${formattedNo} saved successfully!`, "success");
+  showToast(`Shop ${formattedNo} saved! Syncing with database...`, "info");
+
+  // Sync with secure backend database
+  try {
+    const res = await authFetch('/api/shops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shops: shopsList })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast(`Shop ${formattedNo} saved to secure database!`, "success");
+  } catch (e) {
+    console.warn("Backend save error:", e);
+    showToast(`Saved locally in session (${e.message})`, "warning");
+  }
 }
 
 function openAddPeriodModal(canonicalKey) {
@@ -1635,14 +1813,22 @@ function openAddPeriodModal(canonicalKey) {
   document.getElementById("periodInputSqft").value = shop.sqft || "";
   document.getElementById("periodInputRent").value = shop.monthly_rent || "";
 
-  document.getElementById("periodModalBackdrop").classList.add("active");
+  const backdrop = document.getElementById("periodModalBackdrop");
+  if (backdrop) {
+    backdrop.classList.add("open");
+    backdrop.classList.add("active");
+  }
 }
 
 function closePeriodModal() {
-  document.getElementById("periodModalBackdrop").classList.remove("active");
+  const backdrop = document.getElementById("periodModalBackdrop");
+  if (backdrop) {
+    backdrop.classList.remove("open");
+    backdrop.classList.remove("active");
+  }
 }
 
-function savePeriodModal() {
+async function savePeriodModal() {
   const key = document.getElementById("periodShopKey").value;
   const shop = shopsList.find(s => s.canonical_key === key);
   if (!shop) return;
@@ -1672,18 +1858,22 @@ function savePeriodModal() {
 
   saveCustomShopsLocally();
 
-  // Try sync with backend
+  closePeriodModal();
+  renderShopsDirectory();
+  showToast(`Tenure period (${years}) added! Syncing...`, "info");
+
+  // Sync with secure backend database
   try {
-    fetch('/api/shops', {
+    const res = await authFetch('/api/shops', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ shops: shopsList })
-    }).catch(e => console.warn("Backend save skipped", e));
-  } catch (e) {}
-
-  closePeriodModal();
-  renderShopsDirectory();
-  showToast(`Tenure period (${years}) added to ${shop.shop_no}!`, "success");
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast(`Tenure period saved to database!`, "success");
+  } catch (e) {
+    console.warn("Backend save error:", e);
+  }
 }
 
 function saveCustomShopsLocally() {
@@ -1702,7 +1892,7 @@ async function exportShopsToExcel() {
   showToast(`Generating Excel (.xlsx) file with ${listToExport.length} shops...`, "info");
 
   try {
-    const res = await fetch('/api/shops/export/xlsx', {
+    const res = await authFetch('/api/shops/export/xlsx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ shops: listToExport })
@@ -1876,21 +2066,38 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("exportCsvBtn").addEventListener("click", exportToCsv);
   document.getElementById("resetEditorBtn").addEventListener("click", resetManualCorrections);
 
-  // File drag & drop handling
+  // Authentication form & logout handlers
+  document.getElementById("loginForm")?.addEventListener("submit", handleLoginSubmit);
+  document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
+  document.getElementById("togglePasswordBtn")?.addEventListener("click", () => {
+    const input = document.getElementById("loginPassword");
+    const icon = document.getElementById("eyeIcon");
+    if (!input || !icon) return;
+    if (input.type === "password") {
+      input.type = "text";
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />`;
+    } else {
+      input.type = "password";
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
+    }
+  });
+
+  // File drag & drop handling with stopPropagation to prevent double-click lock
   const dropzone = document.getElementById("fileDropzone");
   const fileInput = document.getElementById("fileInput");
 
-  dropzone.addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", (e) => {
+  dropzone?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("click", (e) => e.stopPropagation());
+  fileInput?.addEventListener("change", (e) => {
     if (e.target.files.length > 0) handleFileSelection(e.target.files[0]);
   });
 
-  dropzone.addEventListener("dragover", (e) => {
+  dropzone?.addEventListener("dragover", (e) => {
     e.preventDefault();
     dropzone.classList.add("dragover");
   });
-  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
-  dropzone.addEventListener("drop", (e) => {
+  dropzone?.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone?.addEventListener("drop", (e) => {
     e.preventDefault();
     dropzone.classList.remove("dragover");
     if (e.dataTransfer.files.length > 0) {
@@ -1899,12 +2106,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Confirm modal event handlers
-  document.getElementById("confirmModalOkBtn").addEventListener("click", () => {
+  document.getElementById("confirmModalOkBtn")?.addEventListener("click", () => {
     if (confirmCallback) confirmCallback();
     closeConfirmModal();
   });
-  document.getElementById("confirmModalCancelBtn").addEventListener("click", closeConfirmModal);
-  document.getElementById("confirmModalCloseBtn").addEventListener("click", closeConfirmModal);
+  document.getElementById("confirmModalCancelBtn")?.addEventListener("click", closeConfirmModal);
+  document.getElementById("confirmModalCloseBtn")?.addEventListener("click", closeConfirmModal);
 
   document.getElementById("togglePreviewBtn")?.addEventListener("click", togglePreview);
   initSplitPaneResizer();
@@ -1914,5 +2121,11 @@ document.addEventListener("DOMContentLoaded", () => {
   updateYearConfigsUI();
   renderPreview();
   renderDataEditor();
-  loadShopsData();
+
+  // Initialize Session Authentication
+  checkAuthSession().then(isAuth => {
+    if (isAuth) {
+      loadShopsData();
+    }
+  });
 });
