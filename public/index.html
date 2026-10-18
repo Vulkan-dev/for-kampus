@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Mega Mall - Billing &amp; Reimbursement Invoices</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="assets/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+  <!-- Top App Navigation Bar -->
+  <header class="app-header no-print">
+    <div class="header-branding">
+      Made By Ar for The Mega Mall &amp; Kampus Integrated Services
+    </div>
+
+    <!-- Center View Switcher Tabs -->
+    <div class="header-center-tabs">
+      <button class="tab-btn active" id="tabInvoicePreview">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Invoice Preview
+      </button>
+      <button class="tab-btn" id="tabDataEditor">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+        Data Editor &amp; Corrections
+      </button>
+    </div>
+
+    <!-- Separate Export Options -->
+    <div class="header-actions">
+      <button class="btn btn-docx" id="exportDocxBtn" title="Export all invoices to editable Microsoft Word document">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Word (.docx)
+      </button>
+      <button class="btn btn-pdf" id="exportPdfBtn" title="Download directly as PDF document">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        PDF (.pdf)
+      </button>
+      <button class="btn btn-print" id="printBtn" title="Open native print dialog">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+        Print
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Work Area -->
+  <main class="app-container" id="mainContainer">
+
+    <!-- Left Controls Panel -->
+    <aside class="settings-sidebar no-print">
+
+      <!-- 1. Presets -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            Quick Presets
+          </div>
+        </div>
+        <div class="preset-pills">
+          <button class="preset-pill-btn active" id="preset-falaknaz">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            Falaknaz Springs
+          </button>
+          <button class="preset-pill-btn" id="preset-mega">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+            Mega Residency
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Customer Information -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            Customer Details
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Legal Occupier Name</label>
+          <input type="text" id="occupierInput" class="form-input" placeholder="e.g. FALAKNAZ SPRINGS," />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location / Address</label>
+          <input type="text" id="locationInput" class="form-input" placeholder="e.g. The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.," />
+        </div>
+        <div class="form-group">
+          <label class="form-label">NTN Number</label>
+          <input type="text" id="ntnInput" class="form-input" placeholder="e.g. C951537" />
+        </div>
+      </div>
+
+      <!-- 3. Billing Period & Calendar Picker -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            Billing Dates
+          </div>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.4rem;">
+          Type date directly (e.g. <code>2024-01</code>) or click the calendar icon to pick month and year.
+        </p>
+
+        <div class="form-row">
+          <!-- Start Month -->
+          <div class="form-group">
+            <label class="form-label">Start Month</label>
+            <div class="date-input-wrapper">
+              <input type="text" id="startMonthInput" class="form-input" placeholder="YYYY-MM" />
+              <button class="calendar-icon-btn" id="startCalBtn" type="button" title="Open Calendar">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              </button>
+              <!-- Calendar Popover Start -->
+              <div class="calendar-popover" id="startCalPopover">
+                <div class="cal-header">
+                  <button class="cal-nav-btn" type="button" id="startCalPrevYear">&larr;</button>
+                  <span id="startCalYearLabel">2024</span>
+                  <button class="cal-nav-btn" type="button" id="startCalNextYear">&rarr;</button>
+                </div>
+                <div class="cal-months-grid" id="startCalMonthsGrid">
+                  <!-- Jan - Dec cells -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- End Month -->
+          <div class="form-group">
+            <label class="form-label">End Month</label>
+            <div class="date-input-wrapper">
+              <input type="text" id="endMonthInput" class="form-input" placeholder="YYYY-MM" />
+              <button class="calendar-icon-btn" id="endCalBtn" type="button" title="Open Calendar">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              </button>
+              <!-- Calendar Popover End -->
+              <div class="calendar-popover" id="endCalPopover">
+                <div class="cal-header">
+                  <button class="cal-nav-btn" type="button" id="endCalPrevYear">&larr;</button>
+                  <span id="endCalYearLabel">2026</span>
+                  <button class="cal-nav-btn" type="button" id="endCalNextYear">&rarr;</button>
+                </div>
+                <div class="cal-months-grid" id="endCalMonthsGrid">
+                  <!-- Jan - Dec cells -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Invoice Numbering Sequence -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>
+            Invoice Sequence
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">Prefix</label>
+            <input type="text" id="invPrefixInput" class="form-input" placeholder="#INV-" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start #</label>
+            <input type="number" id="invStartNumInput" class="form-input" placeholder="3001" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Suffix</label>
+            <input type="text" id="invSuffixInput" class="form-input" placeholder="-051026" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Previous Balance Setting -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+            Previous Balance
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span style="font-size:0.82rem; font-weight:500;">Include Previous Balance?</span>
+          <label class="switch">
+            <input type="checkbox" id="prevBalanceToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="prevBalanceOptions" style="display:none; margin-top:0.5rem; display:flex; flex-direction:column; gap:0.5rem;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Opening Balance</label>
+              <input type="number" id="openingBalanceInput" class="form-input" value="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Balance Behavior</label>
+              <select id="prevBalanceModeSelect" class="form-select">
+                <option value="zero">First Month Only</option>
+                <option value="cumulative">Accumulate Unpaid Bills</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <p style="font-size:0.72rem; color:var(--text-dim);">
+          If turned off, Previous balance is set to <code>0</code> on every invoice.
+        </p>
+      </div>
+
+      <!-- 6. Year-by-Year Rates & Consumption -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            Rates &amp; Consumption by Year
+          </div>
+        </div>
+        <div class="year-configs-container" id="yearConfigsContainer">
+          <!-- Dynamically populated per active year -->
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Right Live Preview Stage -->
+    <section class="preview-stage" id="previewStageSection">
+
+      <!-- Preview Toolbar -->
+      <div class="preview-toolbar no-print">
+        <div class="toolbar-left">
+          <div class="page-stepper">
+            <button class="stepper-btn" id="prevPageBtn" title="Previous Page">&larr;</button>
+            <span>Invoice <strong id="currentPageDisplay" style="color:var(--text-main);">1</strong> of <strong id="totalPagesCount" style="color:var(--text-main);">31</strong></span>
+            <button class="stepper-btn" id="nextPageBtn" title="Next Page">&rarr;</button>
+          </div>
+
+          <select id="jumpMonthSelect" class="form-select" style="width: auto; padding: 0.25rem 0.5rem; font-size:0.8rem;">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div class="toolbar-right">
+          <div style="display:flex; gap:0.5rem; margin-right:0.75rem;">
+            <span style="font-size:0.72rem; background:rgba(255,255,255,0.06); padding:0.25rem 0.5rem; border-radius:4px; color:var(--text-muted);" id="statTotalMonths">31 Months</span>
+            <span style="font-size:0.72rem; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.25); padding:0.25rem 0.5rem; border-radius:4px; color:var(--accent-green); font-weight:600;" id="statTotalBill">PKR 0</span>
+          </div>
+
+          <button class="btn btn-secondary btn-sm" id="viewSingleBtn">Single Page</button>
+          <button class="btn btn-secondary btn-sm" id="viewAllBtn">View All Pages</button>
+        </div>
+      </div>
+
+      <!-- Preview Viewport where A4 invoices render -->
+      <div class="preview-scroll-viewport" id="invoiceViewport">
+        <!-- Rendered invoice pages -->
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Complete New Section: Data Editor & Corrections View -->
+  <section class="data-editor-section" id="dataEditorSection">
+    <div class="editor-toolbar">
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <h2 style="font-size:1.05rem; font-weight:600; color:var(--text-main);">Batch Data Editor &amp; Corrections</h2>
+        <span style="font-size:0.75rem; color:var(--text-dim);">Edit any date, number, or reading directly. Updates all invoices instantly.</span>
+      </div>
+
+      <div class="editor-actions">
+        <button class="btn btn-secondary btn-sm" id="openImportModalBtn">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+          Import Data (CSV)
+        </button>
+        <button class="btn btn-secondary btn-sm" id="exportCsvBtn">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-secondary btn-sm" id="resetEditorBtn" style="color:var(--accent-red);">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          Reset to Calculated
+        </button>
+      </div>
+    </div>
+
+    <div class="editor-table-container">
+      <table class="editor-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Invoice #</th>
+            <th>Billing Period Line</th>
+            <th>Issuance Date Line</th>
+            <th>Consumption (Gal)</th>
+            <th>Rate / Gal</th>
+            <th>Previous (PKR)</th>
+            <th>Bill Amount (PKR)</th>
+            <th>Total Payable (PKR)</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="editorTableBody">
+          <!-- Dynamically populated rows -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Import Modal -->
+  <div class="modal-backdrop" id="importModalBackdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Import Custom Invoice Data</div>
+        <button class="btn btn-secondary btn-sm" id="closeImportModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">
+          Paste CSV or tab-delimited data with format:<br>
+          <code>YYYY-MM, ConsumptionGallons, Rate, PreviousBalance</code>
+        </p>
+        <textarea id="importTextarea" placeholder="2024-01, 53759, 1.25, 0&#10;2024-02, 53759, 1.25, 0&#10;..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelImportBtn">Cancel</button>
+        <button class="btn btn-green" id="confirmImportBtn">Apply Import</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

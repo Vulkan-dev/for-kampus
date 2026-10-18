@@ -1,0 +1,6 @@
+node_modules/
+.env
+.DS_Store
+Thumbs.db
+WhatsApp Image*.jpeg
+test-calc.js
