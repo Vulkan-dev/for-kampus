@@ -236,6 +236,16 @@
             <input type="text" id="invSuffixInput" class="form-input" placeholder="-051026" />
           </div>
         </div>
+        <div class="toggle-row" style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--border-subtle);">
+          <div>
+            <div style="font-size:0.78rem; font-weight:500; color:var(--text-main);">Year-Based Suffix Changer</div>
+            <div style="font-size:0.70rem; color:var(--text-dim);">Auto-updates suffix sequence by invoice year (e.g. -051026 &rarr; -051027)</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="autoSuffixYearToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
       </div>
 
       <!-- 5. Previous Balance Setting -->
@@ -603,6 +613,20 @@
           <summary style="cursor:pointer; color:var(--accent-blue);">Or paste raw text / CSV data</summary>
           <textarea id="importTextarea" style="width:100%; height:100px; margin-top:0.5rem; background:var(--bg-input); border:1px solid var(--border-subtle); color:var(--text-main); padding:0.5rem; border-radius:6px; font-family:var(--font-mono); font-size:0.75rem;" placeholder="2024-01, 53759, 1.25, 0&#10;2024-02, 53759, 1.25, 0&#10;..."></textarea>
         </details>
+
+        <div class="form-group" style="margin-top:0.75rem; background:var(--bg-input); padding:0.75rem; border-radius:6px; border:1px solid var(--border-subtle);">
+          <label class="form-label" style="font-weight:600; color:var(--text-main); margin-bottom:0.4rem;">Import Strategy</label>
+          <div style="display:flex; flex-direction:column; gap:0.45rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.78rem; cursor:pointer; color:var(--text-main);">
+              <input type="radio" name="importMode" value="scratch" id="importModeScratch" />
+              <span><strong>Remove old &amp; import from scratch</strong> (Clean slate, resets all old overrides)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.78rem; cursor:pointer; color:var(--text-main);">
+              <input type="radio" name="importMode" value="overwrite" id="importModeOverwrite" checked />
+              <span><strong>Overwrite / Merge</strong> (Keep existing data, overwrite overlapping months)</span>
+            </label>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancelImportBtn">Cancel</button>

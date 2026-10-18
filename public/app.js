@@ -217,6 +217,7 @@ let appState = {
   invPrefix: "#INV-",
   invStartNum: 3001,
   invSuffix: "-051026",
+  autoSuffixYear: false,
   includePrevBalance: false,
   prevBalanceMode: "zero",
   openingBalance: 0,
@@ -307,6 +308,75 @@ function closeConfirmModal() {
   confirmCallback = null;
 }
 
+// Current Date in YYYY-MM
+function getCurrentYearMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// Validates date selection with error and warning handling
+function updateBillingDate(type, newYM) {
+  if (!/^\d{4}-\d{2}$/.test(newYM)) return false;
+
+  const currentYM = getCurrentYearMonth();
+  const isStart = type === "start";
+  const candidateStart = isStart ? newYM : appState.startMonth;
+  const candidateEnd = isStart ? appState.endMonth : newYM;
+
+  // 1. Error: Start month cannot be greater than End month
+  if (candidateStart > candidateEnd) {
+    showToast(`Error: Start month (${candidateStart}) cannot be later than end month (${candidateEnd}).`, "error");
+    const startInput = document.getElementById("startMonthInput");
+    const endInput = document.getElementById("endMonthInput");
+    if (startInput) startInput.value = appState.startMonth;
+    if (endInput) endInput.value = appState.endMonth;
+    return false;
+  }
+
+  // 2. Error: If someone selects a future date for Start Month
+  if (candidateStart > currentYM) {
+    showToast(`Error: Start month (${candidateStart}) cannot be set to a future date beyond current date (${currentYM}).`, "error");
+    const startInput = document.getElementById("startMonthInput");
+    if (startInput) startInput.value = appState.startMonth;
+    return false;
+  }
+
+  // 3. Warning Check: If End Month is more than current date (e.g. current is 2026 and selected is 2027)
+  // Proceed with invoice generation but trigger warning notification
+  if (candidateEnd > currentYM) {
+    showToast(`Warning: End month (${candidateEnd}) extends into future dates beyond current date (${currentYM}). Proceeding with projected billing...`, "warning");
+  }
+
+  appState.startMonth = candidateStart;
+  appState.endMonth = candidateEnd;
+
+  const startInput = document.getElementById("startMonthInput");
+  const endInput = document.getElementById("endMonthInput");
+  if (startInput) startInput.value = candidateStart;
+  if (endInput) endInput.value = candidateEnd;
+
+  updateYearConfigsUI();
+  renderPreview();
+  renderDataEditor();
+  return true;
+}
+
+// Future-proof Year-based Suffix Changer
+function getEffectiveSuffix(m) {
+  if (!appState.autoSuffixYear) {
+    return appState.invSuffix || "";
+  }
+  const rawSuffix = appState.invSuffix || "";
+  const year2d = String(m.year).slice(-2); // e.g. "24", "25", "26", "27"
+  if (/\d{2}$/.test(rawSuffix)) {
+    return rawSuffix.replace(/\d{2}$/, year2d);
+  }
+  if (/\{yy\}/i.test(rawSuffix)) {
+    return rawSuffix.replace(/\{yy\}/i, year2d);
+  }
+  return `${rawSuffix}-${year2d}`;
+}
+
 // Generate months array between start and end
 function generateMonthsList(startYM, endYM) {
   const [sY, sM] = (startYM || "2024-01").split("-").map(Number);
@@ -354,7 +424,8 @@ function calculateInvoices() {
       gallons = yearConfig.overrides[m.ym];
     }
     let rate = yearConfig.rate || 1.25;
-    let invNum = `${appState.invPrefix}${appState.invStartNum + index}${appState.invSuffix}`;
+    const effectiveSuffix = getEffectiveSuffix(m);
+    let invNum = `${appState.invPrefix}${appState.invStartNum + index}${effectiveSuffix}`;
 
     let previous = 0;
     if (appState.includePrevBalance) {
@@ -884,9 +955,13 @@ function handleFileSelection(file) {
 async function processImport() {
   const statusEl = document.getElementById("fileUploadStatus");
   const rawText = document.getElementById("importTextarea").value.trim();
+  const isScratch = document.getElementById("importModeScratch")?.checked;
 
   // If raw text is provided
   if (rawText && !stagedFileData) {
+    if (isScratch) {
+      appState.manualCorrections = {};
+    }
     const lines = rawText.split("\n");
     let count = 0;
     lines.forEach(line => {
@@ -905,7 +980,7 @@ async function processImport() {
     closeImportModal();
     renderPreview();
     renderDataEditor();
-    showToast(`Imported corrections for ${count} months from text`, "success");
+    showToast(`Imported ${count} months from text (${isScratch ? 'Clean scratch import' : 'Merged / Overwritten'})`, "success");
     return;
   }
 
@@ -929,6 +1004,9 @@ async function processImport() {
     }
 
     if (data.invoices && Array.isArray(data.invoices)) {
+      if (isScratch) {
+        appState.manualCorrections = {};
+      }
       if (data.occupier) appState.occupier = data.occupier;
       if (data.location) appState.location = data.location;
       if (data.ntn) appState.ntn = data.ntn;
@@ -959,7 +1037,7 @@ async function processImport() {
       updateYearConfigsUI();
       renderPreview();
       renderDataEditor();
-      showToast(`Successfully imported ${data.invoices.length} invoices from ${stagedFileData.filename}`, "success");
+      showToast(`Successfully imported ${data.invoices.length} invoices from ${stagedFileData.filename} (${isScratch ? 'Clean scratch import' : 'Merged / Overwritten'})`, "success");
     } else {
       throw new Error("No invoices found in file");
     }
@@ -1060,17 +1138,8 @@ function renderCalGrid(type) {
     cell.addEventListener("click", (e) => {
       e.stopPropagation();
       const ym = `${year}-${String(monthNum).padStart(2, '0')}`;
-      if (isStart) {
-        appState.startMonth = ym;
-        document.getElementById("startMonthInput").value = ym;
-      } else {
-        appState.endMonth = ym;
-        document.getElementById("endMonthInput").value = ym;
-      }
       document.getElementById(`${type}CalPopover`).classList.remove("open");
-      updateYearConfigsUI();
-      renderPreview();
-      renderDataEditor();
+      updateBillingDate(type, ym);
     });
     grid.appendChild(cell);
   });
@@ -1122,6 +1191,8 @@ function syncInputsWithState() {
   document.getElementById("invPrefixInput").value = appState.invPrefix;
   document.getElementById("invStartNumInput").value = appState.invStartNum;
   document.getElementById("invSuffixInput").value = appState.invSuffix;
+  const autoSuffixToggle = document.getElementById("autoSuffixYearToggle");
+  if (autoSuffixToggle) autoSuffixToggle.checked = !!appState.autoSuffixYear;
   document.getElementById("prevBalanceToggle").checked = appState.includePrevBalance;
   document.getElementById("prevBalanceOptions").style.display = appState.includePrevBalance ? "block" : "none";
 
@@ -2101,20 +2172,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("startMonthInput").addEventListener("change", (e) => {
-    if (/^\d{4}-\d{2}$/.test(e.target.value)) {
-      appState.startMonth = e.target.value;
-      updateYearConfigsUI();
-      renderPreview();
-      renderDataEditor();
-    }
+    updateBillingDate("start", e.target.value);
   });
   document.getElementById("endMonthInput").addEventListener("change", (e) => {
-    if (/^\d{4}-\d{2}$/.test(e.target.value)) {
-      appState.endMonth = e.target.value;
-      updateYearConfigsUI();
-      renderPreview();
-      renderDataEditor();
-    }
+    updateBillingDate("end", e.target.value);
   });
 
   document.getElementById("invPrefixInput").addEventListener("input", (e) => {
@@ -2131,6 +2192,17 @@ document.addEventListener("DOMContentLoaded", () => {
     appState.invSuffix = e.target.value;
     renderPreview();
     renderDataEditor();
+  });
+
+  document.getElementById("autoSuffixYearToggle")?.addEventListener("change", (e) => {
+    appState.autoSuffixYear = e.target.checked;
+    renderPreview();
+    renderDataEditor();
+    if (e.target.checked) {
+      showToast("Year-based suffix changer activated (e.g. -051026 -> -051027)", "info");
+    } else {
+      showToast("Static suffix sequence restored", "info");
+    }
   });
 
   const prevToggle = document.getElementById("prevBalanceToggle");
