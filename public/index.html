@@ -86,12 +86,8 @@
       </button>
     </div>
 
-    <!-- Separate Export Options, Preview Toggle & Admin Panel -->
+    <!-- Separate Export Options & Preview Toggle -->
     <div class="header-actions">
-      <button class="btn btn-secondary" id="adminPanelBtn" title="Manage User Accounts and Credentials">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-        Admin Panel
-      </button>
       <button class="btn btn-secondary" id="togglePreviewBtn" title="Toggle Live Preview on/off to free up screen space">
         <svg id="togglePreviewIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
         <span id="togglePreviewText">Hide Preview</span>
@@ -639,70 +635,248 @@
     </div>
   </div>
 
-  <!-- Admin Panel / Multi-User Management Modal -->
-  <div class="modal-backdrop" id="adminPanelModalBackdrop">
-    <div class="modal-card" style="width: 580px; max-width: 95vw;">
-      <div class="modal-header">
-        <div class="modal-title">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px; height:18px; color:var(--accent-blue);"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-          Admin Panel • User Accounts &amp; Credentials
-        </div>
-        <button type="button" class="btn btn-secondary btn-sm" id="closeAdminPanelBtn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <!-- Add New User Form -->
-        <div style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem;">
-          <div style="font-size:0.85rem; font-weight:600; color:var(--text-main); margin-bottom:0.75rem;">Create New User Account</div>
-          <form id="adminAddUserForm" style="display:flex; flex-direction:column; gap:0.65rem;" autocomplete="off">
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label" for="newUserIdInput">User ID / Username</label>
-                <input type="text" id="newUserIdInput" class="form-input" placeholder="e.g. accountant1" required />
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="newUserPasswordInput">Password</label>
-                <input type="password" id="newUserPasswordInput" class="form-input" placeholder="Minimum 6 characters" required />
-              </div>
-            </div>
-            <div class="form-row" style="align-items:flex-end;">
-              <div class="form-group">
-                <label class="form-label" for="newUserRoleInput">Role / Privilege</label>
-                <select id="newUserRoleInput" class="form-select">
-                  <option value="Administrator">Administrator</option>
-                  <option value="Staff">Staff</option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary" id="adminCreateUserBtn" style="height:36px; justify-content:center;">
-                + Add User
-              </button>
-            </div>
-          </form>
+  <!-- KernelX Dedicated Security & User Management Console (/kernelx) -->
+  <div id="kernelxApp" class="kernelx-wrapper" style="display:none;">
+    
+    <!-- State 1: Master Kernel Access Gate (Login) -->
+    <div id="kernelxLoginGate" class="kernelx-gate-overlay">
+      <div class="kernelx-gate-card">
+        <div class="kernelx-gate-header">
+          <div class="kernelx-badge">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            <span>KernelX Control Core • Protected</span>
+          </div>
+          <h1 class="kernelx-gate-title">Kernel Access Gateway</h1>
+          <p class="kernelx-gate-subtitle">Enter Master Administrator credentials to manage users and system access</p>
         </div>
 
-        <!-- Existing Users Table -->
-        <div style="margin-top:0.5rem;">
-          <div style="font-size:0.82rem; font-weight:600; color:var(--text-muted); margin-bottom:0.5rem;">Authorized Corporate Accounts</div>
-          <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-subtle); border-radius:6px; background:var(--bg-card);">
-            <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+        <form id="kernelxLoginForm" class="login-form" autocomplete="off">
+          <div id="kernelxLoginAlert" class="login-error-alert" style="display:none;"></div>
+
+          <div class="form-group">
+            <label class="form-label" for="kernelxUsername">Admin ID</label>
+            <div class="input-with-icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+              <input type="text" id="kernelxUsername" class="form-input" placeholder="Admin@kernel" value="Admin@kernel" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="kernelxPassword">Master Password</label>
+            <div class="input-with-icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+              <input type="password" id="kernelxPassword" class="form-input" placeholder="••••••••••••" required />
+              <button type="button" class="password-toggle-btn" id="toggleKernelxPassBtn" title="Toggle password visibility">
+                <svg id="kernelxPassEyeIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary login-submit-btn" id="kernelxLoginSubmitBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
+            <span id="kernelxLoginSubmitText">Authorize Master Access</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- State 2: Master User Management Console (Dashboard) -->
+    <div id="kernelxDashboard" class="kernelx-dashboard" style="display:none;">
+      
+      <!-- Top Bar -->
+      <header class="kernelx-topbar">
+        <div class="kernelx-brand">
+          <div class="kernelx-logo-badge">KERNEL-X</div>
+          <div class="kernelx-title-block">
+            <span class="kernelx-title">User Directory &amp; Access Control</span>
+            <span class="kernelx-subtitle">Live Session Revocation Engine</span>
+          </div>
+        </div>
+        <div class="kernelx-top-actions">
+          <div class="kernelx-user-tag">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px; color:#10b981;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+            <span>Admin@kernel</span>
+          </div>
+          <button class="btn btn-primary" id="kernelxAddUserBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+            <span>+ Add User</span>
+          </button>
+          <button class="btn btn-secondary" id="kernelxLogoutBtn" title="Lock Console and Sign Out">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            <span>Exit / Lock</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Container -->
+      <main class="kernelx-content">
+        <!-- Stats Row -->
+        <div class="kernelx-stats-row">
+          <div class="kernelx-stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value" id="kernelxStatTotal">0</div>
+            <div class="stat-meta">Registered accounts</div>
+          </div>
+          <div class="kernelx-stat-card">
+            <div class="stat-label">Administrators</div>
+            <div class="stat-value" id="kernelxStatAdmins" style="color:#60a5fa;">0</div>
+            <div class="stat-meta">Elevated privilege</div>
+          </div>
+          <div class="kernelx-stat-card">
+            <div class="stat-label">Staff Members</div>
+            <div class="stat-value" id="kernelxStatStaff" style="color:#34d399;">0</div>
+            <div class="stat-meta">Standard access</div>
+          </div>
+          <div class="kernelx-stat-card">
+            <div class="stat-label">Session Revocation</div>
+            <div class="stat-value" style="color:#10b981; font-size:1.15rem; display:flex; align-items:center; gap:0.4rem;">
+              <span class="live-pulse-dot"></span> Active
+            </div>
+            <div class="stat-meta">Deleted users ejected instantly</div>
+          </div>
+        </div>
+
+        <!-- Directory Panel -->
+        <div class="kernelx-table-panel">
+          <div class="kernelx-panel-toolbar">
+            <div class="kernelx-search-box">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px; color:var(--text-dim);"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              <input type="text" id="kernelxSearchInput" class="form-input" placeholder="Search by username or role..." />
+            </div>
+            <div class="kernelx-user-count" id="kernelxUserCountLabel">
+              Loading users...
+            </div>
+          </div>
+
+          <div class="kernelx-table-responsive">
+            <table class="kernelx-table">
               <thead>
-                <tr style="background:#0c0d12; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); text-align:left;">
-                  <th style="padding:0.5rem 0.75rem;">Username</th>
-                  <th style="padding:0.5rem 0.75rem;">Role</th>
-                  <th style="padding:0.5rem 0.75rem;">Created</th>
-                  <th style="padding:0.5rem 0.75rem; text-align:right;">Action</th>
+                <tr>
+                  <th style="width: 32%;">User Account</th>
+                  <th style="width: 18%;">Role &amp; Privilege</th>
+                  <th style="width: 20%;">Date Created</th>
+                  <th style="width: 15%;">Status</th>
+                  <th style="width: 15%; text-align: right;">Actions</th>
                 </tr>
               </thead>
-              <tbody id="adminUsersTableBody">
-                <!-- Dynamically populated -->
+              <tbody id="kernelxTableBody">
+                <!-- Dynamically Rendered -->
               </tbody>
             </table>
           </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="adminPanelCloseFooterBtn">Close</button>
+      </main>
+    </div>
+
+    <!-- Modal: Add New User -->
+    <div class="modal-backdrop" id="kernelxAddModalBackdrop" style="display:none;">
+      <div class="modal-card" style="width: 480px; max-width: 95vw;">
+        <div class="modal-header">
+          <div class="modal-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px; height:18px; color:var(--accent-blue);"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+            Add New User Account
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="kernelxCloseAddModalBtn">&times;</button>
+        </div>
+        <form id="kernelxAddUserForm" autocomplete="off">
+          <div class="modal-body">
+            <div id="kernelxAddModalAlert" class="login-error-alert" style="display:none; margin-bottom:0.75rem;"></div>
+
+            <div class="form-group" style="margin-bottom:0.85rem;">
+              <label class="form-label" for="addModalUsername">Username / ID</label>
+              <input type="text" id="addModalUsername" class="form-input" placeholder="e.g. accountant_ali" required />
+            </div>
+
+            <div class="form-group" style="margin-bottom:0.85rem;">
+              <label class="form-label" for="addModalPassword">Initial Password</label>
+              <input type="password" id="addModalPassword" class="form-input" placeholder="Minimum 6 characters" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="addModalRole">Account Role</label>
+              <select id="addModalRole" class="form-select">
+                <option value="Staff" selected>Staff (Standard Invoice Access)</option>
+                <option value="Administrator">Administrator (High Privilege)</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="kernelxCancelAddModalBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="kernelxSubmitAddUserBtn">+ Create User</button>
+          </div>
+        </form>
       </div>
     </div>
+
+    <!-- Modal: Edit Existing User -->
+    <div class="modal-backdrop" id="kernelxEditModalBackdrop" style="display:none;">
+      <div class="modal-card" style="width: 480px; max-width: 95vw;">
+        <div class="modal-header">
+          <div class="modal-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px; height:18px; color:var(--accent-amber);"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+            Edit User Account
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="kernelxCloseEditModalBtn">&times;</button>
+        </div>
+        <form id="kernelxEditUserForm" autocomplete="off">
+          <input type="hidden" id="editModalUserId" />
+          <div class="modal-body">
+            <div id="kernelxEditModalAlert" class="login-error-alert" style="display:none; margin-bottom:0.75rem;"></div>
+
+            <div class="form-group" style="margin-bottom:0.85rem;">
+              <label class="form-label" for="editModalUsername">Username / ID</label>
+              <input type="text" id="editModalUsername" class="form-input" required />
+            </div>
+
+            <div class="form-group" style="margin-bottom:0.85rem;">
+              <label class="form-label" for="editModalPassword">New Password (Optional)</label>
+              <input type="password" id="editModalPassword" class="form-input" placeholder="Leave blank to keep current password" />
+              <div style="font-size:0.72rem; color:var(--text-dim); margin-top:0.3rem;">
+                * Changing password immediately revokes active sessions and forces re-login.
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editModalRole">Account Role</label>
+              <select id="editModalRole" class="form-select">
+                <option value="Staff">Staff (Standard Invoice Access)</option>
+                <option value="Administrator">Administrator (High Privilege)</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="kernelxCancelEditModalBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="kernelxSubmitEditUserBtn">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Delete User Confirmation -->
+    <div class="modal-backdrop" id="kernelxDeleteModalBackdrop" style="display:none;">
+      <div class="modal-card" style="width: 440px; max-width: 95vw;">
+        <div class="modal-header">
+          <div class="modal-title" style="color:var(--accent-red);">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px; height:18px; color:var(--accent-red);"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            Revoke &amp; Delete User Account
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="kernelxCloseDeleteModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:0.85rem; color:var(--text-main); margin-bottom:0.75rem;">
+            Are you sure you want to permanently delete user <strong id="kernelxDeleteUsernameHighlight" style="color:#ffffff;"></strong>?
+          </p>
+          <div style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.25); border-radius:6px; padding:0.65rem 0.8rem; font-size:0.76rem; color:#fca5a5; line-height:1.45;">
+            <strong>Instant Revocation:</strong> This user will be <strong>instantly kicked out and logged out</strong> from any computer or browser tab they currently have open.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="kernelxCancelDeleteModalBtn">Cancel</button>
+          <button type="button" class="btn btn-danger" id="kernelxConfirmDeleteBtn">Revoke &amp; Delete</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Themed Confirmation Modal -->

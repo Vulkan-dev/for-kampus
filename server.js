@@ -24,6 +24,8 @@ const PORT = process.env.PORT || 3000;
 // Security & Authentication Configuration
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MegaMall@Kampus2026!';
+const KERNEL_ADMIN_USER = process.env.KERNEL_ADMIN_USER || 'Admin@kernel';
+const KERNEL_ADMIN_PASS = process.env.KERNEL_ADMIN_PASS || 'kernelx2026@1';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'MegaMall_SuperSecret_Cryptographic_Key_2026_Corporate#991!';
 const DATA_DIR = path.join(__dirname, 'data');
 const SHOPS_JSON_PATH = path.join(DATA_DIR, 'shops.json');
@@ -62,7 +64,8 @@ function readUsersDatabase() {
       initializeUsersDatabase();
     }
     const data = fs.readFileSync(USERS_JSON_PATH, 'utf-8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    return parsed.map(u => ({ ...u, tokenVersion: u.tokenVersion || 1 }));
   } catch (err) {
     console.error('Error reading users database:', err);
     return [
@@ -71,6 +74,7 @@ function readUsersDatabase() {
         username: ADMIN_USERNAME,
         passwordHash: hashPassword(ADMIN_PASSWORD),
         role: 'Administrator',
+        tokenVersion: 1,
         createdAt: new Date().toISOString()
       }
     ];
@@ -211,12 +215,12 @@ function verifyToken(token) {
   }
 }
 
-// Strong Authentication Middleware
+// Strong Authentication Middleware with Realtime Revocation Check
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
-      error: 'Access Denied: Corporate authentication token required.'
+      error: 'Access Denied: Authentication token required.'
     });
   }
 
@@ -225,24 +229,245 @@ function requireAuth(req, res, next) {
 
   if (!verifiedUser) {
     return res.status(401).json({
-      error: 'Session Expired or Invalid: Please log in again.'
+      error: 'Session Expired: Please log in again.'
     });
   }
 
-  req.user = verifiedUser;
+  // Master KernelX Admin tokens are always authorized
+  if (verifiedUser.isKernelAdmin) {
+    req.user = verifiedUser;
+    return next();
+  }
+
+  // Realtime Live Database Verification: Check if user account still exists
+  const users = readUsersDatabase();
+  const matchedUser = users.find(u => 
+    (verifiedUser.userId && u.id === verifiedUser.userId) || 
+    u.username.toLowerCase() === verifiedUser.username.toLowerCase()
+  );
+
+  if (!matchedUser) {
+    return res.status(401).json({
+      error: 'Account Revoked: Your account has been removed by administrator. You have been logged out.',
+      revoked: true
+    });
+  }
+
+  // Check if credentials or tokenVersion were changed
+  const currentVersion = matchedUser.tokenVersion || 1;
+  const userVersion = verifiedUser.tokenVersion || 1;
+  if (currentVersion !== userVersion) {
+    return res.status(401).json({
+      error: 'Credentials Updated: Your password or privileges have changed. Please log in again.',
+      revoked: true
+    });
+  }
+
+  req.user = matchedUser;
   next();
 }
 
 // Middleware: require administrator role
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'Administrator') {
+  if (!req.user || (req.user.role !== 'Administrator' && !req.user.isKernelAdmin)) {
     return res.status(403).json({ error: 'Administrative privilege required.' });
   }
   next();
 }
 
 // ==========================================================
-// Authentication Endpoints
+// KernelX Master Admin Authentication & Management
+// ==========================================================
+function requireKernelAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'KernelX Master authentication required.' });
+  }
+
+  const token = authHeader.substring(7).trim();
+  const verifiedUser = verifyToken(token);
+
+  if (!verifiedUser || !verifiedUser.isKernelAdmin) {
+    return res.status(401).json({ error: 'Unauthorized: KernelX Master credentials required.' });
+  }
+
+  req.kernelUser = verifiedUser;
+  next();
+}
+
+// KernelX Login Endpoint
+app.post('/api/kernelx/login', loginRateLimiter, (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Admin ID and Password are required.' });
+  }
+
+  const inputUser = username.trim().toLowerCase();
+  const targetUser = KERNEL_ADMIN_USER.toLowerCase();
+
+  if (inputUser === targetUser && password.trim() === KERNEL_ADMIN_PASS) {
+    const token = generateToken({
+      username: KERNEL_ADMIN_USER,
+      isKernelAdmin: true,
+      role: 'Master Administrator',
+      exp: Date.now() + 24 * 60 * 60 * 1000
+    });
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        username: KERNEL_ADMIN_USER,
+        role: 'Master Administrator'
+      }
+    });
+  }
+
+  return res.status(401).json({ error: 'Invalid KernelX credentials.' });
+});
+
+// KernelX Session Verification
+app.get('/api/kernelx/verify', requireKernelAuth, (req, res) => {
+  res.json({ valid: true, user: req.kernelUser });
+});
+
+// KernelX: Get All Users
+app.get('/api/kernelx/users', requireKernelAuth, (req, res) => {
+  const users = readUsersDatabase().map(u => ({
+    id: u.id,
+    username: u.username,
+    role: u.role || 'Staff',
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt || u.createdAt
+  }));
+  res.json({ success: true, users });
+});
+
+// KernelX: Add New User
+app.post('/api/kernelx/users', requireKernelAuth, (req, res) => {
+  const { username, password, role } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  const cleanUser = username.trim();
+  const cleanPass = password.trim();
+
+  if (cleanUser.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters long.' });
+  }
+  if (cleanPass.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+  }
+
+  const users = readUsersDatabase();
+  if (users.some(u => u.username.toLowerCase() === cleanUser.toLowerCase())) {
+    return res.status(409).json({ error: `User "${cleanUser}" already exists.` });
+  }
+
+  const newUser = {
+    id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    username: cleanUser,
+    passwordHash: hashPassword(cleanPass),
+    role: role === 'Administrator' ? 'Administrator' : 'Staff',
+    tokenVersion: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  users.push(newUser);
+  writeUsersDatabaseAtomic(users);
+
+  res.json({
+    success: true,
+    user: {
+      id: newUser.id,
+      username: newUser.username,
+      role: newUser.role,
+      createdAt: newUser.createdAt
+    }
+  });
+});
+
+// KernelX: Edit Existing User
+app.put('/api/kernelx/users/:id', requireKernelAuth, (req, res) => {
+  const { id } = req.params;
+  const { username, password, role } = req.body || {};
+
+  const users = readUsersDatabase();
+  const index = users.findIndex(u => u.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'User account not found.' });
+  }
+
+  const target = users[index];
+
+  // Update username if provided
+  if (username && username.trim().toLowerCase() !== target.username.toLowerCase()) {
+    const cleanUser = username.trim();
+    if (cleanUser.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters long.' });
+    }
+    if (users.some(u => u.id !== id && u.username.toLowerCase() === cleanUser.toLowerCase())) {
+      return res.status(409).json({ error: `Username "${cleanUser}" is already taken.` });
+    }
+    target.username = cleanUser;
+    // Increment tokenVersion so user must log in again with new username
+    target.tokenVersion = (target.tokenVersion || 1) + 1;
+  }
+
+  // Update password if provided
+  if (password && password.trim().length > 0) {
+    const cleanPass = password.trim();
+    if (cleanPass.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+    target.passwordHash = hashPassword(cleanPass);
+    // Increment tokenVersion to immediately invalidate all active sessions
+    target.tokenVersion = (target.tokenVersion || 1) + 1;
+  }
+
+  if (role && (role === 'Administrator' || role === 'Staff')) {
+    target.role = role;
+  }
+
+  target.updatedAt = new Date().toISOString();
+  users[index] = target;
+  writeUsersDatabaseAtomic(users);
+
+  res.json({
+    success: true,
+    message: `User "${target.username}" updated successfully.`,
+    user: {
+      id: target.id,
+      username: target.username,
+      role: target.role,
+      updatedAt: target.updatedAt
+    }
+  });
+});
+
+// KernelX: Remove / Revoke User
+app.delete('/api/kernelx/users/:id', requireKernelAuth, (req, res) => {
+  const { id } = req.params;
+  const users = readUsersDatabase();
+  const target = users.find(u => u.id === id);
+
+  if (!target) {
+    return res.status(404).json({ error: 'User account not found.' });
+  }
+
+  const filtered = users.filter(u => u.id !== id);
+  writeUsersDatabaseAtomic(filtered);
+
+  res.json({
+    success: true,
+    message: `User "${target.username}" removed. All active sessions have been immediately revoked.`
+  });
+});
+
+// ==========================================================
+// Standard User Authentication Endpoints
 // ==========================================================
 app.post('/api/auth/login', loginRateLimiter, (req, res) => {
   const { username, password } = req.body || {};
@@ -263,8 +488,10 @@ app.post('/api/auth/login', loginRateLimiter, (req, res) => {
   // Fallback check against env admin credentials
   if (!matchedUser && trimmedUser === ADMIN_USERNAME.toLowerCase() && trimmedPass === ADMIN_PASSWORD) {
     matchedUser = {
+      id: 'usr_root_admin',
       username: ADMIN_USERNAME,
-      role: 'Administrator'
+      role: 'Administrator',
+      tokenVersion: 1
     };
   }
 
@@ -288,10 +515,12 @@ app.post('/api/auth/login', loginRateLimiter, (req, res) => {
   // Clear failed login attempts on success
   loginAttempts.delete(ip);
 
-  // Generate Session Token (24 hours valid)
+  // Generate Session Token with live tokenVersion for instant revocation
   const token = generateToken({
+    userId: matchedUser.id,
     username: matchedUser.username,
-    role: matchedUser.role || 'Administrator',
+    role: matchedUser.role || 'Staff',
+    tokenVersion: matchedUser.tokenVersion || 1,
     organization: 'The Mega Mall & Kampus Integrated Services',
     exp: Date.now() + 24 * 60 * 60 * 1000
   });
@@ -300,98 +529,17 @@ app.post('/api/auth/login', loginRateLimiter, (req, res) => {
     success: true,
     token,
     user: {
+      id: matchedUser.id,
       username: matchedUser.username,
-      role: matchedUser.role || 'Administrator',
+      role: matchedUser.role || 'Staff',
       organization: 'The Mega Mall & Kampus Integrated Services'
     }
   });
 });
 
-// ==========================================================
-// Admin Multi-User Management Endpoints
-// ==========================================================
-app.get('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
-  const users = readUsersDatabase().map(u => ({
-    id: u.id,
-    username: u.username,
-    role: u.role,
-    createdAt: u.createdAt
-  }));
-  res.json({ users });
-});
-
-app.post('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
-  const { username, password, role } = req.body || {};
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' });
-  }
-
-  const cleanUser = username.trim().toLowerCase();
-  const cleanPass = password.trim();
-
-  if (cleanUser.length < 3) {
-    return res.status(400).json({ error: 'Username must be at least 3 characters long.' });
-  }
-  if (cleanPass.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
-  }
-
-  const users = readUsersDatabase();
-  const exists = users.some(u => u.username.toLowerCase() === cleanUser);
-  if (exists) {
-    return res.status(409).json({ error: `User "${cleanUser}" already exists.` });
-  }
-
-  const newUser = {
-    id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    username: cleanUser,
-    passwordHash: hashPassword(cleanPass),
-    role: role === 'Staff' ? 'Staff' : 'Administrator',
-    createdAt: new Date().toISOString()
-  };
-
-  users.push(newUser);
-  writeUsersDatabaseAtomic(users);
-
-  res.json({
-    success: true,
-    user: {
-      id: newUser.id,
-      username: newUser.username,
-      role: newUser.role,
-      createdAt: newUser.createdAt
-    }
-  });
-});
-
-app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
-  const { id } = req.params;
-  const users = readUsersDatabase();
-  const target = users.find(u => u.id === id);
-
-  if (!target) {
-    return res.status(404).json({ error: 'User account not found.' });
-  }
-  if (target.id === 'usr_root_admin' || target.username.toLowerCase() === ADMIN_USERNAME.toLowerCase()) {
-    return res.status(403).json({ error: 'Root administrator account cannot be deleted.' });
-  }
-
-  const filtered = users.filter(u => u.id !== id);
-  writeUsersDatabaseAtomic(filtered);
-  res.json({ success: true, message: `User "${target.username}" deleted.` });
-});
-
-app.get('/api/auth/verify', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ valid: false });
-  }
-  const token = authHeader.substring(7).trim();
-  const payload = verifyToken(token);
-  if (!payload) {
-    return res.status(401).json({ valid: false });
-  }
-  res.json({ valid: true, user: payload });
+// Verified session endpoint - checks live database on every call
+app.get('/api/auth/verify', requireAuth, (req, res) => {
+  res.json({ valid: true, user: req.user });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -893,6 +1041,11 @@ app.post('/api/shops/export/xlsx', requireAuth, (req, res) => {
     console.error('Export xlsx error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Dedicated route for KernelX Admin Console
+app.get('/kernelx', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Dedicated route for standalone Shop Directory

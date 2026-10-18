@@ -22,10 +22,40 @@ function setAuthSession(token, user) {
   }
 }
 
+// Active Realtime Session Heartbeat (detects user deletion within seconds)
+let sessionHeartbeatTimer = null;
+function startSessionHeartbeat() {
+  if (sessionHeartbeatTimer) clearInterval(sessionHeartbeatTimer);
+  sessionHeartbeatTimer = setInterval(async () => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const res = await fetch('/api/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        clearAuthSession();
+        showLoginPortal("Your account has been removed or credentials changed by administrator. Logged out.");
+        showToast("Account removed by administrator. Logged out.", "error");
+      }
+    } catch (e) {
+      // network hiccup, ignore
+    }
+  }, 3000);
+}
+
+function stopSessionHeartbeat() {
+  if (sessionHeartbeatTimer) {
+    clearInterval(sessionHeartbeatTimer);
+    sessionHeartbeatTimer = null;
+  }
+}
+
 function clearAuthSession() {
   sessionStorage.removeItem('mega_mall_auth_token');
   sessionStorage.removeItem('mega_mall_auth_user');
   authUser = null;
+  stopSessionHeartbeat();
 }
 
 // Authenticated Fetch Wrapper
@@ -40,8 +70,8 @@ async function authFetch(url, options = {}) {
   const response = await fetch(url, options);
   if (response.status === 401) {
     clearAuthSession();
-    showLoginPortal("Your corporate session has expired. Please sign in again.");
-    throw new Error("Unauthorized - session expired");
+    showLoginPortal("Your session was revoked or account removed. Please sign in again.");
+    throw new Error("Unauthorized - session revoked");
   }
   return response;
 }
@@ -49,8 +79,6 @@ async function authFetch(url, options = {}) {
 function showLoginPortal(errorMessage = "") {
   const overlay = document.getElementById("loginScreen");
   const errEl = document.getElementById("loginErrorAlert");
-  const adminBtn = document.getElementById("adminPanelBtn");
-  if (adminBtn) adminBtn.style.display = "none";
   if (overlay) overlay.classList.remove("hidden");
   if (errEl) {
     if (errorMessage) {
@@ -62,17 +90,9 @@ function showLoginPortal(errorMessage = "") {
   }
 }
 
-function updateAdminButtonVisibility() {
-  const adminBtn = document.getElementById("adminPanelBtn");
-  if (adminBtn) {
-    adminBtn.style.display = (authUser && authUser.role === "Administrator") ? "inline-flex" : "none";
-  }
-}
-
 function hideLoginPortal() {
   const overlay = document.getElementById("loginScreen");
   if (overlay) overlay.classList.add("hidden");
-  updateAdminButtonVisibility();
 }
 
 async function checkAuthSession() {
@@ -96,6 +116,7 @@ async function checkAuthSession() {
       if (data.valid) {
         authUser = data.user;
         hideLoginPortal();
+        startSessionHeartbeat();
         return true;
       }
     }
@@ -2017,122 +2038,404 @@ async function exportShopsToExcel() {
 })();
 
 // ==========================================================
-// Admin Panel: User Account Management
+// KernelX Master Admin Console (/kernelx)
 // ==========================================================
-async function openAdminPanelModal() {
-  const backdrop = document.getElementById("adminPanelModalBackdrop");
-  if (!backdrop) return;
-  backdrop.classList.add("open");
-  backdrop.classList.add("active");
-  await loadAdminUsers();
+let kernelxUsersList = [];
+
+function getKernelxToken() {
+  return sessionStorage.getItem('kernelx_auth_token');
 }
 
-function closeAdminPanelModal() {
-  const backdrop = document.getElementById("adminPanelModalBackdrop");
-  if (!backdrop) return;
-  backdrop.classList.remove("open");
-  backdrop.classList.remove("active");
+function setKernelxSession(token, user) {
+  if (token) sessionStorage.setItem('kernelx_auth_token', token);
+  if (user) sessionStorage.setItem('kernelx_auth_user', JSON.stringify(user));
 }
 
-async function loadAdminUsers() {
-  const tbody = document.getElementById("adminUsersTableBody");
-  if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1rem; color:var(--text-muted);">Loading users...</td></tr>`;
+function clearKernelxSession() {
+  sessionStorage.removeItem('kernelx_auth_token');
+  sessionStorage.removeItem('kernelx_auth_user');
+}
 
-  try {
-    const res = await authFetch('/api/admin/users');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const users = data.users || [];
+async function kernelxFetch(url, options = {}) {
+  const token = getKernelxToken();
+  const headers = Object.assign({}, options.headers || {});
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  options.headers = headers;
 
-    if (!users.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1rem; color:var(--text-dim);">No user accounts found.</td></tr>`;
-      return;
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    clearKernelxSession();
+    showKernelxGate("Master session expired or unauthorized. Please re-enter credentials.");
+    throw new Error("Unauthorized");
+  }
+  return res;
+}
+
+function showKernelxGate(errorMsg = "") {
+  const gate = document.getElementById("kernelxLoginGate");
+  const dash = document.getElementById("kernelxDashboard");
+  const alertEl = document.getElementById("kernelxLoginAlert");
+  if (gate) gate.style.display = "flex";
+  if (dash) dash.style.display = "none";
+  if (alertEl) {
+    if (errorMsg) {
+      alertEl.textContent = errorMsg;
+      alertEl.style.display = "block";
+    } else {
+      alertEl.style.display = "none";
     }
-
-    tbody.innerHTML = users.map(u => {
-      const isRoot = u.id === 'usr_root_admin' || u.username === 'admin';
-      const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'System';
-      const actionBtn = isRoot
-        ? `<span style="color:var(--text-dim); font-size:0.7rem;">Primary Root</span>`
-        : `<button type="button" class="btn btn-danger btn-sm" onclick="deleteAdminUser('${escapeHtml(u.id)}', '${escapeHtml(u.username)}')" style="padding:2px 6px; font-size:0.7rem;">Delete</button>`;
-
-      return `
-        <tr style="border-bottom:1px solid #1a1e28;">
-          <td style="padding:0.45rem 0.75rem; font-weight:600; color:var(--text-main);">${escapeHtml(u.username)}</td>
-          <td style="padding:0.45rem 0.75rem;"><span class="badge" style="background:rgba(59,130,246,0.12); color:#60a5fa; padding:2px 6px; border-radius:4px; font-size:0.7rem;">${escapeHtml(u.role || 'Administrator')}</span></td>
-          <td style="padding:0.45rem 0.75rem; color:var(--text-muted); font-size:0.72rem;">${dateStr}</td>
-          <td style="padding:0.45rem 0.75rem; text-align:right;">${actionBtn}</td>
-        </tr>
-      `;
-    }).join("");
-  } catch (err) {
-    console.error("Failed to load users:", err);
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1rem; color:var(--accent-red);">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
-async function handleAdminAddUser(e) {
-  e.preventDefault();
-  const userInput = document.getElementById("newUserIdInput");
-  const passInput = document.getElementById("newUserPasswordInput");
-  const roleInput = document.getElementById("newUserRoleInput");
-  const submitBtn = document.getElementById("adminCreateUserBtn");
+function showKernelxDashboard() {
+  const gate = document.getElementById("kernelxLoginGate");
+  const dash = document.getElementById("kernelxDashboard");
+  if (gate) gate.style.display = "none";
+  if (dash) dash.style.display = "flex";
+  loadKernelxUsers();
+}
 
-  const username = userInput.value.trim();
-  const password = passInput.value.trim();
-  const role = roleInput.value;
+async function initKernelx() {
+  // Wire up login form
+  const loginForm = document.getElementById("kernelxLoginForm");
+  loginForm?.addEventListener("submit", handleKernelxLogin);
+
+  // Wire up password toggle
+  document.getElementById("toggleKernelxPassBtn")?.addEventListener("click", () => {
+    const input = document.getElementById("kernelxPassword");
+    if (!input) return;
+    input.type = input.type === "password" ? "text" : "password";
+  });
+
+  // Wire up logout button
+  document.getElementById("kernelxLogoutBtn")?.addEventListener("click", () => {
+    clearKernelxSession();
+    showToast("Master Console locked.", "info");
+    showKernelxGate();
+  });
+
+  // Wire up Add User Modal
+  document.getElementById("kernelxAddUserBtn")?.addEventListener("click", () => {
+    document.getElementById("addModalUsername").value = "";
+    document.getElementById("addModalPassword").value = "";
+    document.getElementById("addModalRole").value = "Staff";
+    document.getElementById("kernelxAddModalAlert").style.display = "none";
+    document.getElementById("kernelxAddModalBackdrop").style.display = "flex";
+  });
+
+  document.getElementById("kernelxCloseAddModalBtn")?.addEventListener("click", () => {
+    document.getElementById("kernelxAddModalBackdrop").style.display = "none";
+  });
+  document.getElementById("kernelxCancelAddModalBtn")?.addEventListener("click", () => {
+    document.getElementById("kernelxAddModalBackdrop").style.display = "none";
+  });
+
+  document.getElementById("kernelxAddUserForm")?.addEventListener("submit", handleKernelxAddUser);
+
+  // Wire up Edit User Modal
+  document.getElementById("kernelxCloseEditModalBtn")?.addEventListener("click", () => {
+    document.getElementById("kernelxEditModalBackdrop").style.display = "none";
+  });
+  document.getElementById("kernelxCancelEditModalBtn")?.addEventListener("click", () => {
+    document.getElementById("kernelxEditModalBackdrop").style.display = "none";
+  });
+
+  document.getElementById("kernelxEditUserForm")?.addEventListener("submit", handleKernelxEditUser);
+
+  // Wire up Delete User Modal
+  document.getElementById("kernelxCloseDeleteModalBtn")?.addEventListener("click", () => {
+    document.getElementById("kernelxDeleteModalBackdrop").style.display = "none";
+  });
+  document.getElementById("kernelxCancelDeleteModalBtn")?.addEventListener("click", () => {
+    document.getElementById("kernelxDeleteModalBackdrop").style.display = "none";
+  });
+
+  // Wire up live search filter
+  document.getElementById("kernelxSearchInput")?.addEventListener("input", (e) => {
+    renderKernelxTable(e.target.value);
+  });
+
+  // Check existing token
+  const token = getKernelxToken();
+  if (token) {
+    try {
+      const res = await fetch('/api/kernelx/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showKernelxDashboard();
+        return;
+      }
+    } catch (e) {}
+  }
+
+  clearKernelxSession();
+  showKernelxGate();
+}
+
+async function handleKernelxLogin(e) {
+  e.preventDefault();
+  const userEl = document.getElementById("kernelxUsername");
+  const passEl = document.getElementById("kernelxPassword");
+  const submitBtn = document.getElementById("kernelxLoginSubmitBtn");
+  const submitText = document.getElementById("kernelxLoginSubmitText");
+  const alertEl = document.getElementById("kernelxLoginAlert");
+
+  const username = userEl.value.trim();
+  const password = passEl.value;
 
   if (!username || !password) {
-    showToast("Please provide both username and password.", "error");
+    alertEl.textContent = "Please enter Admin ID and Password.";
+    alertEl.style.display = "block";
     return;
   }
 
   submitBtn.disabled = true;
+  submitText.textContent = "Verifying...";
+  alertEl.style.display = "none";
+
   try {
-    const res = await authFetch('/api/admin/users', {
+    const res = await fetch('/api/kernelx/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Authentication failed.");
+
+    setKernelxSession(data.token, data.user);
+    passEl.value = "";
+    showToast("Master Kernel access granted.", "success");
+    showKernelxDashboard();
+  } catch (err) {
+    alertEl.textContent = err.message;
+    alertEl.style.display = "block";
+  } finally {
+    submitBtn.disabled = false;
+    submitText.textContent = "Authorize Master Access";
+  }
+}
+
+async function loadKernelxUsers() {
+  const tbody = document.getElementById("kernelxTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Loading user directory...</td></tr>`;
+
+  try {
+    const res = await kernelxFetch('/api/kernelx/users');
+    const data = await res.json();
+    kernelxUsersList = data.users || [];
+    renderKernelxTable();
+    updateKernelxStats();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:var(--accent-red);">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+function updateKernelxStats() {
+  const total = kernelxUsersList.length;
+  const admins = kernelxUsersList.filter(u => u.role === 'Administrator').length;
+  const staff = kernelxUsersList.filter(u => u.role !== 'Administrator').length;
+
+  document.getElementById("kernelxStatTotal").textContent = total;
+  document.getElementById("kernelxStatAdmins").textContent = admins;
+  document.getElementById("kernelxStatStaff").textContent = staff;
+}
+
+function renderKernelxTable(query = "") {
+  const tbody = document.getElementById("kernelxTableBody");
+  const countLabel = document.getElementById("kernelxUserCountLabel");
+  if (!tbody) return;
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? kernelxUsersList.filter(u => u.username.toLowerCase().includes(q) || (u.role || '').toLowerCase().includes(q))
+    : kernelxUsersList;
+
+  countLabel.textContent = `Showing ${filtered.length} of ${kernelxUsersList.length} user accounts`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-dim);">No matching user accounts found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(u => {
+    const initials = (u.username || "U").substring(0, 2).toUpperCase();
+    const isAdmin = u.role === 'Administrator';
+    const roleBadge = isAdmin
+      ? `<span class="role-badge-admin">Administrator</span>`
+      : `<span class="role-badge-staff">Staff</span>`;
+    const createdStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "System";
+
+    return `
+      <tr>
+        <td>
+          <div class="user-cell">
+            <div class="user-avatar-circle">${escapeHtml(initials)}</div>
+            <div class="user-names">
+              <span class="user-username">${escapeHtml(u.username)}</span>
+              <span class="user-id-sub">${escapeHtml(u.id)}</span>
+            </div>
+          </div>
+        </td>
+        <td>${roleBadge}</td>
+        <td style="color:var(--text-muted); font-size:0.75rem;">${createdStr}</td>
+        <td>
+          <span class="status-badge-active">
+            <span class="live-pulse-dot" style="width:6px; height:6px;"></span>
+            Active Sync
+          </span>
+        </td>
+        <td>
+          <div class="table-actions-cell">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openKernelxEditModal('${escapeHtml(u.id)}')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px; height:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+              Edit
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="openKernelxDeleteModal('${escapeHtml(u.id)}', '${escapeHtml(u.username)}')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px; height:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              Remove
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function handleKernelxAddUser(e) {
+  e.preventDefault();
+  const username = document.getElementById("addModalUsername").value.trim();
+  const password = document.getElementById("addModalPassword").value.trim();
+  const role = document.getElementById("addModalRole").value;
+  const alertEl = document.getElementById("kernelxAddModalAlert");
+  const submitBtn = document.getElementById("kernelxSubmitAddUserBtn");
+
+  if (!username || !password) {
+    alertEl.textContent = "Please provide username and password.";
+    alertEl.style.display = "block";
+    return;
+  }
+
+  submitBtn.disabled = true;
+  alertEl.style.display = "none";
+
+  try {
+    const res = await kernelxFetch('/api/kernelx/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, role })
     });
-
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to create user.");
 
     showToast(`User account "${username}" created successfully!`, "success");
-    userInput.value = "";
-    passInput.value = "";
-    await loadAdminUsers();
+    document.getElementById("kernelxAddModalBackdrop").style.display = "none";
+    await loadKernelxUsers();
   } catch (err) {
-    showToast(err.message, "error");
+    alertEl.textContent = err.message;
+    alertEl.style.display = "block";
   } finally {
     submitBtn.disabled = false;
   }
 }
 
-function deleteAdminUser(userId, username) {
-  showConfirm(
-    "Delete User Account",
-    `Are you sure you want to delete user "${username}"? They will immediately lose access.`,
-    async () => {
-      try {
-        const res = await authFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to delete user.");
-        showToast(`User "${username}" deleted.`, "success");
-        await loadAdminUsers();
-      } catch (err) {
-        showToast(err.message, "error");
-      }
+function openKernelxEditModal(userId) {
+  const user = kernelxUsersList.find(u => u.id === userId);
+  if (!user) return;
+
+  document.getElementById("editModalUserId").value = user.id;
+  document.getElementById("editModalUsername").value = user.username;
+  document.getElementById("editModalPassword").value = "";
+  document.getElementById("editModalRole").value = user.role || "Staff";
+  document.getElementById("kernelxEditModalAlert").style.display = "none";
+  document.getElementById("kernelxEditModalBackdrop").style.display = "flex";
+}
+
+async function handleKernelxEditUser(e) {
+  e.preventDefault();
+  const userId = document.getElementById("editModalUserId").value;
+  const username = document.getElementById("editModalUsername").value.trim();
+  const password = document.getElementById("editModalPassword").value.trim();
+  const role = document.getElementById("editModalRole").value;
+  const alertEl = document.getElementById("kernelxEditModalAlert");
+  const submitBtn = document.getElementById("kernelxSubmitEditUserBtn");
+
+  if (!username) {
+    alertEl.textContent = "Username is required.";
+    alertEl.style.display = "block";
+    return;
+  }
+
+  submitBtn.disabled = true;
+  alertEl.style.display = "none";
+
+  try {
+    const res = await kernelxFetch(`/api/kernelx/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to update user.");
+
+    showToast(`User "${username}" updated successfully!`, "success");
+    document.getElementById("kernelxEditModalBackdrop").style.display = "none";
+    await loadKernelxUsers();
+  } catch (err) {
+    alertEl.textContent = err.message;
+    alertEl.style.display = "block";
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function openKernelxDeleteModal(userId, username) {
+  document.getElementById("kernelxDeleteUsernameHighlight").textContent = `"${username}"`;
+  document.getElementById("kernelxDeleteModalBackdrop").style.display = "flex";
+
+  const confirmBtn = document.getElementById("kernelxConfirmDeleteBtn");
+  confirmBtn.onclick = async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Revoking...";
+    try {
+      const res = await kernelxFetch(`/api/kernelx/users/${userId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete user.");
+
+      showToast(`User "${username}" removed. Active session terminated.`, "success");
+      document.getElementById("kernelxDeleteModalBackdrop").style.display = "none";
+      await loadKernelxUsers();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Revoke & Delete";
     }
-  );
+  };
 }
 
 // ==========================================================
-// Route Isolation & View Initialization (/shopslist vs /)
+// Route Isolation & View Initialization (/kernelx vs /shopslist vs /)
 // ==========================================================
 function checkRouteMode() {
+  const isKernelxRoute = window.location.pathname.startsWith('/kernelx');
   const isShopsRoute = window.location.pathname.startsWith('/shopslist');
+
+  if (isKernelxRoute) {
+    // Dedicated KernelX Master Mode
+    document.getElementById("loginScreen")?.remove();
+    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
+    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
+    const shopSec = document.getElementById("shopIdentifierSection");
+    if (shopSec) shopSec.style.setProperty("display", "none", "important");
+
+    const kernelxApp = document.getElementById("kernelxApp");
+    if (kernelxApp) kernelxApp.style.display = "block";
+    document.title = "KernelX - User Directory & Access Control";
+    initKernelx();
+    return true;
+  }
 
   if (isShopsRoute) {
     // Standalone Shop Directory Mode
@@ -2151,6 +2454,7 @@ function checkRouteMode() {
     }
     switchTab("preview");
   }
+  return false;
 }
 
 // Setup Event Listeners
@@ -2348,12 +2652,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("confirmModalCancelBtn")?.addEventListener("click", closeConfirmModal);
   document.getElementById("confirmModalCloseBtn")?.addEventListener("click", closeConfirmModal);
 
-  // Admin Panel Event Handlers
-  document.getElementById("adminPanelBtn")?.addEventListener("click", openAdminPanelModal);
-  document.getElementById("closeAdminPanelBtn")?.addEventListener("click", closeAdminPanelModal);
-  document.getElementById("adminPanelCloseFooterBtn")?.addEventListener("click", closeAdminPanelModal);
-  document.getElementById("adminAddUserForm")?.addEventListener("submit", handleAdminAddUser);
-
   document.getElementById("togglePreviewBtn")?.addEventListener("click", togglePreview);
   initSplitPaneResizer();
 
@@ -2361,10 +2659,13 @@ document.addEventListener("DOMContentLoaded", () => {
   syncInputsWithState();
   updateYearConfigsUI();
 
-  // Route check for /shopslist vs root /
-  checkRouteMode();
+  // Route check for /kernelx vs /shopslist vs root /
+  const isKernelx = checkRouteMode();
+  if (isKernelx) {
+    return;
+  }
 
-  // Initialize Session Authentication
+  // Initialize Session Authentication for standard application
   checkAuthSession().then(isAuth => {
     if (isAuth) {
       if (window.location.pathname.startsWith('/shopslist')) {
