@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { execFile } = require('child_process');
 const {
   Document,
   Packer,
@@ -19,13 +20,65 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Body parser (increase limit for bulk invoice batches)
-app.use(express.json({ limit: '20mb' }));
+// Body parser with 50mb limit for PDF/Word uploads
+app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Import endpoint for PDF, DOCX, and CSV files
+app.post('/api/import/file', async (req, res) => {
+  try {
+    const { filename, fileBase64 } = req.body;
+    if (!filename || !fileBase64) {
+      return res.status(400).json({ error: 'Filename and fileBase64 data are required' });
+    }
+
+    const ext = path.extname(filename).toLowerCase();
+    if (!['.pdf', '.docx', '.csv', '.txt'].includes(ext)) {
+      return res.status(400).json({ error: 'Unsupported file type. Please upload a .pdf, .docx, or .csv file.' });
+    }
+
+    const tempFilePath = path.join(__dirname, `temp_upload_${Date.now()}${ext}`);
+    const buffer = Buffer.from(fileBase64, 'base64');
+    fs.writeFileSync(tempFilePath, buffer);
+
+    if (ext === '.csv' || ext === '.txt') {
+      const text = buffer.toString('utf-8');
+      fs.unlinkSync(tempFilePath);
+      return res.json({ type: 'csv', rawText: text });
+    }
+
+    // Call parse_file.py for PDF and DOCX
+    const pythonScript = path.join(__dirname, 'parse_file.py');
+    execFile('python', [pythonScript, tempFilePath], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+
+      if (err) {
+        console.error('Python parse error:', err, stderr);
+        return res.status(500).json({ error: 'Failed to parse file', details: stderr || err.message });
+      }
+
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        if (parsed.error) {
+          return res.status(400).json({ error: parsed.error });
+        }
+        res.json({ type: ext.replace('.', ''), ...parsed });
+      } catch (jsonErr) {
+        console.error('JSON parse error on python output:', stdout);
+        res.status(500).json({ error: 'Invalid response from parser' });
+      }
+    });
+  } catch (error) {
+    console.error('File import error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Export to Microsoft Word (.docx) endpoint
@@ -37,16 +90,12 @@ app.post('/api/export/docx', async (req, res) => {
       return res.status(400).json({ error: 'No invoices provided' });
     }
 
-    // Load logos
     const megaMallLogoPath = path.join(__dirname, 'public', 'assets', 'mega-mall-logo.png');
     const kampusLogoPath = path.join(__dirname, 'public', 'assets', 'kampus-logo.png');
 
     const megaMallLogoBytes = fs.existsSync(megaMallLogoPath) ? fs.readFileSync(megaMallLogoPath) : null;
     const kampusLogoBytes = fs.existsSync(kampusLogoPath) ? fs.readFileSync(kampusLogoPath) : null;
 
-    const sections = [];
-
-    // Table border style
     const solidBorder = {
       style: BorderStyle.SINGLE,
       size: 10,
@@ -330,7 +379,6 @@ app.post('/api/export/docx', async (req, res) => {
         })
       );
 
-      // Add page break between invoices
       if (index < invoices.length - 1) {
         children.push(new Paragraph({ children: [new PageBreak()] }));
       }

@@ -59,11 +59,10 @@ let appState = {
     "2025": { rate: 1.25, gallons: 137788, overrides: { "2025-12": 99725 } },
     "2026": { rate: 1.25, gallons: 137788 }
   },
-  // Manual corrections dictionary: keyed by ym string (e.g. "2024-01")
   manualCorrections: {},
   currentPageIndex: 0,
   viewAllPages: false,
-  activeTab: "preview" // "preview" or "editor"
+  activeTab: "preview"
 };
 
 // Date Strings and Calendar Math
@@ -72,8 +71,8 @@ const MONTH_NAMES_FULL = [
   "July", "August", "September", "October", "November", "December"
 ];
 const MONTH_NAMES_SHORT = [
-  "Jan", "Feb", "March", "April", "May", "June",
-  "July", "Aug", "Sep", "Oct", "Nov", "Dec"
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
 
 function getOrdinal(n) {
@@ -89,6 +88,57 @@ function getDaysInMonth(year, monthIndex0) {
 function formatNumber(num) {
   if (num === undefined || num === null || isNaN(num)) return "0";
   return Math.round(num).toLocaleString("en-US");
+}
+
+// ----------------------------------------------------------
+// Website-Themed Notification & Dialog System (No Browser Popups)
+// ----------------------------------------------------------
+function showToast(message, type = 'info') {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+
+  const iconSvg = type === 'success'
+    ? `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;color:var(--accent-green);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`
+    : type === 'error'
+    ? `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;color:var(--accent-red);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`
+    : `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;color:var(--accent-amber);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+
+  toast.innerHTML = `
+    <div style="display:flex; align-items:center; gap:0.5rem;">
+      ${iconSvg}
+      <span>${message}</span>
+    </div>
+    <button class="toast-close-btn">&times;</button>
+  `;
+
+  toast.querySelector(".toast-close-btn").addEventListener("click", () => {
+    toast.remove();
+  });
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = "opacity 0.3s, transform 0.3s";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(20px)";
+    setTimeout(() => toast.remove(), 300);
+  }, 4500);
+}
+
+let confirmCallback = null;
+function showConfirm(title, message, onConfirm) {
+  document.getElementById("confirmModalTitle").textContent = title;
+  document.getElementById("confirmModalMessage").textContent = message;
+  confirmCallback = onConfirm;
+  document.getElementById("confirmModalBackdrop").classList.add("open");
+}
+
+function closeConfirmModal() {
+  document.getElementById("confirmModalBackdrop").classList.remove("open");
+  confirmCallback = null;
 }
 
 // Generate months array between start and end
@@ -125,7 +175,7 @@ function generateMonthsList(startYM, endYM) {
   return list;
 }
 
-// Compute all invoice objects (merging baseline logic with manual corrections)
+// Compute all invoice objects
 function calculateInvoices() {
   const months = generateMonthsList(appState.startMonth, appState.endMonth);
   let runningPrevious = appState.openingBalance || 0;
@@ -133,7 +183,6 @@ function calculateInvoices() {
   return months.map((m, index) => {
     const yearConfig = appState.yearRates[m.year] || { rate: 1.25, gallons: 50000 };
     
-    // Baseline values
     let gallons = yearConfig.gallons || 50000;
     if (yearConfig.overrides && yearConfig.overrides[m.ym] !== undefined) {
       gallons = yearConfig.overrides[m.ym];
@@ -153,7 +202,7 @@ function calculateInvoices() {
     let billingPeriod = `${m.fullMonthName} ${m.year} (1 ${m.shortMonthName} ${m.year} to ${m.daysInMonth} ${m.shortMonthName.toUpperCase()} ${m.year}).`;
     let issueDate = `${getOrdinal(m.daysInMonth)} ${m.shortMonthName} ${m.year}`;
 
-    // Apply any manual corrections for this specific month
+    // Apply manual corrections if present
     const custom = appState.manualCorrections[m.ym];
     if (custom) {
       if (custom.invoiceNumber !== undefined) invNum = custom.invoiceNumber;
@@ -189,7 +238,7 @@ function calculateInvoices() {
   });
 }
 
-// Render a single invoice sheet with exact template layout & solid guaranteed black grids
+// Render a single invoice sheet with exact template layout & guaranteed visible grids
 function renderInvoiceSheet(inv) {
   return `
     <div class="invoice-sheet" id="invoice-page-${inv.index}">
@@ -325,13 +374,11 @@ function renderPreview() {
     appState.currentPageIndex = Math.max(0, totalCount - 1);
   }
 
-  // Update Page Navigation elements
   document.getElementById("totalPagesCount").textContent = totalCount;
   document.getElementById("currentPageDisplay").textContent = totalCount > 0 ? appState.currentPageIndex + 1 : 0;
   document.getElementById("prevPageBtn").disabled = appState.currentPageIndex === 0;
   document.getElementById("nextPageBtn").disabled = appState.currentPageIndex >= totalCount - 1;
 
-  // Populate Month Jump Select
   const jumpSelect = document.getElementById("jumpMonthSelect");
   jumpSelect.innerHTML = "";
   invoices.forEach((inv, idx) => {
@@ -342,7 +389,6 @@ function renderPreview() {
     jumpSelect.appendChild(opt);
   });
 
-  // Render viewport
   const viewport = document.getElementById("invoiceViewport");
 
   if (appState.viewAllPages) {
@@ -352,7 +398,6 @@ function renderPreview() {
     viewport.innerHTML = curInvoice ? renderInvoiceSheet(curInvoice) : "<div style='color:#fff; padding:2rem;'>No invoices generated</div>";
   }
 
-  // Update Summary Stats
   const totalGallons = invoices.reduce((sum, inv) => sum + inv.gallons, 0);
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.totalPayable, 0);
   document.getElementById("statTotalMonths").textContent = `${totalCount} Months`;
@@ -417,11 +462,12 @@ function jumpToPageAndPreview(index) {
 }
 
 function resetManualCorrections() {
-  if (confirm("Reset all manual overrides back to standard calculated values?")) {
+  showConfirm("Reset All Overrides", "Are you sure you want to restore all values back to automatic calculations?", () => {
     appState.manualCorrections = {};
     renderPreview();
     renderDataEditor();
-  }
+    showToast("All manual overrides restored to default calculations", "success");
+  });
 }
 
 // Switch Tabs
@@ -475,8 +521,6 @@ function toggleViewAll(enable) {
 // ----------------------------------------------------------
 // Export Handlers: Word (.docx), PDF (.pdf), and Print
 // ----------------------------------------------------------
-
-// 1. Export as Word (.docx)
 async function exportToWord() {
   const btn = document.getElementById("exportDocxBtn");
   const originalText = btn.innerHTML;
@@ -499,7 +543,7 @@ async function exportToWord() {
     });
 
     if (!response.ok) {
-      throw new Error(`Server returned ${response.status}`);
+      throw new Error(`Server returned status ${response.status}`);
     }
 
     const blob = await response.blob();
@@ -511,15 +555,15 @@ async function exportToWord() {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+    showToast("Word document generated and downloaded successfully", "success");
   } catch (err) {
-    alert("Could not export Word document: " + err.message);
+    showToast("Could not export Word document: " + err.message, "error");
   } finally {
     btn.innerHTML = originalText;
     btn.disabled = false;
   }
 }
 
-// 2. Export as PDF (.pdf) using html2pdf
 async function exportToPdf() {
   const btn = document.getElementById("exportPdfBtn");
   const originalText = btn.innerHTML;
@@ -528,7 +572,6 @@ async function exportToPdf() {
 
   try {
     const invoices = calculateInvoices();
-    // Create temporary offscreen container with all invoices
     const tempContainer = document.createElement("div");
     tempContainer.style.background = "#ffffff";
     tempContainer.style.color = "#000000";
@@ -544,15 +587,15 @@ async function exportToPdf() {
     };
 
     await html2pdf().set(opt).from(tempContainer).save();
+    showToast("PDF document downloaded successfully", "success");
   } catch (err) {
-    alert("Could not export PDF: " + err.message);
+    showToast("Could not export PDF: " + err.message, "error");
   } finally {
     btn.innerHTML = originalText;
     btn.disabled = false;
   }
 }
 
-// 3. Print
 function triggerPrint() {
   const wasSingle = !appState.viewAllPages;
   if (wasSingle) {
@@ -568,7 +611,6 @@ function triggerPrint() {
   }, 200);
 }
 
-// 4. Export CSV from Data Editor
 function exportToCsv() {
   const invoices = calculateInvoices();
   let csv = "Month,InvoiceNumber,BillingPeriod,IssueDate,Gallons,Rate,PreviousBalance,BillAmount,TotalPayable\n";
@@ -584,40 +626,126 @@ function exportToCsv() {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  showToast("CSV file exported successfully", "success");
 }
 
-// 5. Import CSV
-function applyImportedData() {
-  const text = document.getElementById("importTextarea").value.trim();
-  if (!text) {
-    alert("Please paste CSV data first.");
+// ----------------------------------------------------------
+// File Import Engine (PDF, Word .docx, and CSV)
+// ----------------------------------------------------------
+let stagedFileData = null;
+
+function handleFileSelection(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+  const statusEl = document.getElementById("fileUploadStatus");
+  statusEl.style.display = "block";
+  statusEl.textContent = `Reading ${file.name}...`;
+
+  reader.onload = async (e) => {
+    const base64Data = e.target.result.split(',')[1];
+    stagedFileData = {
+      filename: file.name,
+      fileBase64: base64Data
+    };
+    statusEl.textContent = `Ready to import: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+  };
+
+  reader.readAsDataURL(file);
+}
+
+async function processImport() {
+  const statusEl = document.getElementById("fileUploadStatus");
+  const rawText = document.getElementById("importTextarea").value.trim();
+
+  // If raw text is provided
+  if (rawText && !stagedFileData) {
+    const lines = rawText.split("\n");
+    let count = 0;
+    lines.forEach(line => {
+      const parts = line.split(",").map(p => p.trim().replace(/^"|"$/g, ''));
+      if (parts.length >= 2) {
+        const ym = parts[0];
+        if (/^\d{4}-\d{2}$/.test(ym)) {
+          if (!appState.manualCorrections[ym]) appState.manualCorrections[ym] = {};
+          if (parts[1] && !isNaN(parts[1])) appState.manualCorrections[ym].gallons = Number(parts[1]);
+          if (parts[2] && !isNaN(parts[2])) appState.manualCorrections[ym].rate = Number(parts[2]);
+          if (parts[3] && !isNaN(parts[3])) appState.manualCorrections[ym].previous = Number(parts[3]);
+          count++;
+        }
+      }
+    });
+    closeImportModal();
+    renderPreview();
+    renderDataEditor();
+    showToast(`Imported corrections for ${count} months from text`, "success");
     return;
   }
 
-  const lines = text.split("\n");
-  let importedCount = 0;
+  if (!stagedFileData) {
+    showToast("Please choose a file or paste text first", "warning");
+    return;
+  }
 
-  lines.forEach(line => {
-    const parts = line.split(",").map(p => p.trim().replace(/^"|"$/g, ''));
-    if (parts.length >= 2) {
-      const ym = parts[0];
-      if (/^\d{4}-\d{2}$/.test(ym)) {
-        if (!appState.manualCorrections[ym]) appState.manualCorrections[ym] = {};
-        if (parts[1] && !isNaN(parts[1])) appState.manualCorrections[ym].gallons = Number(parts[1]);
-        if (parts[2] && !isNaN(parts[2])) appState.manualCorrections[ym].rate = Number(parts[2]);
-        if (parts[3] && !isNaN(parts[3])) appState.manualCorrections[ym].previous = Number(parts[3]);
-        importedCount++;
-      }
+  statusEl.textContent = "Uploading & parsing on server...";
+
+  try {
+    const res = await fetch('/api/import/file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(stagedFileData)
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error || "Failed to parse file");
     }
-  });
 
-  closeImportModal();
-  renderPreview();
-  renderDataEditor();
-  alert(`Imported corrections for ${importedCount} months successfully.`);
+    if (data.invoices && Array.isArray(data.invoices)) {
+      if (data.occupier) appState.occupier = data.occupier;
+      if (data.location) appState.location = data.location;
+      if (data.ntn) appState.ntn = data.ntn;
+
+      // Extract min and max months from invoices if available
+      data.invoices.forEach(inv => {
+        // Match month and year from billingPeriod or issueDate
+        const match = (inv.billingPeriod || inv.issueDate || '').match(/(Jan|Feb|March|April|May|June|July|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})/i);
+        if (match) {
+          const mName = match[1].toLowerCase();
+          const year = match[2];
+          const mIdx = MONTH_NAMES_SHORT.findIndex(s => s.toLowerCase() === mName.slice(0, 3));
+          if (mIdx >= 0) {
+            const ym = `${year}-${String(mIdx + 1).padStart(2, '0')}`;
+            if (!appState.manualCorrections[ym]) appState.manualCorrections[ym] = {};
+            if (inv.invoiceNumber) appState.manualCorrections[ym].invoiceNumber = inv.invoiceNumber;
+            if (inv.billingPeriod) appState.manualCorrections[ym].billingPeriod = inv.billingPeriod;
+            if (inv.issueDate) appState.manualCorrections[ym].issueDate = inv.issueDate;
+            if (inv.gallons) appState.manualCorrections[ym].gallons = inv.gallons;
+            if (inv.rate) appState.manualCorrections[ym].rate = inv.rate;
+            if (inv.previous !== undefined) appState.manualCorrections[ym].previous = inv.previous;
+          }
+        }
+      });
+
+      closeImportModal();
+      syncInputsWithState();
+      updateYearConfigsUI();
+      renderPreview();
+      renderDataEditor();
+      showToast(`Successfully imported ${data.invoices.length} invoices from ${stagedFileData.filename}`, "success");
+    } else {
+      throw new Error("No invoices found in file");
+    }
+  } catch (err) {
+    showToast("Import error: " + err.message, "error");
+    statusEl.textContent = "Error: " + err.message;
+  }
 }
 
 function openImportModal() {
+  stagedFileData = null;
+  document.getElementById("fileUploadStatus").style.display = "none";
+  document.getElementById("importTextarea").value = "";
   document.getElementById("importModalBackdrop").classList.add("open");
 }
 function closeImportModal() {
@@ -625,7 +753,7 @@ function closeImportModal() {
 }
 
 // ----------------------------------------------------------
-// Interactive Calendar Popovers
+// Interactive Calendar Popovers (3-Letter Months & Bounds Sized)
 // ----------------------------------------------------------
 let startCalYear = 2024;
 let endCalYear = 2026;
@@ -746,6 +874,7 @@ function applyPreset(presetKey) {
   updateYearConfigsUI();
   renderPreview();
   renderDataEditor();
+  showToast(`Loaded ${presetKey === 'falaknaz' ? 'Falaknaz Springs' : 'Mega Residency'} preset`, "success");
 }
 
 // Sync Form Inputs with appState
@@ -769,11 +898,9 @@ function syncInputsWithState() {
 
 // Setup Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
-  // Preset buttons
   document.getElementById("preset-falaknaz")?.addEventListener("click", () => applyPreset("falaknaz"));
   document.getElementById("preset-mega")?.addEventListener("click", () => applyPreset("mega"));
 
-  // Customer inputs
   document.getElementById("occupierInput").addEventListener("input", (e) => {
     appState.occupier = e.target.value;
     renderPreview();
@@ -787,7 +914,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPreview();
   });
 
-  // Date range inputs (type support)
   document.getElementById("startMonthInput").addEventListener("change", (e) => {
     if (/^\d{4}-\d{2}$/.test(e.target.value)) {
       appState.startMonth = e.target.value;
@@ -805,7 +931,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Sequence numbering
   document.getElementById("invPrefixInput").addEventListener("input", (e) => {
     appState.invPrefix = e.target.value;
     renderPreview();
@@ -822,7 +947,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderDataEditor();
   });
 
-  // Previous Balance Toggle
   const prevToggle = document.getElementById("prevBalanceToggle");
   prevToggle.addEventListener("change", (e) => {
     appState.includePrevBalance = e.target.checked;
@@ -843,33 +967,57 @@ document.addEventListener("DOMContentLoaded", () => {
     renderDataEditor();
   });
 
-  // Tab View Switcher
   document.getElementById("tabInvoicePreview").addEventListener("click", () => switchTab("preview"));
   document.getElementById("tabDataEditor").addEventListener("click", () => switchTab("editor"));
 
-  // Stepper controls
   document.getElementById("prevPageBtn").addEventListener("click", prevPage);
   document.getElementById("nextPageBtn").addEventListener("click", nextPage);
   document.getElementById("jumpMonthSelect").addEventListener("change", (e) => jumpToPage(e.target.value));
 
-  // View modes
   document.getElementById("viewSingleBtn").addEventListener("click", () => toggleViewAll(false));
   document.getElementById("viewAllBtn").addEventListener("click", () => toggleViewAll(true));
 
-  // Export buttons
   document.getElementById("exportDocxBtn").addEventListener("click", exportToWord);
   document.getElementById("exportPdfBtn").addEventListener("click", exportToPdf);
   document.getElementById("printBtn").addEventListener("click", triggerPrint);
 
-  // Data Editor Actions
   document.getElementById("openImportModalBtn").addEventListener("click", openImportModal);
   document.getElementById("closeImportModalBtn").addEventListener("click", closeImportModal);
   document.getElementById("cancelImportBtn").addEventListener("click", closeImportModal);
-  document.getElementById("confirmImportBtn").addEventListener("click", applyImportedData);
+  document.getElementById("confirmImportBtn").addEventListener("click", processImport);
   document.getElementById("exportCsvBtn").addEventListener("click", exportToCsv);
   document.getElementById("resetEditorBtn").addEventListener("click", resetManualCorrections);
 
-  // Initialize popovers and view
+  // File drag & drop handling
+  const dropzone = document.getElementById("fileDropzone");
+  const fileInput = document.getElementById("fileInput");
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", (e) => {
+    if (e.target.files.length > 0) handleFileSelection(e.target.files[0]);
+  });
+
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0) {
+      handleFileSelection(e.dataTransfer.files[0]);
+    }
+  });
+
+  // Confirm modal event handlers
+  document.getElementById("confirmModalOkBtn").addEventListener("click", () => {
+    if (confirmCallback) confirmCallback();
+    closeConfirmModal();
+  });
+  document.getElementById("confirmModalCancelBtn").addEventListener("click", closeConfirmModal);
+  document.getElementById("confirmModalCloseBtn").addEventListener("click", closeConfirmModal);
+
   initCalendarPopovers();
   syncInputsWithState();
   updateYearConfigsUI();

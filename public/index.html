@@ -9,13 +9,13 @@
 </head>
 <body>
 
-  <!-- Top App Navigation Bar -->
+  <!-- Top App Navigation Bar (56px Sleek Height) -->
   <header class="app-header no-print">
     <div class="header-branding">
       Made By Ar for The Mega Mall &amp; Kampus Integrated Services
     </div>
 
-    <!-- Center View Switcher Tabs -->
+    <!-- Center View Switcher Tabs (Strictly Contained) -->
     <div class="header-center-tabs">
       <button class="tab-btn active" id="tabInvoicePreview">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -92,7 +92,7 @@
         </div>
       </div>
 
-      <!-- 3. Billing Period & Calendar Picker -->
+      <!-- 3. Billing Period & Calendar Picker (Anchored & Sized) -->
       <div class="panel-card">
         <div class="panel-card-header">
           <div class="panel-card-title">
@@ -100,7 +100,7 @@
             Billing Dates
           </div>
         </div>
-        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.4rem;">
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">
           Type date directly (e.g. <code>2024-01</code>) or click the calendar icon to pick month and year.
         </p>
 
@@ -113,16 +113,14 @@
               <button class="calendar-icon-btn" id="startCalBtn" type="button" title="Open Calendar">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
               </button>
-              <!-- Calendar Popover Start -->
+              <!-- Calendar Popover Start (Anchored Left) -->
               <div class="calendar-popover" id="startCalPopover">
                 <div class="cal-header">
                   <button class="cal-nav-btn" type="button" id="startCalPrevYear">&larr;</button>
                   <span id="startCalYearLabel">2024</span>
                   <button class="cal-nav-btn" type="button" id="startCalNextYear">&rarr;</button>
                 </div>
-                <div class="cal-months-grid" id="startCalMonthsGrid">
-                  <!-- Jan - Dec cells -->
-                </div>
+                <div class="cal-months-grid" id="startCalMonthsGrid"></div>
               </div>
             </div>
           </div>
@@ -135,16 +133,14 @@
               <button class="calendar-icon-btn" id="endCalBtn" type="button" title="Open Calendar">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
               </button>
-              <!-- Calendar Popover End -->
+              <!-- Calendar Popover End (Anchored Right) -->
               <div class="calendar-popover" id="endCalPopover">
                 <div class="cal-header">
                   <button class="cal-nav-btn" type="button" id="endCalPrevYear">&larr;</button>
                   <span id="endCalYearLabel">2026</span>
                   <button class="cal-nav-btn" type="button" id="endCalNextYear">&rarr;</button>
                 </div>
-                <div class="cal-months-grid" id="endCalMonthsGrid">
-                  <!-- Jan - Dec cells -->
-                </div>
+                <div class="cal-months-grid" id="endCalMonthsGrid"></div>
               </div>
             </div>
           </div>
@@ -184,13 +180,13 @@
           </div>
         </div>
         <div class="toggle-row">
-          <span style="font-size:0.82rem; font-weight:500;">Include Previous Balance?</span>
+          <span style="font-size:0.8rem; font-weight:500;">Include Previous Balance?</span>
           <label class="switch">
             <input type="checkbox" id="prevBalanceToggle">
             <span class="slider"></span>
           </label>
         </div>
-        <div id="prevBalanceOptions" style="display:none; margin-top:0.5rem; display:flex; flex-direction:column; gap:0.5rem;">
+        <div id="prevBalanceOptions" style="display:none; margin-top:0.4rem; display:flex; flex-direction:column; gap:0.45rem;">
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Opening Balance</label>
@@ -206,7 +202,7 @@
           </div>
         </div>
         <p style="font-size:0.72rem; color:var(--text-dim);">
-          If turned off, Previous balance is set to <code>0</code> on every invoice.
+          If turned off, Previous balance is locked at <code>0</code> on every invoice.
         </p>
       </div>
 
@@ -218,9 +214,7 @@
             Rates &amp; Consumption by Year
           </div>
         </div>
-        <div class="year-configs-container" id="yearConfigsContainer">
-          <!-- Dynamically populated per active year -->
-        </div>
+        <div class="year-configs-container" id="yearConfigsContainer"></div>
       </div>
 
     </aside>
@@ -237,15 +231,15 @@
             <button class="stepper-btn" id="nextPageBtn" title="Next Page">&rarr;</button>
           </div>
 
-          <select id="jumpMonthSelect" class="form-select" style="width: auto; padding: 0.25rem 0.5rem; font-size:0.8rem;">
+          <select id="jumpMonthSelect" class="form-select" style="width: auto; padding: 0.2rem 0.5rem; font-size:0.78rem;">
             <!-- Populated dynamically -->
           </select>
         </div>
 
         <div class="toolbar-right">
-          <div style="display:flex; gap:0.5rem; margin-right:0.75rem;">
-            <span style="font-size:0.72rem; background:rgba(255,255,255,0.06); padding:0.25rem 0.5rem; border-radius:4px; color:var(--text-muted);" id="statTotalMonths">31 Months</span>
-            <span style="font-size:0.72rem; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.25); padding:0.25rem 0.5rem; border-radius:4px; color:var(--accent-green); font-weight:600;" id="statTotalBill">PKR 0</span>
+          <div style="display:flex; gap:0.45rem; margin-right:0.6rem;">
+            <span style="font-size:0.72rem; background:rgba(255,255,255,0.06); padding:0.2rem 0.45rem; border-radius:4px; color:var(--text-muted);" id="statTotalMonths">31 Months</span>
+            <span style="font-size:0.72rem; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.25); padding:0.2rem 0.45rem; border-radius:4px; color:var(--accent-green); font-weight:600;" id="statTotalBill">PKR 0</span>
           </div>
 
           <button class="btn btn-secondary btn-sm" id="viewSingleBtn">Single Page</button>
@@ -254,9 +248,7 @@
       </div>
 
       <!-- Preview Viewport where A4 invoices render -->
-      <div class="preview-scroll-viewport" id="invoiceViewport">
-        <!-- Rendered invoice pages -->
-      </div>
+      <div class="preview-scroll-viewport" id="invoiceViewport"></div>
 
     </section>
 
@@ -266,14 +258,14 @@
   <section class="data-editor-section" id="dataEditorSection">
     <div class="editor-toolbar">
       <div style="display:flex; align-items:center; gap:0.75rem;">
-        <h2 style="font-size:1.05rem; font-weight:600; color:var(--text-main);">Batch Data Editor &amp; Corrections</h2>
-        <span style="font-size:0.75rem; color:var(--text-dim);">Edit any date, number, or reading directly. Updates all invoices instantly.</span>
+        <h2 style="font-size:1rem; font-weight:600; color:var(--text-main);">Batch Data Editor &amp; Corrections</h2>
+        <span style="font-size:0.75rem; color:var(--text-dim);">Edit any date, invoice number, or readings directly.</span>
       </div>
 
       <div class="editor-actions">
         <button class="btn btn-secondary btn-sm" id="openImportModalBtn">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-          Import Data (CSV)
+          Import (PDF / DOCX / CSV)
         </button>
         <button class="btn btn-secondary btn-sm" id="exportCsvBtn">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -302,26 +294,38 @@
             <th>Action</th>
           </tr>
         </thead>
-        <tbody id="editorTableBody">
-          <!-- Dynamically populated rows -->
-        </tbody>
+        <tbody id="editorTableBody"></tbody>
       </table>
     </div>
   </section>
 
-  <!-- Import Modal -->
+  <!-- Enhanced Import Modal (PDF, DOCX, CSV) -->
   <div class="modal-backdrop" id="importModalBackdrop">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="modal-title">Import Custom Invoice Data</div>
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px; height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          Import Invoice Data (PDF, Word .docx, or CSV)
+        </div>
         <button class="btn btn-secondary btn-sm" id="closeImportModalBtn">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">
-          Paste CSV or tab-delimited data with format:<br>
-          <code>YYYY-MM, ConsumptionGallons, Rate, PreviousBalance</code>
-        </p>
-        <textarea id="importTextarea" placeholder="2024-01, 53759, 1.25, 0&#10;2024-02, 53759, 1.25, 0&#10;..."></textarea>
+        <div class="modal-dropzone" id="fileDropzone">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:36px; height:36px; margin:0 auto 0.5rem auto; color:var(--text-dim); display:block;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          <div style="font-size:0.85rem; font-weight:600; color:var(--text-main); margin-bottom:0.25rem;">
+            Click to upload or drag &amp; drop file here
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim);">
+            Supports <strong>.pdf</strong>, <strong>.docx</strong> (Word), and <strong>.csv</strong> files
+          </div>
+          <input type="file" id="fileInput" accept=".pdf,.docx,.csv,.txt" style="display:none;" />
+          <div id="fileUploadStatus" style="font-size:0.75rem; color:var(--accent-green); margin-top:0.5rem; display:none;"></div>
+        </div>
+
+        <details style="margin-top:0.25rem; font-size:0.78rem;">
+          <summary style="cursor:pointer; color:var(--accent-blue);">Or paste raw text / CSV data</summary>
+          <textarea id="importTextarea" style="width:100%; height:100px; margin-top:0.5rem; background:var(--bg-input); border:1px solid var(--border-subtle); color:var(--text-main); padding:0.5rem; border-radius:6px; font-family:var(--font-mono); font-size:0.75rem;" placeholder="2024-01, 53759, 1.25, 0&#10;2024-02, 53759, 1.25, 0&#10;..."></textarea>
+        </details>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancelImportBtn">Cancel</button>
@@ -329,6 +333,26 @@
       </div>
     </div>
   </div>
+
+  <!-- Themed Confirmation Modal (Replaces browser confirm) -->
+  <div class="modal-backdrop" id="confirmModalBackdrop">
+    <div class="modal-card" style="width:420px;">
+      <div class="modal-header">
+        <div class="modal-title" id="confirmModalTitle">Confirmation Required</div>
+        <button class="btn btn-secondary btn-sm" id="confirmModalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmModalMessage" style="font-size:0.82rem; color:var(--text-muted);"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="confirmModalCancelBtn">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalOkBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Themed Toast Notifications Container (Replaces browser alerts) -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <script src="app.js"></script>
 </body>
