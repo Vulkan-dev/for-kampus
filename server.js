@@ -128,7 +128,9 @@ function loginRateLimiter(req, res, next) {
   if (record.lockedUntil > now) {
     const remainingSeconds = Math.ceil((record.lockedUntil - now) / 1000);
     return res.status(429).json({
-      error: `Too many failed login attempts. Corporate access is temporarily locked for this IP. Please try again in ${remainingSeconds} seconds.`
+      error: `Too many failed login attempts. Access is temporarily locked for this IP.`,
+      remainingSeconds,
+      lockedUntil: record.lockedUntil
     });
   }
 
@@ -142,6 +144,22 @@ function loginRateLimiter(req, res, next) {
   req.loginRateRecord = record;
   next();
 }
+
+// Public rate limit status query
+app.get('/api/auth/ratelimit-status', (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (record && record.lockedUntil > now) {
+    const remainingSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+    return res.json({
+      locked: true,
+      remainingSeconds,
+      lockedUntil: record.lockedUntil
+    });
+  }
+  res.json({ locked: false, remainingSeconds: 0, lockedUntil: 0 });
+});
 
 function globalApiRateLimiter(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
@@ -298,6 +316,8 @@ function requireKernelAuth(req, res, next) {
 // KernelX Login Endpoint
 app.post('/api/kernelx/login', loginRateLimiter, (req, res) => {
   const { username, password } = req.body || {};
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+
   if (!username || !password) {
     return res.status(400).json({ error: 'Admin ID and Password are required.' });
   }
@@ -306,6 +326,7 @@ app.post('/api/kernelx/login', loginRateLimiter, (req, res) => {
   const targetUser = KERNEL_ADMIN_USER.toLowerCase();
 
   if (inputUser === targetUser && password.trim() === KERNEL_ADMIN_PASS) {
+    loginAttempts.delete(ip);
     const token = generateToken({
       username: KERNEL_ADMIN_USER,
       isKernelAdmin: true,
@@ -323,7 +344,23 @@ app.post('/api/kernelx/login', loginRateLimiter, (req, res) => {
     });
   }
 
-  return res.status(401).json({ error: 'Invalid KernelX credentials.' });
+  const record = req.loginRateRecord || { count: 0 };
+  record.count++;
+  if (record.count >= LOGIN_MAX_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+    loginAttempts.set(ip, record);
+    const remainingSeconds = Math.ceil(LOGIN_LOCKOUT_MS / 1000);
+    return res.status(429).json({
+      error: `Maximum login attempts exceeded. Access locked for 15 minutes.`,
+      remainingSeconds,
+      lockedUntil: record.lockedUntil
+    });
+  }
+  loginAttempts.set(ip, record);
+  const attemptsRemaining = LOGIN_MAX_ATTEMPTS - record.count;
+  return res.status(401).json({
+    error: `Invalid KernelX credentials. ${attemptsRemaining} attempt(s) remaining before security lockout.`
+  });
 });
 
 // KernelX Session Verification
@@ -501,8 +538,11 @@ app.post('/api/auth/login', loginRateLimiter, (req, res) => {
     if (record.count >= LOGIN_MAX_ATTEMPTS) {
       record.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
       loginAttempts.set(ip, record);
+      const remainingSeconds = Math.ceil(LOGIN_LOCKOUT_MS / 1000);
       return res.status(429).json({
-        error: `Maximum login attempts exceeded. Access locked for 15 minutes.`
+        error: `Maximum login attempts exceeded. Access locked for 15 minutes.`,
+        remainingSeconds,
+        lockedUntil: record.lockedUntil
       });
     }
     loginAttempts.set(ip, record);

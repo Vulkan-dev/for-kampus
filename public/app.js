@@ -80,14 +80,16 @@ function showLoginPortal(errorMessage = "") {
   const overlay = document.getElementById("loginScreen");
   const errEl = document.getElementById("loginErrorAlert");
   if (overlay) overlay.classList.remove("hidden");
-  if (errEl) {
+  if (errEl && !rateLimitTimers.standard) {
     if (errorMessage) {
       errEl.textContent = errorMessage;
+      errEl.className = "login-error-alert";
       errEl.style.display = "block";
     } else {
       errEl.style.display = "none";
     }
   }
+  checkIpRateLimitStatus('standard');
 }
 
 function hideLoginPortal() {
@@ -129,6 +131,105 @@ async function checkAuthSession() {
   return false;
 }
 
+// ==========================================================
+// Rate Limiter Realtime Countdown Manager
+// ==========================================================
+const rateLimitTimers = {
+  standard: null,
+  kernelx: null
+};
+
+function formatCountdownTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function startRateLimitCountdown({ btn, textEl, alertEl, defaultText, remainingSeconds, lockedUntil, key = 'standard' }) {
+  if (!btn) return;
+
+  if (rateLimitTimers[key]) {
+    clearInterval(rateLimitTimers[key]);
+    rateLimitTimers[key] = null;
+  }
+
+  const targetTime = lockedUntil ? Number(lockedUntil) : Date.now() + (remainingSeconds * 1000);
+
+  btn.disabled = true;
+  btn.classList.add("rate-limited-btn");
+
+  function tick() {
+    const now = Date.now();
+    const secLeft = Math.max(0, Math.ceil((targetTime - now) / 1000));
+
+    if (secLeft <= 0) {
+      clearInterval(rateLimitTimers[key]);
+      rateLimitTimers[key] = null;
+
+      btn.disabled = false;
+      btn.classList.remove("rate-limited-btn");
+      if (textEl) textEl.textContent = defaultText;
+
+      if (alertEl) {
+        alertEl.style.display = "block";
+        alertEl.className = "login-success-alert";
+        alertEl.textContent = "Rate limit lock expired. You may now attempt to sign in.";
+      }
+      return;
+    }
+
+    const timeStr = formatCountdownTime(secLeft);
+    if (textEl) {
+      textEl.textContent = `Locked (${timeStr})`;
+    }
+
+    if (alertEl) {
+      alertEl.style.display = "block";
+      alertEl.className = "login-error-alert";
+      alertEl.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> <strong>Access Temporarily Locked:</strong> Too many failed attempts. Button will unlock in <span class="rate-limit-timer-val">${timeStr}</span>`;
+    }
+  }
+
+  tick();
+  rateLimitTimers[key] = setInterval(tick, 1000);
+}
+
+async function checkIpRateLimitStatus(key = 'standard') {
+  try {
+    const res = await fetch('/api/auth/ratelimit-status');
+    const data = await res.json();
+    if (data.locked && data.remainingSeconds > 0) {
+      if (key === 'standard') {
+        const btn = document.getElementById("loginSubmitBtn");
+        const textEl = document.getElementById("loginSubmitText");
+        const alertEl = document.getElementById("loginErrorAlert");
+        startRateLimitCountdown({
+          btn,
+          textEl,
+          alertEl,
+          defaultText: "Sign In",
+          remainingSeconds: data.remainingSeconds,
+          lockedUntil: data.lockedUntil,
+          key: 'standard'
+        });
+      } else if (key === 'kernelx') {
+        const btn = document.getElementById("kernelxLoginSubmitBtn");
+        const textEl = document.getElementById("kernelxLoginSubmitText");
+        const alertEl = document.getElementById("kernelxLoginAlert");
+        startRateLimitCountdown({
+          btn,
+          textEl,
+          alertEl,
+          defaultText: "Authorize Master Access",
+          remainingSeconds: data.remainingSeconds,
+          lockedUntil: data.lockedUntil,
+          key: 'kernelx'
+        });
+      }
+    }
+  } catch (e) {}
+}
+
 async function handleLoginSubmit(e) {
   e.preventDefault();
   const userEl = document.getElementById("loginUsername");
@@ -142,6 +243,7 @@ async function handleLoginSubmit(e) {
 
   if (!username || !password) {
     errorEl.textContent = "Please enter both username and password.";
+    errorEl.className = "login-error-alert";
     errorEl.style.display = "block";
     return;
   }
@@ -159,6 +261,19 @@ async function handleLoginSubmit(e) {
 
     const data = await res.json();
 
+    if (res.status === 429) {
+      startRateLimitCountdown({
+        btn: submitBtn,
+        textEl: submitText,
+        alertEl: errorEl,
+        defaultText: "Sign In",
+        remainingSeconds: data.remainingSeconds || 900,
+        lockedUntil: data.lockedUntil,
+        key: 'standard'
+      });
+      return;
+    }
+
     if (!res.ok) {
       throw new Error(data.error || "Authentication failed.");
     }
@@ -174,10 +289,13 @@ async function handleLoginSubmit(e) {
     renderDataEditor();
   } catch (err) {
     errorEl.textContent = err.message;
+    errorEl.className = "login-error-alert";
     errorEl.style.display = "block";
   } finally {
-    submitBtn.disabled = false;
-    submitText.textContent = "Sign In";
+    if (!rateLimitTimers.standard) {
+      submitBtn.disabled = false;
+      submitText.textContent = "Sign In";
+    }
   }
 }
 
@@ -2077,14 +2195,16 @@ function showKernelxGate(errorMsg = "") {
   const alertEl = document.getElementById("kernelxLoginAlert");
   if (gate) gate.style.display = "flex";
   if (dash) dash.style.display = "none";
-  if (alertEl) {
+  if (alertEl && !rateLimitTimers.kernelx) {
     if (errorMsg) {
       alertEl.textContent = errorMsg;
+      alertEl.className = "login-error-alert";
       alertEl.style.display = "block";
     } else {
       alertEl.style.display = "none";
     }
   }
+  checkIpRateLimitStatus('kernelx');
 }
 
 function showKernelxDashboard() {
@@ -2186,13 +2306,16 @@ async function handleKernelxLogin(e) {
 
   if (!username || !password) {
     alertEl.textContent = "Please enter Admin ID and Password.";
+    alertEl.className = "login-error-alert";
     alertEl.style.display = "block";
     return;
   }
 
   submitBtn.disabled = true;
   submitText.textContent = "Verifying...";
-  alertEl.style.display = "none";
+  if (!rateLimitTimers.kernelx) {
+    alertEl.style.display = "none";
+  }
 
   try {
     const res = await fetch('/api/kernelx/login', {
@@ -2201,6 +2324,20 @@ async function handleKernelxLogin(e) {
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
+
+    if (res.status === 429) {
+      startRateLimitCountdown({
+        btn: submitBtn,
+        textEl: submitText,
+        alertEl: alertEl,
+        defaultText: "Authorize Master Access",
+        remainingSeconds: data.remainingSeconds || 900,
+        lockedUntil: data.lockedUntil,
+        key: 'kernelx'
+      });
+      return;
+    }
+
     if (!res.ok) throw new Error(data.error || "Authentication failed.");
 
     setKernelxSession(data.token, data.user);
@@ -2209,10 +2346,13 @@ async function handleKernelxLogin(e) {
     showKernelxDashboard();
   } catch (err) {
     alertEl.textContent = err.message;
+    alertEl.className = "login-error-alert";
     alertEl.style.display = "block";
   } finally {
-    submitBtn.disabled = false;
-    submitText.textContent = "Authorize Master Access";
+    if (!rateLimitTimers.kernelx) {
+      submitBtn.disabled = false;
+      submitText.textContent = "Authorize Master Access";
+    }
   }
 }
 
