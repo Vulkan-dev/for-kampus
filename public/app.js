@@ -2658,9 +2658,9 @@ function toggleRentsTheme() {
   const isExcel = container.classList.toggle('excel-theme');
   localStorage.setItem('mega_rents_theme', isExcel ? 'excel' : 'dark');
   if (text) {
-    text.textContent = isExcel ? '📄 Classic Sheet' : '🌙 Obsidian Dark';
+    text.textContent = isExcel ? '📄 Classic Sheet' : '🌙 Dark Theme';
   }
-  showToast(`Switched to ${isExcel ? 'Classic Excel Sheet' : 'Obsidian Dark'} theme`, 'info');
+  showToast(`Switched to ${isExcel ? 'Classic Excel Sheet' : 'Dark'} theme`, 'info');
 }
 
 function initRentsTheme() {
@@ -2668,12 +2668,12 @@ function initRentsTheme() {
   const container = document.getElementById('rentsTableContainer');
   const text = document.getElementById('rentsThemeToggleText');
   if (!container) return;
-  if (saved === 'dark') {
-    container.classList.remove('excel-theme');
-    if (text) text.textContent = '🌙 Obsidian Dark';
-  } else {
+  if (saved === 'excel') {
     container.classList.add('excel-theme');
     if (text) text.textContent = '📄 Classic Sheet';
+  } else {
+    container.classList.remove('excel-theme');
+    if (text) text.textContent = '🌙 Dark Theme';
   }
 }
 
@@ -2816,17 +2816,17 @@ function renderRentsTable() {
 
     return `
       <tr data-id="${escapeHtml(r.id)}">
-        <td style="text-align:center; font-weight:700;">${idx + 1}</td>
-        ${isAll ? `<td style="text-align:center; font-weight:600; color:#2563eb;">${escapeHtml(r.month || '')}</td>` : ''}
-        <td style="font-weight:600;">${escapeHtml(r.brand_name || '')}</td>
-        <td style="text-align:center; font-weight:700;">${escapeHtml(r.shop_no || '')}</td>
-        <td>${escapeHtml(r.allotee_name || '')}</td>
-        <td style="text-align:right;">${sqFtStr}</td>
-        <td style="text-align:right; font-weight:700;">${amountStr}</td>
-        <td style="text-align:center; font-family:monospace; font-size:0.85rem;">${escapeHtml(r.chq_no || '-')}</td>
-        <td style="text-align:right; font-weight:600;">${paidStr}</td>
-        <td style="text-align:center; font-size:0.75rem;">${escapeHtml(r.date || '-')}</td>
-        <td style="text-align:right; font-weight:700;">${inHandStr}</td>
+        <td style="text-align:center; font-weight:700; color:var(--text-dim, #94a3b8);">${idx + 1}</td>
+        ${isAll ? `<td style="text-align:center; font-weight:600; color:#60a5fa;">${escapeHtml(r.month || '')}</td>` : ''}
+        <td style="font-weight:600; color:#f8fafc;">${escapeHtml(r.brand_name || '')}</td>
+        <td style="text-align:center; font-weight:700; color:#38bdf8; letter-spacing:0.04em;">${escapeHtml(r.shop_no || '')}</td>
+        <td style="color:#e2e8f0;">${escapeHtml(r.allotee_name || '')}</td>
+        <td style="text-align:right; color:#cbd5e1;">${sqFtStr}</td>
+        <td style="text-align:right; font-weight:700; color:#ffffff;">${amountStr}</td>
+        <td style="text-align:center; font-family:monospace; font-size:0.85rem; color:#cbd5e1;">${escapeHtml(r.chq_no || '-')}</td>
+        <td style="text-align:right; font-weight:600; color:#34d399;">${paidStr}</td>
+        <td style="text-align:center; font-size:0.75rem; color:#94a3b8;">${escapeHtml(r.date || '-')}</td>
+        <td style="text-align:right; font-weight:700; color:#fbbf24;">${inHandStr}</td>
         <td style="text-align:center;" class="no-print">
           <button type="button" class="rents-action-btn edit" onclick="openRentsEditModal('${escapeHtml(r.id)}')" title="Edit Record">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -2843,14 +2843,14 @@ function renderRentsTable() {
     const totalLeadColSpan = isAll ? 4 : 3;
     tfoot.innerHTML = `
       <tr>
-        <td colspan="${totalLeadColSpan}" style="text-align:center; font-weight:800; font-size:0.85rem; letter-spacing:0.06em;">TOTAL</td>
-        <td style="text-align:right; font-weight:700;">${records.length} shops</td>
-        <td style="text-align:right; font-weight:800;">${totalSqFt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-        <td style="text-align:right; font-weight:800; font-size:0.9rem;">Rs. ${totalAmount.toLocaleString()}</td>
+        <td colspan="${totalLeadColSpan}" style="text-align:center; font-weight:800; font-size:0.85rem; letter-spacing:0.06em; color:#ffffff;">TOTAL</td>
+        <td style="text-align:right; font-weight:700; color:var(--text-muted, #94a3b8);">${records.length} shops</td>
+        <td style="text-align:right; font-weight:800; color:#ffffff;">${totalSqFt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#60a5fa;">Rs. ${totalAmount.toLocaleString()}</td>
         <td></td>
-        <td style="text-align:right; font-weight:800; font-size:0.9rem;">Rs. ${totalPaid.toLocaleString()}</td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#34d399;">Rs. ${totalPaid.toLocaleString()}</td>
         <td></td>
-        <td style="text-align:right; font-weight:800; font-size:0.9rem;">Rs. ${totalInHand.toLocaleString()}</td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#fbbf24;">Rs. ${totalInHand.toLocaleString()}</td>
         <td class="no-print"></td>
       </tr>
     `;

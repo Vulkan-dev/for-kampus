@@ -2472,19 +2472,19 @@ input:checked + .slider:before {
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
 .rents-sheet-banner {
   text-align: center;
-  padding: 0.75rem 1rem;
-  font-size: 1.05rem;
+  padding: 0.85rem 1rem;
+  font-size: 1.1rem;
   font-weight: 800;
   font-style: italic;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: #ffffff;
-  background: #0d1424;
-  border-bottom: 2px solid #334155;
+  background: #090e1a;
+  border-bottom: 2px solid #1e293b;
   text-transform: uppercase;
   user-select: none;
 }
@@ -2504,49 +2504,51 @@ input:checked + .slider:before {
 .rents-master-table thead {
   position: sticky;
   top: 0;
-  background: #192339;
+  background: #131d33;
   z-index: 10;
 }
 
 .rents-master-table thead th {
-  padding: 0.65rem 0.75rem;
+  padding: 0.7rem 0.75rem;
   font-weight: 800;
   font-style: italic;
   font-size: 0.78rem;
   letter-spacing: 0.04em;
-  color: #f1f5f9;
-  border: 1px solid #334155;
+  color: #f8fafc;
+  background: #131d33;
+  border: 1px solid #1e293b;
   white-space: nowrap;
 }
 
 .rents-master-table tbody td {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #cbd5e1;
   white-space: nowrap;
 }
 
-.rents-master-table tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.015);
+.rents-master-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.rents-master-table tbody tr:hover {
-  background: rgba(59, 130, 246, 0.08);
+.rents-master-table tbody tr:hover td {
+  background: rgba(59, 130, 246, 0.12) !important;
 }
 
 .rents-master-table tfoot {
   position: sticky;
   bottom: 0;
-  background: #0d1424;
+  background: #090e1a;
   z-index: 10;
 }
 
 .rents-master-table tfoot td {
-  padding: 0.7rem 0.75rem;
+  padding: 0.75rem 0.75rem;
   font-weight: 800;
   color: #ffffff;
-  border-top: 2px solid #64748b;
-  border-bottom: 3px double #94a3b8;
+  background: #090e1a;
+  border-top: 2px solid #334155;
+  border-bottom: 3px double #475569;
   white-space: nowrap;
 }
 
