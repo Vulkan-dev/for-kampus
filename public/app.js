@@ -757,9 +757,27 @@ function calculateInvoices() {
     if (custom.rate !== undefined && custom.rate !== "") rate = Number(custom.rate);
     if (custom.previous !== undefined && custom.previous !== "") previous = Number(custom.previous);
 
-    let billAmount = Math.round(gallons * rate);
-    if (custom.billAmount !== undefined && custom.billAmount !== "") {
+    const autoBill = Math.round(gallons * rate);
+    let billAmount = autoBill;
+    let isManualBill = false;
+
+    // 1. Year-level manual bill setting
+    if (yearConfig.manualBillAmountEnabled && yearConfig.manualBillAmount !== undefined && yearConfig.manualBillAmount !== null && yearConfig.manualBillAmount !== "") {
+      billAmount = Number(yearConfig.manualBillAmount);
+      isManualBill = true;
+    }
+
+    // 2. Row-level manual bill setting (takes precedence if explicitly enabled or disabled)
+    if (custom.manualBillAmountEnabled === true && custom.billAmount !== undefined && custom.billAmount !== "") {
       billAmount = Number(custom.billAmount);
+      isManualBill = true;
+    } else if (custom.manualBillAmountEnabled === false) {
+      // User explicitly toggled manual off for this row -> force autoBill
+      billAmount = autoBill;
+      isManualBill = false;
+    } else if (custom.billAmount !== undefined && custom.billAmount !== "") {
+      billAmount = Number(custom.billAmount);
+      isManualBill = true;
     }
 
     let totalPayable = billAmount + previous;
@@ -783,6 +801,8 @@ function calculateInvoices() {
       gallons,
       rate,
       billAmount,
+      autoBill,
+      isManualBill,
       previous,
       totalPayable,
       customValues: custom
@@ -885,6 +905,10 @@ function updateYearConfigsUI() {
       appState.yearRates[year] = { rate: 1.25, gallons: 53759 };
     }
     const config = appState.yearRates[year];
+    const isManual = !!config.manualBillAmountEnabled;
+    const currentBill = isManual 
+      ? (config.manualBillAmount !== undefined ? config.manualBillAmount : Math.round((config.gallons || 50000) * (config.rate || 1.25)))
+      : Math.round((config.gallons || 50000) * (config.rate || 1.25));
 
     const card = document.createElement("div");
     card.className = "year-config-item";
@@ -893,19 +917,79 @@ function updateYearConfigsUI() {
         <span class="year-badge">Year ${year}</span>
         <span style="font-size:0.75rem; color:var(--text-dim);">${months.filter(m => m.year === year).length} Months</span>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Rate / Gal (PKR)</label>
-          <input type="number" step="0.01" class="form-input" value="${config.rate}" onchange="setYearRate(${year}, this.value)" />
+
+      <!-- Manual Bill Amount Toggle Row -->
+      <div class="toggle-row" style="margin-bottom:0.45rem; padding-bottom:0.35rem; border-bottom:1px solid var(--border-subtle);">
+        <div style="display:flex; flex-direction:column;">
+          <span style="font-size:0.75rem; font-weight:600; color:${isManual ? 'var(--accent-green)' : 'var(--text-main)'};">Manual Bill Amount</span>
+          <span style="font-size:0.67rem; color:var(--text-dim);">${isManual ? 'Fixed manual amount active' : 'Auto: Gallons × Rate'}</span>
         </div>
-        <div class="form-group">
-          <label class="form-label">Monthly Gallons</label>
-          <input type="number" step="1" class="form-input" value="${config.gallons}" onchange="setYearGallons(${year}, this.value)" />
-        </div>
+        <label class="switch switch-sm" title="Toggle manual bill amount for Year ${year}">
+          <input type="checkbox" ${isManual ? 'checked' : ''} onchange="setYearManualBillToggle(${year}, this.checked)" />
+          <span class="slider"></span>
+        </label>
       </div>
+
+      ${isManual ? `
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" style="color:var(--accent-green); font-weight:600;">Manual Bill Amount (PKR)</label>
+            <input type="number" step="1" class="form-input" style="border-color:rgba(34,197,94,0.4); font-weight:600; color:var(--accent-green);" value="${currentBill}" onchange="setYearManualBillAmount(${year}, this.value)" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rate / Gal (PKR)</label>
+            <input type="number" step="0.01" class="form-input" value="${config.rate}" onchange="setYearRate(${year}, this.value)" />
+          </div>
+        </div>
+        <div class="form-row" style="margin-top:0.45rem;">
+          <div class="form-group">
+            <label class="form-label">Consumption Gallons</label>
+            <input type="number" step="1" class="form-input" value="${config.gallons}" onchange="setYearGallons(${year}, this.value)" />
+          </div>
+        </div>
+      ` : `
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Rate / Gal (PKR)</label>
+            <input type="number" step="0.01" class="form-input" value="${config.rate}" onchange="setYearRate(${year}, this.value)" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monthly Gallons</label>
+            <input type="number" step="1" class="form-input" value="${config.gallons}" onchange="setYearGallons(${year}, this.value)" />
+          </div>
+        </div>
+        <div style="font-size:0.72rem; color:var(--text-dim); margin-top:0.35rem; display:flex; justify-content:space-between; align-items:center;">
+          <span>Auto Bill Amount:</span>
+          <strong style="color:var(--text-main);">PKR ${formatNumber(currentBill)}</strong>
+        </div>
+      `}
     `;
     container.appendChild(card);
   });
+}
+
+function setYearManualBillToggle(year, isEnabled) {
+  if (!appState.yearRates[year]) appState.yearRates[year] = { rate: 1.25, gallons: 50000 };
+  appState.yearRates[year].manualBillAmountEnabled = isEnabled;
+  if (isEnabled && (appState.yearRates[year].manualBillAmount === undefined || appState.yearRates[year].manualBillAmount === null)) {
+    const rate = appState.yearRates[year].rate || 1.25;
+    const gallons = appState.yearRates[year].gallons || 50000;
+    appState.yearRates[year].manualBillAmount = Math.round(gallons * rate);
+  }
+  updateYearConfigsUI();
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
+  showToast(isEnabled ? `Manual Bill Amount enabled for Year ${year}` : `Automatic calculation restored for Year ${year}`, "info");
+}
+
+function setYearManualBillAmount(year, val) {
+  if (!appState.yearRates[year]) appState.yearRates[year] = { rate: 1.25, gallons: 50000 };
+  appState.yearRates[year].manualBillAmountEnabled = true;
+  appState.yearRates[year].manualBillAmount = parseFloat(val) || 0;
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
 }
 
 function setYearRate(year, val) {
@@ -997,8 +1081,22 @@ function renderDataEditor() {
       } else if (col.id === 'previous') {
         return `<td><input type="number" value="${inv.previous}" onchange="updateCorrection('${inv.ym}', 'previous', this.value)" style="width:90px;" /></td>`;
       } else if (col.id === 'billAmount') {
-        const val = (inv.customValues && inv.customValues.billAmount !== undefined) ? inv.customValues.billAmount : inv.billAmount;
-        return `<td><input type="number" value="${val}" onchange="updateCorrection('${inv.ym}', 'billAmount', this.value)" title="Directly editable Bill Amount" style="width:105px; font-weight:600;" /></td>`;
+        const isManual = !!inv.isManualBill;
+        return `
+          <td style="white-space:nowrap;">
+            <div style="display:inline-flex; align-items:center; gap:0.35rem;">
+              <input type="number" 
+                     value="${inv.billAmount}" 
+                     ${isManual ? '' : 'readonly'}
+                     onchange="updateRowManualBillAmount('${inv.ym}', this.value)" 
+                     title="${isManual ? 'Manual Bill Amount active (custom override)' : 'Auto-calculated: Gallons × Rate (Turn toggle on to set manually)'}" 
+                     style="width:95px; font-weight:600; ${isManual ? 'border-color:var(--accent-green); color:var(--accent-green);' : 'opacity:0.8; background:var(--bg-app); cursor:not-allowed;'}" />
+              <label class="switch switch-sm" title="Toggle manual bill amount ON/OFF for ${inv.monthName} ${inv.year}">
+                <input type="checkbox" ${isManual ? 'checked' : ''} onchange="toggleRowManualBill('${inv.ym}', this.checked)" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </td>`;
       } else if (col.id === 'totalPayable') {
         const val = (inv.customValues && inv.customValues.totalPayable !== undefined) ? inv.customValues.totalPayable : inv.totalPayable;
         return `<td><input type="number" value="${val}" onchange="updateCorrection('${inv.ym}', 'totalPayable', this.value)" title="Directly editable Total Payable" style="width:110px; font-weight:700; color:var(--accent-green);" /></td>`;
@@ -1029,6 +1127,67 @@ function renderDataEditor() {
     `;
     tbody.appendChild(tr);
   });
+
+  // Sync global manual bill toggle state
+  const globalToggle = document.getElementById("editorManualBillGlobalToggle");
+  if (globalToggle) {
+    const allManual = invoices.length > 0 && invoices.every(inv => inv.isManualBill);
+    globalToggle.checked = allManual;
+  }
+}
+
+function toggleRowManualBill(ym, isEnabled) {
+  if (!appState.manualCorrections[ym]) {
+    appState.manualCorrections[ym] = {};
+  }
+  appState.manualCorrections[ym].manualBillAmountEnabled = isEnabled;
+  if (isEnabled) {
+    if (appState.manualCorrections[ym].billAmount === undefined) {
+      const invs = calculateInvoices();
+      const current = invs.find(i => i.ym === ym);
+      appState.manualCorrections[ym].billAmount = current ? current.billAmount : 0;
+    }
+    showToast(`Manual bill amount enabled for ${ym}. You can now edit the amount directly.`, "info");
+  } else {
+    delete appState.manualCorrections[ym].billAmount;
+    showToast(`Restored automatic Bill Amount calculation for ${ym}.`, "info");
+  }
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
+}
+
+function updateRowManualBillAmount(ym, val) {
+  if (!appState.manualCorrections[ym]) {
+    appState.manualCorrections[ym] = {};
+  }
+  appState.manualCorrections[ym].manualBillAmountEnabled = true;
+  appState.manualCorrections[ym].billAmount = parseFloat(val) || 0;
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
+}
+
+function toggleGlobalManualBill(isEnabled) {
+  const invoices = calculateInvoices();
+  invoices.forEach(inv => {
+    if (!appState.manualCorrections[inv.ym]) {
+      appState.manualCorrections[inv.ym] = {};
+    }
+    appState.manualCorrections[inv.ym].manualBillAmountEnabled = isEnabled;
+    if (isEnabled) {
+      if (appState.manualCorrections[inv.ym].billAmount === undefined) {
+        appState.manualCorrections[inv.ym].billAmount = inv.billAmount;
+      }
+    } else {
+      delete appState.manualCorrections[inv.ym].billAmount;
+    }
+  });
+
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
+  showToast(isEnabled ? "Manual Bill Amount enabled across all invoices" : "All invoices restored to automatic Bill Amount calculation", "info");
 }
 
 function updateCorrection(ym, field, val) {
@@ -2395,6 +2554,9 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPreview();
     renderDataEditor();
     debouncedSaveProjectState();
+  });
+  document.getElementById("editorManualBillGlobalToggle")?.addEventListener("change", (e) => {
+    toggleGlobalManualBill(e.target.checked);
   });
   document.getElementById("editorApplySeqBtn")?.addEventListener("click", applyEditorSequence);
 
