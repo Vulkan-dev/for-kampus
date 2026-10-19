@@ -283,8 +283,7 @@ async function handleLoginSubmit(e) {
     passEl.value = "";
     showToast(`Welcome, ${data.user.username}!`, "success");
 
-    renderPreview();
-    renderDataEditor();
+    await loadProjectStateFromDatabase();
   } catch (err) {
     errorEl.textContent = err.message;
     errorEl.className = "login-error-alert";
@@ -344,6 +343,14 @@ const PRESETS = {
   }
 };
 
+const DEFAULT_TABLE_COLUMNS = [
+  { id: 'gallons', label: 'CONSUMPTION GALLON', widthPct: 26.12, type: 'number', required: true },
+  { id: 'rate', label: 'RATE PER\nGALLON', widthPct: 16.46, type: 'number', required: true },
+  { id: 'billAmount', label: 'BILL\nAMOUNT', widthPct: 19.14, type: 'number', required: true },
+  { id: 'previous', label: 'PREVIOUS', widthPct: 18.94, type: 'number', required: true },
+  { id: 'totalPayable', label: 'TOTAL PAYABLE', widthPct: 19.34, type: 'number', required: true }
+];
+
 // Global App State
 let appState = {
   occupier: "FALAKNAZ SPRINGS,",
@@ -364,10 +371,107 @@ let appState = {
     "2026": { rate: 1.25, gallons: 137788 }
   },
   manualCorrections: {},
+  tableColumns: JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS)),
   currentPageIndex: 0,
   viewAllPages: false,
   activeTab: "preview"
 };
+
+// ==========================================================
+// Database Persistence Manager (Atomic Server DB + Local Backup)
+// ==========================================================
+let dbSaveTimer = null;
+let isDbSaving = false;
+
+function updateDbSyncStatus(status, text) {
+  const badge = document.getElementById("dbSyncBadge");
+  const textEl = document.getElementById("dbSyncText");
+  if (!badge) return;
+  badge.classList.remove("saving", "error", "synced");
+  if (status === "saving") {
+    badge.classList.add("saving");
+    if (textEl) textEl.textContent = text || "Saving to DB...";
+  } else if (status === "error") {
+    badge.classList.add("error");
+    if (textEl) textEl.textContent = text || "Sync Failed";
+  } else {
+    badge.classList.add("synced");
+    if (textEl) textEl.textContent = text || "Database Synced";
+  }
+}
+
+async function saveProjectStateToDatabase(isManual = false) {
+  try {
+    localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
+  } catch (e) {}
+
+  updateDbSyncStatus("saving", isManual ? "Saving to DB..." : "Auto-saving...");
+  isDbSaving = true;
+
+  try {
+    const res = await authFetch('/api/project/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(appState)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    updateDbSyncStatus("synced", "Database Synced");
+    if (isManual) {
+      showToast("Progress successfully saved to database!", "success");
+    }
+  } catch (err) {
+    console.warn("Database save error:", err);
+    updateDbSyncStatus("error", "Offline / Local");
+    if (isManual) {
+      showToast("Could not save to server database. Saved locally.", "warning");
+    }
+  } finally {
+    isDbSaving = false;
+  }
+}
+
+function debouncedSaveProjectState(delay = 600) {
+  if (dbSaveTimer) clearTimeout(dbSaveTimer);
+  updateDbSyncStatus("saving", "Saving...");
+  dbSaveTimer = setTimeout(() => {
+    saveProjectStateToDatabase(false);
+  }, delay);
+}
+
+async function loadProjectStateFromDatabase() {
+  let loadedState = null;
+  try {
+    const res = await authFetch('/api/project/state');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.state && typeof data.state === 'object') {
+        loadedState = data.state;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to fetch state from server, falling back to localStorage", e);
+  }
+
+  if (!loadedState) {
+    try {
+      const local = localStorage.getItem('mega_mall_project_state');
+      if (local) loadedState = JSON.parse(local);
+    } catch (e) {}
+  }
+
+  if (loadedState) {
+    if (!loadedState.tableColumns || !Array.isArray(loadedState.tableColumns) || loadedState.tableColumns.length === 0) {
+      loadedState.tableColumns = JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS));
+    }
+    appState = Object.assign({}, appState, loadedState);
+    updateDbSyncStatus("synced", "Database Synced");
+  }
+  syncInputsWithState();
+  updateYearConfigsUI();
+  renderPreview();
+  renderDataEditor();
+}
 
 // Date Strings and Calendar Math
 const MONTH_NAMES_FULL = [
@@ -504,6 +608,7 @@ function updateBillingDate(type, newYM) {
   updateYearConfigsUI();
   renderPreview();
   renderDataEditor();
+  debouncedSaveProjectState();
   return true;
 }
 
@@ -557,6 +662,64 @@ function generateMonthsList(startYM, endYM) {
   return list;
 }
 
+// Helper functions for dynamic table columns
+function getActiveColumns() {
+  if (appState.tableColumns && Array.isArray(appState.tableColumns) && appState.tableColumns.length > 0) {
+    return appState.tableColumns;
+  }
+  return DEFAULT_TABLE_COLUMNS;
+}
+
+function getColumnWidthStyles(cols) {
+  const isExactDefault = cols.length === 5 &&
+    cols[0].id === 'gallons' &&
+    cols[1].id === 'rate' &&
+    cols[2].id === 'billAmount' &&
+    cols[3].id === 'previous' &&
+    cols[4].id === 'totalPayable';
+
+  if (isExactDefault) {
+    const defaultPcts = [26.12, 16.46, 19.14, 18.94, 19.34];
+    return cols.map((c, i) => `${defaultPcts[i]}%`);
+  }
+
+  // Auto-adjusting proportional widths totaling 100%
+  const sumWeights = cols.reduce((sum, c) => sum + (Number(c.widthPct) || (100 / cols.length)), 0);
+  return cols.map(c => {
+    const w = Number(c.widthPct) || (100 / cols.length);
+    return `${((w / sumWeights) * 100).toFixed(2)}%`;
+  });
+}
+
+function renderInvoiceTableCells(inv, cols) {
+  return cols.map(col => {
+    let text = "";
+    if (col.id === 'gallons') {
+      text = inv.gallons ? String(inv.gallons).replace(/,/g, '') : "0";
+    } else if (col.id === 'rate') {
+      text = Number(inv.rate).toFixed(2);
+    } else if (col.id === 'billAmount') {
+      text = `${formatNumber(inv.billAmount)}/-`;
+    } else if (col.id === 'previous') {
+      text = inv.previous === 0 ? "0" : `${formatNumber(inv.previous)}/-`;
+    } else if (col.id === 'totalPayable') {
+      text = `${formatNumber(inv.totalPayable)}/-`;
+    } else {
+      const rawVal = (inv.customValues && inv.customValues[col.id] !== undefined)
+        ? inv.customValues[col.id]
+        : (col.defaultValue || "");
+      if (col.type === 'currency' && rawVal !== "") {
+        text = `${formatNumber(rawVal)}/-`;
+      } else if (col.type === 'number' && rawVal !== "") {
+        text = String(rawVal).replace(/,/g, '');
+      } else {
+        text = escapeHtml(String(rawVal || ""));
+      }
+    }
+    return `<td>${text}</td>`;
+  }).join('');
+}
+
 // Compute all invoice objects
 function calculateInvoices() {
   const months = generateMonthsList(appState.startMonth, appState.endMonth);
@@ -586,18 +749,23 @@ function calculateInvoices() {
     let issueDate = normalizeMonthNames(`${getOrdinal(m.daysInMonth)} ${m.shortMonthName} ${m.year}`);
 
     // Apply manual corrections if present
-    const custom = appState.manualCorrections[m.ym];
-    if (custom) {
-      if (custom.invoiceNumber !== undefined) invNum = custom.invoiceNumber;
-      if (custom.billingPeriod !== undefined) billingPeriod = normalizeMonthNames(custom.billingPeriod);
-      if (custom.issueDate !== undefined) issueDate = normalizeMonthNames(custom.issueDate);
-      if (custom.gallons !== undefined) gallons = Number(custom.gallons);
-      if (custom.rate !== undefined) rate = Number(custom.rate);
-      if (custom.previous !== undefined) previous = Number(custom.previous);
+    const custom = appState.manualCorrections[m.ym] || {};
+    if (custom.invoiceNumber !== undefined && custom.invoiceNumber !== "") invNum = custom.invoiceNumber;
+    if (custom.billingPeriod !== undefined && custom.billingPeriod !== "") billingPeriod = normalizeMonthNames(custom.billingPeriod);
+    if (custom.issueDate !== undefined && custom.issueDate !== "") issueDate = normalizeMonthNames(custom.issueDate);
+    if (custom.gallons !== undefined && custom.gallons !== "") gallons = Number(custom.gallons);
+    if (custom.rate !== undefined && custom.rate !== "") rate = Number(custom.rate);
+    if (custom.previous !== undefined && custom.previous !== "") previous = Number(custom.previous);
+
+    let billAmount = Math.round(gallons * rate);
+    if (custom.billAmount !== undefined && custom.billAmount !== "") {
+      billAmount = Number(custom.billAmount);
     }
 
-    const billAmount = Math.round(gallons * rate);
-    const totalPayable = billAmount + previous;
+    let totalPayable = billAmount + previous;
+    if (custom.totalPayable !== undefined && custom.totalPayable !== "") {
+      totalPayable = Number(custom.totalPayable);
+    }
 
     if (appState.includePrevBalance && appState.prevBalanceMode === "cumulative") {
       runningPrevious += billAmount;
@@ -616,13 +784,24 @@ function calculateInvoices() {
       rate,
       billAmount,
       previous,
-      totalPayable
+      totalPayable,
+      customValues: custom
     };
   });
 }
 
 // Render a single invoice sheet with exact template layout & guaranteed visible grids
 function renderInvoiceSheet(inv) {
+  const cols = getActiveColumns();
+  const widths = getColumnWidthStyles(cols);
+
+  const tableHeadHtml = cols.map((col, i) => {
+    const labelHtml = escapeHtml(col.label).replace(/\n/g, '<br>');
+    return `<th style="width:${widths[i]};">${labelHtml}</th>`;
+  }).join('');
+
+  const tableBodyHtml = renderInvoiceTableCells(inv, cols);
+
   return `
     <div class="invoice-sheet" id="invoice-page-${inv.index}">
       <!-- Header -->
@@ -661,20 +840,12 @@ function renderInvoiceSheet(inv) {
       <table class="inv-table">
         <thead>
           <tr>
-            <th style="width:26.12%;">CONSUMPTION GALLON</th>
-            <th style="width:16.46%;">RATE PER<br>GALLON</th>
-            <th style="width:19.14%;">BILL<br>AMOUNT</th>
-            <th style="width:18.94%;">PREVIOUS</th>
-            <th style="width:19.34%;">TOTAL PAYABLE</th>
+            ${tableHeadHtml}
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>${inv.gallons ? String(inv.gallons).replace(/,/g, '') : 0}</td>
-            <td>${Number(inv.rate).toFixed(2)}</td>
-            <td>${formatNumber(inv.billAmount)}/-</td>
-            <td>${inv.previous === 0 ? "0" : formatNumber(inv.previous) + "/-"}</td>
-            <td>${formatNumber(inv.totalPayable)}/-</td>
+            ${tableBodyHtml}
           </tr>
         </tbody>
       </table>
@@ -742,6 +913,7 @@ function setYearRate(year, val) {
   appState.yearRates[year].rate = parseFloat(val) || 1.25;
   renderPreview();
   renderDataEditor();
+  debouncedSaveProjectState();
 }
 
 function setYearGallons(year, val) {
@@ -749,6 +921,7 @@ function setYearGallons(year, val) {
   appState.yearRates[year].gallons = parseInt(val, 10) || 50000;
   renderPreview();
   renderDataEditor();
+  debouncedSaveProjectState();
 }
 
 // Render Preview Area
@@ -793,11 +966,51 @@ function renderPreview() {
 // Render Batch Data Editor Table
 function renderDataEditor() {
   const invoices = calculateInvoices();
+  const cols = getActiveColumns();
+
+  // 1. Render Dynamic Table Header
+  const headerRow = document.getElementById("editorTableHeaderRow");
+  if (headerRow) {
+    headerRow.innerHTML = `
+      <th style="min-width:110px;">Month / Period</th>
+      <th style="min-width:150px;">Invoice #</th>
+      <th style="min-width:260px;">Billing Period</th>
+      <th style="min-width:140px;">Issue Date</th>
+      ${cols.map(c => `<th>${escapeHtml(c.label).replace(/\n/g, ' ')}</th>`).join('')}
+      <th style="min-width:80px;">Action</th>
+    `;
+  }
+
+  // 2. Render Table Body with All Columns Directly Editable
   const tbody = document.getElementById("editorTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   invoices.forEach(inv => {
     const tr = document.createElement("tr");
+
+    const colInputsHtml = cols.map(col => {
+      if (col.id === 'gallons') {
+        return `<td><input type="number" value="${inv.gallons}" onchange="updateCorrection('${inv.ym}', 'gallons', this.value)" style="width:105px;" /></td>`;
+      } else if (col.id === 'rate') {
+        return `<td><input type="number" step="0.01" value="${inv.rate}" onchange="updateCorrection('${inv.ym}', 'rate', this.value)" style="width:75px;" /></td>`;
+      } else if (col.id === 'previous') {
+        return `<td><input type="number" value="${inv.previous}" onchange="updateCorrection('${inv.ym}', 'previous', this.value)" style="width:90px;" /></td>`;
+      } else if (col.id === 'billAmount') {
+        const val = (inv.customValues && inv.customValues.billAmount !== undefined) ? inv.customValues.billAmount : inv.billAmount;
+        return `<td><input type="number" value="${val}" onchange="updateCorrection('${inv.ym}', 'billAmount', this.value)" title="Directly editable Bill Amount" style="width:105px; font-weight:600;" /></td>`;
+      } else if (col.id === 'totalPayable') {
+        const val = (inv.customValues && inv.customValues.totalPayable !== undefined) ? inv.customValues.totalPayable : inv.totalPayable;
+        return `<td><input type="number" value="${val}" onchange="updateCorrection('${inv.ym}', 'totalPayable', this.value)" title="Directly editable Total Payable" style="width:110px; font-weight:700; color:var(--accent-green);" /></td>`;
+      } else {
+        const val = (inv.customValues && inv.customValues[col.id] !== undefined)
+          ? inv.customValues[col.id]
+          : (col.defaultValue || "");
+        const inputType = (col.type === 'number' || col.type === 'currency') ? 'number' : 'text';
+        return `<td><input type="${inputType}" value="${escapeHtml(String(val))}" onchange="updateCorrection('${inv.ym}', '${col.id}', this.value)" style="width:100px;" /></td>`;
+      }
+    }).join('');
+
     tr.innerHTML = `
       <td style="font-weight:600; color:var(--text-main); white-space:nowrap;">${inv.monthName} ${inv.year}</td>
       <td>
@@ -809,21 +1022,7 @@ function renderDataEditor() {
       <td>
         <input type="text" value="${inv.issueDate}" onchange="updateCorrection('${inv.ym}', 'issueDate', this.value)" style="width:130px;" />
       </td>
-      <td>
-        <input type="number" value="${inv.gallons}" onchange="updateCorrection('${inv.ym}', 'gallons', this.value)" style="width:105px;" />
-      </td>
-      <td>
-        <input type="number" step="0.01" value="${inv.rate}" onchange="updateCorrection('${inv.ym}', 'rate', this.value)" style="width:75px;" />
-      </td>
-      <td>
-        <input type="number" value="${inv.previous}" onchange="updateCorrection('${inv.ym}', 'previous', this.value)" style="width:90px;" />
-      </td>
-      <td style="font-weight:600; color:var(--text-main); white-space:nowrap;">
-        ${formatNumber(inv.billAmount)}/-
-      </td>
-      <td style="font-weight:700; color:var(--accent-green); white-space:nowrap;">
-        ${formatNumber(inv.totalPayable)}/-
-      </td>
+      ${colInputsHtml}
       <td style="white-space:nowrap;">
         <button class="btn btn-secondary btn-sm" onclick="jumpToPageAndPreview(${inv.index})">Preview</button>
       </td>
@@ -839,6 +1038,7 @@ function updateCorrection(ym, field, val) {
   appState.manualCorrections[ym][field] = val;
   renderPreview();
   renderDataEditor();
+  debouncedSaveProjectState();
 }
 
 function jumpToPageAndPreview(index) {
@@ -852,7 +1052,144 @@ function resetManualCorrections() {
     appState.manualCorrections = {};
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
     showToast("All manual overrides restored to default calculations", "success");
+  });
+}
+
+// ----------------------------------------------------------
+// Invoice Sequence Manager (Table Editor)
+// ----------------------------------------------------------
+function applyEditorSequence() {
+  const prefixInput = document.getElementById("editorSeqPrefix");
+  const startNumInput = document.getElementById("editorSeqStartNum");
+  const suffixInput = document.getElementById("editorSeqSuffix");
+  const autoYearToggle = document.getElementById("editorSeqAutoYear");
+
+  const prefix = prefixInput ? prefixInput.value : appState.invPrefix;
+  const startNum = startNumInput ? parseInt(startNumInput.value, 10) || 1 : appState.invStartNum;
+  const suffix = suffixInput ? suffixInput.value : appState.invSuffix;
+  const autoYear = autoYearToggle ? autoYearToggle.checked : appState.autoSuffixYear;
+
+  appState.invPrefix = prefix;
+  appState.invStartNum = startNum;
+  appState.invSuffix = suffix;
+  appState.autoSuffixYear = autoYear;
+
+  // Clear per-row custom invoice numbers so the clean sequence applies to all
+  if (appState.manualCorrections) {
+    Object.keys(appState.manualCorrections).forEach(ym => {
+      delete appState.manualCorrections[ym].invoiceNumber;
+    });
+  }
+
+  syncInputsWithState();
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
+  showToast(`Applied sequence starting from ${prefix}${startNum}${suffix} to all invoices!`, "success");
+}
+
+// ----------------------------------------------------------
+// Custom Table Boxes & Columns Manager Modal
+// ----------------------------------------------------------
+function openColumnsModal() {
+  renderColumnsModalList();
+  const el = document.getElementById("columnsModalBackdrop");
+  if (el) el.classList.add("open");
+}
+
+function closeColumnsModal() {
+  const el = document.getElementById("columnsModalBackdrop");
+  if (el) el.classList.remove("open");
+}
+
+function renderColumnsModalList() {
+  const container = document.getElementById("columnsListContainer");
+  const countEl = document.getElementById("activeColCount");
+  const cols = getActiveColumns();
+  if (countEl) countEl.textContent = cols.length;
+  if (!container) return;
+
+  container.innerHTML = "";
+  cols.forEach((col, idx) => {
+    const isDefault = DEFAULT_TABLE_COLUMNS.some(d => d.id === col.id);
+    const row = document.createElement("div");
+    row.className = "custom-col-row";
+    row.innerHTML = `
+      <div style="display:flex; align-items:center; gap:0.5rem; flex:1;">
+        <span class="col-tag">${idx + 1}</span>
+        <div>
+          <div style="font-weight:600; color:var(--text-main); font-size:0.8rem;">
+            ${escapeHtml(col.label).replace(/\n/g, ' ')}
+          </div>
+          <div style="font-size:0.7rem; color:var(--text-dim);">
+            ID: <code>${col.id}</code> &bull; Type: ${col.type || 'text'} ${isDefault ? '&bull; <em>Standard Box</em>' : '&bull; <span style="color:var(--accent-blue);">Custom Box</span>'}
+          </div>
+        </div>
+      </div>
+      <div>
+        ${isDefault ? `
+          <button class="btn btn-secondary btn-sm" style="opacity:0.5; font-size:0.7rem;" title="Standard required box" disabled>Locked</button>
+        ` : `
+          <button class="btn btn-secondary btn-sm" style="color:var(--accent-red); font-size:0.75rem;" onclick="removeCustomColumn('${col.id}')">Remove</button>
+        `}
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function addNewCustomColumn() {
+  const titleInput = document.getElementById("newColTitleInput");
+  const typeSelect = document.getElementById("newColTypeSelect");
+  const title = (titleInput?.value || "").trim();
+  const type = typeSelect?.value || "currency";
+
+  if (!title) {
+    showToast("Please enter a title for the new box/column.", "warning");
+    return;
+  }
+
+  const id = "col_" + Date.now().toString(36);
+  if (!appState.tableColumns || !Array.isArray(appState.tableColumns)) {
+    appState.tableColumns = JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS));
+  }
+
+  appState.tableColumns.push({
+    id,
+    label: title,
+    type,
+    defaultValue: "",
+    required: false
+  });
+
+  if (titleInput) titleInput.value = "";
+  renderColumnsModalList();
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
+  showToast(`Added custom box "${title}". Table spacing auto-adjusted!`, "success");
+}
+
+function removeCustomColumn(colId) {
+  if (!appState.tableColumns) return;
+  appState.tableColumns = appState.tableColumns.filter(c => c.id !== colId);
+  renderColumnsModalList();
+  renderPreview();
+  renderDataEditor();
+  debouncedSaveProjectState();
+  showToast("Removed custom box. Table spacing auto-adjusted.", "info");
+}
+
+function resetDefaultColumns() {
+  showConfirm("Reset Table Boxes", "Restore original 5 standard table boxes? Any custom boxes will be removed.", () => {
+    appState.tableColumns = JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS));
+    renderColumnsModalList();
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+    showToast("Restored 5 standard table boxes with original spacing.", "success");
   });
 }
 
@@ -925,6 +1262,7 @@ async function exportToWord() {
     const invoices = calculateInvoices();
     const payload = {
       invoices,
+      columns: getActiveColumns(),
       occupier: appState.occupier,
       location: appState.location,
       ntn: appState.ntn
@@ -1328,6 +1666,7 @@ function applyPreset(presetKey) {
   updateYearConfigsUI();
   renderPreview();
   renderDataEditor();
+  debouncedSaveProjectState();
   showToast(`Loaded ${presetKey === 'falaknaz' ? 'Falaknaz Springs' : 'Mega Residency'} preset`, "success");
 }
 
@@ -1345,6 +1684,16 @@ function syncInputsWithState() {
   if (autoSuffixToggle) autoSuffixToggle.checked = !!appState.autoSuffixYear;
   document.getElementById("prevBalanceToggle").checked = appState.includePrevBalance;
   document.getElementById("prevBalanceOptions").style.display = appState.includePrevBalance ? "block" : "none";
+
+  // Also sync Editor Sequence Bar inputs
+  const edPrefix = document.getElementById("editorSeqPrefix");
+  const edStart = document.getElementById("editorSeqStartNum");
+  const edSuffix = document.getElementById("editorSeqSuffix");
+  const edAutoYear = document.getElementById("editorSeqAutoYear");
+  if (edPrefix) edPrefix.value = appState.invPrefix;
+  if (edStart) edStart.value = appState.invStartNum;
+  if (edSuffix) edSuffix.value = appState.invSuffix;
+  if (edAutoYear) edAutoYear.checked = !!appState.autoSuffixYear;
 
   const [sY] = appState.startMonth.split("-").map(Number);
   const [eY] = appState.endMonth.split("-").map(Number);
@@ -1955,14 +2304,17 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("occupierInput").addEventListener("input", (e) => {
     appState.occupier = e.target.value;
     renderPreview();
+    debouncedSaveProjectState();
   });
   document.getElementById("locationInput").addEventListener("input", (e) => {
     appState.location = e.target.value;
     renderPreview();
+    debouncedSaveProjectState();
   });
   document.getElementById("ntnInput").addEventListener("input", (e) => {
     appState.ntn = e.target.value;
     renderPreview();
+    debouncedSaveProjectState();
   });
 
   document.getElementById("startMonthInput").addEventListener("change", (e) => {
@@ -1974,24 +2326,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("invPrefixInput").addEventListener("input", (e) => {
     appState.invPrefix = e.target.value;
+    const edInput = document.getElementById("editorSeqPrefix");
+    if (edInput) edInput.value = e.target.value;
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
   });
   document.getElementById("invStartNumInput").addEventListener("input", (e) => {
     appState.invStartNum = parseInt(e.target.value, 10) || 1;
+    const edInput = document.getElementById("editorSeqStartNum");
+    if (edInput) edInput.value = e.target.value;
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
   });
   document.getElementById("invSuffixInput").addEventListener("input", (e) => {
     appState.invSuffix = e.target.value;
+    const edInput = document.getElementById("editorSeqSuffix");
+    if (edInput) edInput.value = e.target.value;
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
   });
 
   document.getElementById("autoSuffixYearToggle")?.addEventListener("change", (e) => {
     appState.autoSuffixYear = e.target.checked;
+    const edToggle = document.getElementById("editorSeqAutoYear");
+    if (edToggle) edToggle.checked = e.target.checked;
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
     if (e.target.checked) {
       showToast("Year-based suffix changer activated (e.g. -051026 -> -051027)", "info");
     } else {
@@ -1999,24 +2363,72 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Table Editor Sequence Bar Inputs & Apply Button
+  document.getElementById("editorSeqPrefix")?.addEventListener("input", (e) => {
+    appState.invPrefix = e.target.value;
+    const sbInput = document.getElementById("invPrefixInput");
+    if (sbInput) sbInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("editorSeqStartNum")?.addEventListener("input", (e) => {
+    appState.invStartNum = parseInt(e.target.value, 10) || 1;
+    const sbInput = document.getElementById("invStartNumInput");
+    if (sbInput) sbInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("editorSeqSuffix")?.addEventListener("input", (e) => {
+    appState.invSuffix = e.target.value;
+    const sbInput = document.getElementById("invSuffixInput");
+    if (sbInput) sbInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("editorSeqAutoYear")?.addEventListener("change", (e) => {
+    appState.autoSuffixYear = e.target.checked;
+    const sbToggle = document.getElementById("autoSuffixYearToggle");
+    if (sbToggle) sbToggle.checked = e.target.checked;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("editorApplySeqBtn")?.addEventListener("click", applyEditorSequence);
+
+  // Custom Table Boxes (Columns) Modal Actions
+  document.getElementById("openColumnsModalBtn")?.addEventListener("click", openColumnsModal);
+  document.getElementById("closeColumnsModalBtn")?.addEventListener("click", closeColumnsModal);
+  document.getElementById("doneColumnsModalBtn")?.addEventListener("click", closeColumnsModal);
+  document.getElementById("addNewColumnBtn")?.addEventListener("click", addNewCustomColumn);
+  document.getElementById("resetColumnsBtn")?.addEventListener("click", resetDefaultColumns);
+
+  // Manual DB Save Button
+  document.getElementById("manualSaveDbBtn")?.addEventListener("click", () => saveProjectStateToDatabase(true));
+
   const prevToggle = document.getElementById("prevBalanceToggle");
   prevToggle.addEventListener("change", (e) => {
     appState.includePrevBalance = e.target.checked;
     document.getElementById("prevBalanceOptions").style.display = e.target.checked ? "block" : "none";
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
   });
 
   document.getElementById("openingBalanceInput").addEventListener("input", (e) => {
     appState.openingBalance = parseFloat(e.target.value) || 0;
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
   });
 
   document.getElementById("prevBalanceModeSelect").addEventListener("change", (e) => {
     appState.prevBalanceMode = e.target.value;
     renderPreview();
     renderDataEditor();
+    debouncedSaveProjectState();
   });
 
   document.getElementById("tabInvoicePreview").addEventListener("click", () => switchTab("preview"));
@@ -2101,10 +2513,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Initialize Session Authentication for standard application
-  checkAuthSession().then(isAuth => {
+  checkAuthSession().then(async (isAuth) => {
     if (isAuth) {
-      renderPreview();
-      renderDataEditor();
+      await loadProjectStateFromDatabase();
     }
   });
 });

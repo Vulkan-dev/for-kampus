@@ -31,6 +31,7 @@ const KERNEL_ADMIN_PASS = process.env.KERNEL_ADMIN_PASS || 'kernelx2026@1';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'MegaMall_SuperSecret_Cryptographic_Key_2026_Corporate#991!';
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_JSON_PATH = path.join(DATA_DIR, 'users.json');
+const PROJECT_STATE_PATH = path.join(DATA_DIR, 'project_state.json');
 
 // Ensure private data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -86,6 +87,60 @@ function writeUsersDatabaseAtomic(users) {
   const tempPath = `${USERS_JSON_PATH}.tmp.${Date.now()}`;
   fs.writeFileSync(tempPath, JSON.stringify(users, null, 2), 'utf-8');
   fs.renameSync(tempPath, USERS_JSON_PATH);
+}
+
+// Persistent Project & Invoice Database
+function getDefaultProjectState() {
+  return {
+    occupier: "FALAKNAZ SPRINGS,",
+    location: "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,",
+    ntn: "C951537",
+    startMonth: "2024-01",
+    endMonth: "2026-07",
+    invPrefix: "#INV-",
+    invStartNum: 3001,
+    invSuffix: "-051026",
+    autoSuffixYear: false,
+    includePrevBalance: false,
+    prevBalanceMode: "zero",
+    openingBalance: 0,
+    yearRates: {
+      "2024": { rate: 1.25, gallons: 53759 },
+      "2025": { rate: 1.25, gallons: 137788, overrides: { "2025-12": 99725 } },
+      "2026": { rate: 1.25, gallons: 137788 }
+    },
+    tableColumns: [
+      { id: 'gallons', label: 'CONSUMPTION GALLON', widthPct: 26.12, type: 'number', isDefault: true },
+      { id: 'rate', label: 'RATE PER\nGALLON', widthPct: 16.46, type: 'number', step: '0.01', isDefault: true },
+      { id: 'billAmount', label: 'BILL\nAMOUNT', widthPct: 19.14, type: 'currency', isDefault: true },
+      { id: 'previous', label: 'PREVIOUS', widthPct: 18.94, type: 'currency', isDefault: true },
+      { id: 'totalPayable', label: 'TOTAL PAYABLE', widthPct: 19.34, type: 'currency', isDefault: true }
+    ],
+    manualCorrections: {},
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function readProjectStateDatabase() {
+  try {
+    if (!fs.existsSync(PROJECT_STATE_PATH)) {
+      const def = getDefaultProjectState();
+      writeProjectStateDatabaseAtomic(def);
+      return def;
+    }
+    const data = fs.readFileSync(PROJECT_STATE_PATH, 'utf-8');
+    const parsed = JSON.parse(data);
+    return parsed;
+  } catch (err) {
+    console.error('Error reading project state database:', err);
+    return getDefaultProjectState();
+  }
+}
+
+function writeProjectStateDatabaseAtomic(state) {
+  const tempPath = `${PROJECT_STATE_PATH}.tmp.${Date.now()}`;
+  fs.writeFileSync(tempPath, JSON.stringify(state, null, 2), 'utf-8');
+  fs.renameSync(tempPath, PROJECT_STATE_PATH);
 }
 
 function normalizeMonthNames(str) {
@@ -605,6 +660,59 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================================
+// Protected Persistent Project State Database Endpoints
+// ==========================================================
+app.get('/api/project/state', requireAuth, (req, res) => {
+  try {
+    const state = readProjectStateDatabase();
+    res.json({ success: true, state });
+  } catch (err) {
+    console.error('Failed to get project state:', err);
+    res.status(500).json({ error: 'Failed to retrieve project state from database' });
+  }
+});
+
+app.post('/api/project/state', requireAuth, (req, res) => {
+  try {
+    const incomingState = req.body;
+    if (!incomingState || typeof incomingState !== 'object') {
+      return res.status(400).json({ error: 'Invalid state payload provided' });
+    }
+
+    const stateToSave = {
+      ...incomingState,
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user ? req.user.username : 'User'
+    };
+
+    writeProjectStateDatabaseAtomic(stateToSave);
+    res.json({
+      success: true,
+      message: 'Project state saved to database successfully',
+      updatedAt: stateToSave.updatedAt
+    });
+  } catch (err) {
+    console.error('Failed to save project state:', err);
+    res.status(500).json({ error: 'Failed to save project state: ' + err.message });
+  }
+});
+
+app.post('/api/project/state/reset', requireAuth, (req, res) => {
+  try {
+    const defaultState = getDefaultProjectState();
+    writeProjectStateDatabaseAtomic(defaultState);
+    res.json({
+      success: true,
+      message: 'Project state reset to default database state',
+      state: defaultState
+    });
+  } catch (err) {
+    console.error('Failed to reset project state:', err);
+    res.status(500).json({ error: 'Failed to reset project state: ' + err.message });
+  }
+});
+
+// ==========================================================
 // Protected File Import Endpoint (PDF, DOCX, CSV) - Pure Node Engine
 // ==========================================================
 app.post('/api/import/file', requireAuth, async (req, res) => {
@@ -783,7 +891,7 @@ app.post('/api/import/file', requireAuth, async (req, res) => {
 // ==========================================================
 app.post('/api/export/docx', requireAuth, async (req, res) => {
   try {
-    const { invoices, occupier, location, ntn } = req.body;
+    const { invoices, occupier, location, ntn, columns } = req.body;
 
     if (!Array.isArray(invoices) || invoices.length === 0) {
       return res.status(400).json({ error: 'No invoices provided' });
@@ -969,62 +1077,73 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
       children.push(metaTable);
       children.push(new Paragraph({ spacing: { after: 350 } }));
 
-      // 3. Billing Table
+      // 3. Billing Table (Dynamic Columns Supported)
       const thStyle = {
         borders: cellBorders,
         alignment: AlignmentType.CENTER
       };
 
-      const billTable = new Table({
-        rows: [
-          new TableRow({
+      const effectiveCols = (Array.isArray(columns) && columns.length > 0)
+        ? columns
+        : [
+            { id: 'gallons', label: 'CONSUMPTION GALLON', type: 'number' },
+            { id: 'rate', label: 'RATE PER\nGALLON', type: 'number' },
+            { id: 'billAmount', label: 'BILL\nAMOUNT', type: 'currency' },
+            { id: 'previous', label: 'PREVIOUS', type: 'currency' },
+            { id: 'totalPayable', label: 'TOTAL PAYABLE', type: 'currency' }
+          ];
+
+      const headerCells = effectiveCols.map(col => new TableCell({
+        ...thStyle,
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
             children: [
-              new TableCell({
-                ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "CONSUMPTION GALLON", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
-              }),
-              new TableCell({
-                ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "RATE PER GALLON", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
-              }),
-              new TableCell({
-                ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "BILL AMOUNT", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
-              }),
-              new TableCell({
-                ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "PREVIOUS", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
-              }),
-              new TableCell({
-                ...thStyle,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "TOTAL PAYABLE", bold: true, size: 15, font: "Segoe UI", color: "5e616f" })] })]
-              })
-            ]
-          }),
-          new TableRow({
-            children: [
-              new TableCell({
-                borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(inv.gallons).replace(/,/g, ''), size: 18, font: "Segoe UI" })] })]
-              }),
-              new TableCell({
-                borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Number(inv.rate).toFixed(2), size: 18, font: "Segoe UI" })] })]
-              }),
-              new TableCell({
-                borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${Number(inv.billAmount).toLocaleString()}/-`, size: 18, font: "Segoe UI" })] })]
-              }),
-              new TableCell({
-                borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: inv.previous === 0 ? "0" : `${Number(inv.previous).toLocaleString()}/-`, size: 18, font: "Segoe UI" })] })]
-              }),
-              new TableCell({
-                borders: cellBorders,
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${Number(inv.totalPayable).toLocaleString()}/-`, size: 18, font: "Segoe UI" })] })]
+              new TextRun({
+                text: (col.label || col.id).replace(/\n/g, ' '),
+                bold: true,
+                size: 15,
+                font: "Segoe UI",
+                color: "5e616f"
               })
             ]
           })
+        ]
+      }));
+
+      const dataCells = effectiveCols.map(col => {
+        let val = inv[col.id];
+        if (val === undefined || val === null) val = "";
+        let displayVal = String(val);
+        if (col.type === 'currency' && !isNaN(Number(val)) && val !== "") {
+          displayVal = Number(val) === 0 ? "0" : `${Number(val).toLocaleString()}/-`;
+        } else if (col.id === 'rate' && !isNaN(Number(val)) && val !== "") {
+          displayVal = Number(val).toFixed(2);
+        } else if (col.type === 'number' && !isNaN(Number(val)) && val !== "") {
+          displayVal = String(val).replace(/,/g, '');
+        }
+
+        return new TableCell({
+          borders: cellBorders,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: displayVal,
+                  size: 18,
+                  font: "Segoe UI"
+                })
+              ]
+            })
+          ]
+        });
+      });
+
+      const billTable = new Table({
+        rows: [
+          new TableRow({ children: headerCells }),
+          new TableRow({ children: dataCells })
         ],
         width: { size: 100, type: WidthType.PERCENTAGE }
       });

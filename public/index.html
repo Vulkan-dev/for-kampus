@@ -71,6 +71,10 @@
 
     <!-- Separate Export Options & Preview Toggle -->
     <div class="header-actions">
+      <div class="db-sync-badge" id="dbSyncBadge" title="Server Database Persistence Status">
+        <span class="db-sync-dot"></span>
+        <span id="dbSyncText">Database Synced</span>
+      </div>
       <button class="btn btn-secondary" id="togglePreviewBtn" title="Toggle Live Preview on/off to free up screen space">
         <svg id="togglePreviewIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
         <span id="togglePreviewText">Hide Preview</span>
@@ -318,12 +322,20 @@
   <!-- Complete Section: Data Editor & Corrections View -->
   <section class="data-editor-section" id="dataEditorSection">
     <div class="editor-toolbar">
-      <div style="display:flex; align-items:center; gap:0.75rem;">
-        <h2 style="font-size:1rem; font-weight:600; color:var(--text-main);">Batch Data Editor &amp; Corrections</h2>
-        <span style="font-size:0.75rem; color:var(--text-dim);">Edit any date, invoice number, or readings directly.</span>
+      <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+        <h2 style="font-size:1rem; font-weight:600; color:var(--text-main); margin:0;">Batch Data Editor &amp; Corrections</h2>
+        <span style="font-size:0.75rem; color:var(--text-dim);">Edit any date, invoice #, amounts, or custom boxes. All changes auto-save.</span>
       </div>
 
       <div class="editor-actions">
+        <button class="btn btn-secondary btn-sm" id="openColumnsModalBtn" title="Add, remove, or customize table boxes and columns">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+          Custom Columns (Boxes)
+        </button>
+        <button class="btn btn-secondary btn-sm" id="manualSaveDbBtn" style="color:var(--accent-green);" title="Force instant save to server database">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+          Save to DB
+        </button>
         <button class="btn btn-secondary btn-sm" id="openImportModalBtn">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
           Import (PDF / DOCX / CSV)
@@ -339,26 +351,111 @@
       </div>
     </div>
 
+    <!-- Realtime Invoice Sequence Control Bar in Table Editor -->
+    <div class="editor-sequence-bar" id="editorSequenceBar">
+      <div class="seq-bar-header">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px; color:var(--accent-blue);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>
+        <span style="font-weight:600; font-size:0.82rem; color:var(--text-main);">Invoice Sequence Manager:</span>
+        <span style="font-size:0.72rem; color:var(--text-dim);">(Full control on sequence generation or edit numbers manually per row below)</span>
+      </div>
+      <div class="seq-bar-controls">
+        <div class="seq-item">
+          <label>Prefix</label>
+          <input type="text" id="editorSeqPrefix" value="#INV-" placeholder="#INV-" style="width:90px;" />
+        </div>
+        <div class="seq-item">
+          <label>Start Number</label>
+          <input type="number" id="editorSeqStartNum" value="3001" style="width:85px;" />
+        </div>
+        <div class="seq-item">
+          <label>Suffix</label>
+          <input type="text" id="editorSeqSuffix" value="-051026" placeholder="-051026" style="width:105px;" />
+        </div>
+        <div class="seq-item seq-check-item">
+          <label class="seq-checkbox-label">
+            <input type="checkbox" id="editorSeqAutoYear" />
+            <span>Auto-Year Suffix</span>
+          </label>
+        </div>
+        <button class="btn btn-primary btn-sm" id="editorApplySeqBtn" title="Recalculate and apply invoice numbers to all rows">
+          Apply Sequence to All
+        </button>
+      </div>
+    </div>
+
     <div class="editor-table-container">
       <table class="editor-table">
         <thead>
-          <tr>
-            <th>Month</th>
-            <th>Invoice #</th>
-            <th>Billing Period Line</th>
-            <th>Issuance Date Line</th>
-            <th>Consumption (Gal)</th>
-            <th>Rate / Gal</th>
-            <th>Previous (PKR)</th>
-            <th>Bill Amount (PKR)</th>
-            <th>Total Payable (PKR)</th>
-            <th>Action</th>
+          <tr id="editorTableHeaderRow">
+            <!-- Dynamic columns rendered by app.js -->
           </tr>
         </thead>
         <tbody id="editorTableBody"></tbody>
       </table>
     </div>
   </section>
+
+  <!-- Custom Columns & Table Box Manager Modal -->
+  <div class="modal-backdrop" id="columnsModalBackdrop">
+    <div class="modal-card" style="max-width:580px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px; height:18px; color:var(--accent-blue);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+          Custom Table Boxes &amp; Columns Manager
+        </div>
+        <button class="btn btn-secondary btn-sm" id="closeColumnsModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:0.78rem; color:var(--text-dim); margin-bottom:1rem; line-height:1.4;">
+          Customize the table boxes on your invoice and editor. Added custom boxes will <strong>automatically adjust spacing</strong> to maintain template proportions.
+        </div>
+
+        <!-- Add New Box Form -->
+        <div class="custom-col-add-box" style="background:var(--bg-input); padding:0.85rem; border-radius:8px; border:1px solid var(--border-subtle); margin-bottom:1.25rem;">
+          <div style="font-size:0.82rem; font-weight:600; color:var(--text-main); margin-bottom:0.6rem; display:flex; align-items:center; gap:0.4rem;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px; color:var(--accent-green);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Add New Box (Column)
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.6rem; margin-bottom:0.6rem;">
+            <div>
+              <label class="form-label" style="font-size:0.73rem;">Column Title (e.g. TAX 13% or METER #)</label>
+              <input type="text" id="newColTitleInput" class="form-input" placeholder="e.g. TAX 13%" style="font-size:0.8rem;" />
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.73rem;">Data Type</label>
+              <select id="newColTypeSelect" class="form-select" style="font-size:0.8rem;">
+                <option value="currency">Currency / Amount (PKR /-)</option>
+                <option value="number">Numeric (Gallons, Units)</option>
+                <option value="text">Text / Notes</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:0.72rem; color:var(--text-dim);">New box will be added and made editable across all invoices.</div>
+            <button class="btn btn-green btn-sm" id="addNewColumnBtn">
+              + Add Box
+            </button>
+          </div>
+        </div>
+
+        <!-- Existing Columns List -->
+        <div>
+          <div style="font-size:0.82rem; font-weight:600; color:var(--text-main); margin-bottom:0.5rem;">
+            Active Invoice Table Boxes (<span id="activeColCount">5</span>):
+          </div>
+          <div id="columnsListContainer" style="display:flex; flex-direction:column; gap:0.5rem; max-height:220px; overflow-y:auto; padding-right:4px;">
+            <!-- Rendered by app.js -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between;">
+        <button class="btn btn-secondary btn-sm" id="resetColumnsBtn" style="color:var(--accent-red);">
+          Reset to 5 Default Boxes
+        </button>
+        <button class="btn btn-primary btn-sm" id="doneColumnsModalBtn">Done</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Enhanced Import Modal (PDF, DOCX, CSV) -->
   <div class="modal-backdrop" id="importModalBackdrop">
