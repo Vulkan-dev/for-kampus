@@ -2074,13 +2074,6 @@ function escapeHtml(str) {
       return false;
     }
   }, true);
-
-  // 3. Clear console periodically
-  setInterval(() => {
-    try {
-      console.clear();
-    } catch (err) {}
-  }, 2000);
 })();
 
 // ==========================================================
@@ -2531,15 +2524,168 @@ let currentRentsMonth = 'ALL';
 let rentsSearchQuery = '';
 let stagedImportRecords = [];
 
+function getRentsToken() {
+  return sessionStorage.getItem('mega_rents_auth_token') || localStorage.getItem('mega_rents_auth_token');
+}
+
+function setRentsSession(token) {
+  if (token) {
+    sessionStorage.setItem('mega_rents_auth_token', token);
+    localStorage.setItem('mega_rents_auth_token', token);
+  }
+}
+
+function clearRentsSession() {
+  sessionStorage.removeItem('mega_rents_auth_token');
+  localStorage.removeItem('mega_rents_auth_token');
+}
+
+async function rentsAuthFetch(url, options = {}) {
+  const token = getRentsToken();
+  const headers = Object.assign({}, options.headers || {});
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  options.headers = headers;
+
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    clearRentsSession();
+    showRentsLoginGate("Session expired or unauthorized. Please re-enter security password.");
+    throw new Error("Unauthorized");
+  }
+  return res;
+}
+
+function showRentsLoginGate(errorMsg = "") {
+  const gate = document.getElementById("rentsLoginGate");
+  const dash = document.getElementById("rentsDashboard");
+  const alertEl = document.getElementById("rentsLoginAlert");
+  if (gate) gate.style.display = "flex";
+  if (dash) dash.style.display = "none";
+  if (alertEl) {
+    if (errorMsg) {
+      alertEl.textContent = errorMsg;
+      alertEl.className = "login-error-alert";
+      alertEl.style.display = "block";
+    } else {
+      alertEl.style.display = "none";
+    }
+  }
+}
+
+function hideRentsLoginGate() {
+  const gate = document.getElementById("rentsLoginGate");
+  const dash = document.getElementById("rentsDashboard");
+  if (gate) gate.style.display = "none";
+  if (dash) dash.style.display = "flex";
+}
+
+async function checkRentsAuthSession() {
+  const token = getRentsToken();
+  if (!token) {
+    showRentsLoginGate();
+    return;
+  }
+  try {
+    const res = await fetch('/api/rents/verify', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      hideRentsLoginGate();
+      await loadRentsFromDatabase();
+    } else {
+      clearRentsSession();
+      showRentsLoginGate("Session expired. Please enter security password.");
+    }
+  } catch (err) {
+    clearRentsSession();
+    showRentsLoginGate();
+  }
+}
+
+async function handleRentsLogin(e) {
+  e.preventDefault();
+  const input = document.getElementById("rentsPasswordInput");
+  const submitBtn = document.getElementById("rentsLoginSubmitBtn");
+  const submitText = document.getElementById("rentsLoginSubmitText");
+  const alertEl = document.getElementById("rentsLoginAlert");
+  if (!input) return;
+
+  const password = input.value;
+  submitBtn.disabled = true;
+  submitText.textContent = "Verifying...";
+  if (alertEl) alertEl.style.display = "none";
+
+  try {
+    const res = await fetch('/api/rents/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Access Denied: Invalid security password");
+    }
+
+    setRentsSession(data.token);
+    input.value = "";
+    hideRentsLoginGate();
+    showToast("Password verified! Unlocked Allottees Rent Master.", "success");
+    await loadRentsFromDatabase();
+  } catch (err) {
+    if (alertEl) {
+      alertEl.textContent = err.message;
+      alertEl.className = "login-error-alert";
+      alertEl.style.display = "block";
+    }
+  } finally {
+    submitBtn.disabled = false;
+    submitText.textContent = "Unlock Register";
+  }
+}
+
+function handleRentsLogout() {
+  clearRentsSession();
+  showRentsLoginGate("Register locked. Please enter security password to access.");
+  showToast("Register locked successfully.", "info");
+}
+
+let rentsEventsInitialized = false;
+
+function toggleRentsTheme() {
+  const container = document.getElementById('rentsTableContainer');
+  const text = document.getElementById('rentsThemeToggleText');
+  if (!container) return;
+  const isExcel = container.classList.toggle('excel-theme');
+  localStorage.setItem('mega_rents_theme', isExcel ? 'excel' : 'dark');
+  if (text) {
+    text.textContent = isExcel ? '📄 Classic Sheet' : '🌙 Obsidian Dark';
+  }
+  showToast(`Switched to ${isExcel ? 'Classic Excel Sheet' : 'Obsidian Dark'} theme`, 'info');
+}
+
+function initRentsTheme() {
+  const saved = localStorage.getItem('mega_rents_theme');
+  const container = document.getElementById('rentsTableContainer');
+  const text = document.getElementById('rentsThemeToggleText');
+  if (!container) return;
+  if (saved === 'dark') {
+    container.classList.remove('excel-theme');
+    if (text) text.textContent = '🌙 Obsidian Dark';
+  } else {
+    container.classList.add('excel-theme');
+    if (text) text.textContent = '📄 Classic Sheet';
+  }
+}
+
 async function initRentsApp() {
+  initRentsTheme();
   setupRentsEventListeners();
-  await loadRentsFromDatabase();
+  await checkRentsAuthSession();
 }
 
 async function loadRentsFromDatabase() {
   try {
-    const res = await fetch('/api/rents');
-    if (!res.ok) throw new Error('Failed to fetch rents data');
+    const res = await rentsAuthFetch('/api/rents');
     const data = await res.json();
     rentsDb = data || { months: [], records: [] };
     if (!rentsDb.months || rentsDb.months.length === 0) {
@@ -2550,7 +2696,9 @@ async function loadRentsFromDatabase() {
     updateRentsStats();
   } catch (err) {
     console.error('Error loading rents database:', err);
-    showToast('Failed to load rents database: ' + err.message, 'error');
+    if (err.message !== 'Unauthorized') {
+      showToast('Failed to load rents database: ' + err.message, 'error');
+    }
   }
 }
 
@@ -2594,17 +2742,58 @@ function getFilteredRentRecords() {
 }
 
 function renderRentsTable() {
+  const thead = document.querySelector('#rentsMasterTable thead');
   const tbody = document.getElementById('rentsTableBody');
   const tfoot = document.getElementById('rentsTableFoot');
   const banner = document.getElementById('rentsSheetBanner');
   if (!tbody) return;
 
   const records = getFilteredRentRecords();
-  const bannerTitle = currentRentsMonth === 'ALL' ? 'RENT MASTER REGISTER - ALL MONTHS' : `RENT MONTH OF ${currentRentsMonth}`;
+  const isAll = currentRentsMonth === 'ALL';
+  const bannerTitle = isAll ? 'RENT MASTER REGISTER - ALL MONTHS' : `RENT MONTH OF ${currentRentsMonth}`;
   if (banner) banner.textContent = bannerTitle;
 
+  // Render header dynamically matching reference screenshot
+  if (thead) {
+    if (isAll) {
+      thead.innerHTML = `
+        <tr>
+          <th style="width: 55px; text-align:center;">S.NOS.</th>
+          <th style="width: 95px; text-align:center;">MONTH</th>
+          <th style="width: 140px;">BRAND NAME</th>
+          <th style="width: 90px; text-align:center;">SHOP NOS.</th>
+          <th style="min-width: 180px;">ALLOTEE</th>
+          <th style="width: 75px; text-align:right;">SQ.FT.</th>
+          <th style="width: 100px; text-align:right;">AMOUNT</th>
+          <th style="width: 110px; text-align:center;">CHQ NO.</th>
+          <th style="width: 95px; text-align:right;">PAID</th>
+          <th style="width: 100px; text-align:center;">DATE</th>
+          <th style="width: 100px; text-align:right;">IN HAND</th>
+          <th style="width: 70px; text-align:center;" class="no-print">ACTIONS</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th style="width: 55px; text-align:center;">S.NOS.</th>
+          <th style="width: 150px;">BRAND NAME</th>
+          <th style="width: 90px; text-align:center;">SHOP NOS.</th>
+          <th style="min-width: 190px;">ALLOTEE</th>
+          <th style="width: 75px; text-align:right;">SQ.FT.</th>
+          <th style="width: 100px; text-align:right;">AMOUNT</th>
+          <th style="width: 110px; text-align:center;">CHQ NO.</th>
+          <th style="width: 95px; text-align:right;">PAID</th>
+          <th style="width: 100px; text-align:center;">DATE</th>
+          <th style="width: 100px; text-align:right;">IN HAND</th>
+          <th style="width: 70px; text-align:center;" class="no-print">ACTIONS</th>
+        </tr>
+      `;
+    }
+  }
+
   if (records.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:2.5rem; color:var(--text-muted);">No matching rent records found.</td></tr>`;
+    const colSpan = isAll ? 12 : 11;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; padding:2.5rem; color:var(--text-muted);">No matching rent records found.</td></tr>`;
     if (tfoot) tfoot.innerHTML = '';
     return;
   }
@@ -2614,7 +2803,7 @@ function renderRentsTable() {
   let totalPaid = 0;
   let totalInHand = 0;
 
-  tbody.innerHTML = records.map(r => {
+  tbody.innerHTML = records.map((r, idx) => {
     totalSqFt += Number(r.sq_ft) || 0;
     totalAmount += Number(r.amount) || 0;
     totalPaid += Number(r.paid) || 0;
@@ -2627,17 +2816,17 @@ function renderRentsTable() {
 
     return `
       <tr data-id="${escapeHtml(r.id)}">
-        <td style="text-align:center; font-weight:600; color:var(--text-dim);">${escapeHtml(r.s_no || '')}</td>
-        <td style="text-align:center; color:#93c5fd; font-weight:500;">${escapeHtml(r.month || '')}</td>
-        <td style="font-weight:600; color:#f8fafc;">${escapeHtml(r.brand_name || '')}</td>
-        <td style="text-align:center; font-weight:700; color:#60a5fa; letter-spacing:0.04em;">${escapeHtml(r.shop_no || '')}</td>
-        <td style="color:#e2e8f0;">${escapeHtml(r.allotee_name || '')}</td>
+        <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+        ${isAll ? `<td style="text-align:center; font-weight:600; color:#2563eb;">${escapeHtml(r.month || '')}</td>` : ''}
+        <td style="font-weight:600;">${escapeHtml(r.brand_name || '')}</td>
+        <td style="text-align:center; font-weight:700;">${escapeHtml(r.shop_no || '')}</td>
+        <td>${escapeHtml(r.allotee_name || '')}</td>
         <td style="text-align:right;">${sqFtStr}</td>
-        <td style="text-align:right; font-weight:700; color:#ffffff;">${amountStr}</td>
-        <td style="text-align:center; color:#cbd5e1; font-family:monospace; font-size:0.85rem;">${escapeHtml(r.chq_no || '-')}</td>
-        <td style="text-align:right; color:#34d399; font-weight:600;">${paidStr}</td>
-        <td style="text-align:center; color:var(--text-muted); font-size:0.75rem;">${escapeHtml(r.date || '-')}</td>
-        <td style="text-align:right; color:#f59e0b; font-weight:700;">${inHandStr}</td>
+        <td style="text-align:right; font-weight:700;">${amountStr}</td>
+        <td style="text-align:center; font-family:monospace; font-size:0.85rem;">${escapeHtml(r.chq_no || '-')}</td>
+        <td style="text-align:right; font-weight:600;">${paidStr}</td>
+        <td style="text-align:center; font-size:0.75rem;">${escapeHtml(r.date || '-')}</td>
+        <td style="text-align:right; font-weight:700;">${inHandStr}</td>
         <td style="text-align:center;" class="no-print">
           <button type="button" class="rents-action-btn edit" onclick="openRentsEditModal('${escapeHtml(r.id)}')" title="Edit Record">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -2651,16 +2840,17 @@ function renderRentsTable() {
   }).join('');
 
   if (tfoot) {
+    const totalLeadColSpan = isAll ? 4 : 3;
     tfoot.innerHTML = `
       <tr>
-        <td colspan="4" style="text-align:center; font-weight:800; font-size:0.85rem; letter-spacing:0.06em; color:#ffffff;">TOTAL</td>
-        <td style="text-align:right; font-weight:700; color:var(--text-muted);">${records.length} shops</td>
-        <td style="text-align:right; font-weight:800; color:#ffffff;">${totalSqFt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-        <td style="text-align:right; font-weight:800; color:#60a5fa; font-size:0.9rem;">Rs. ${totalAmount.toLocaleString()}</td>
+        <td colspan="${totalLeadColSpan}" style="text-align:center; font-weight:800; font-size:0.85rem; letter-spacing:0.06em;">TOTAL</td>
+        <td style="text-align:right; font-weight:700;">${records.length} shops</td>
+        <td style="text-align:right; font-weight:800;">${totalSqFt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem;">Rs. ${totalAmount.toLocaleString()}</td>
         <td></td>
-        <td style="text-align:right; font-weight:800; color:#34d399; font-size:0.9rem;">Rs. ${totalPaid.toLocaleString()}</td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem;">Rs. ${totalPaid.toLocaleString()}</td>
         <td></td>
-        <td style="text-align:right; font-weight:800; color:#f59e0b; font-size:0.9rem;">Rs. ${totalInHand.toLocaleString()}</td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem;">Rs. ${totalInHand.toLocaleString()}</td>
         <td class="no-print"></td>
       </tr>
     `;
@@ -2795,7 +2985,7 @@ async function saveRentsToDatabase(notify = true) {
     saveBtn.textContent = 'Saving...';
   }
   try {
-    const res = await fetch('/api/rents/save', {
+    const res = await rentsAuthFetch('/api/rents/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2857,78 +3047,129 @@ function handleRentFileSelect(file) {
       const workbook = XLSX.read(data, { type: 'array' });
       const records = [];
 
+      const normalizeRentMonth = (str) => {
+        if (!str) return '';
+        const s = String(str).toUpperCase().trim();
+        if (s.includes('JAN')) return 'JAN-2026';
+        if (s.includes('FEB')) return 'FEB-2026';
+        if (s.includes('MARCH') || s.includes('MAR')) return 'MARCH-2026';
+        if (s.includes('APRIL') || s.includes('APR')) return 'APRIL-2026';
+        if (s.includes('MAY')) return 'MAY-2026';
+        if (s.includes('JUNE') || s.includes('JUN')) return 'JUNE-2026';
+        if (s.includes('JULY') || s.includes('JUL')) return 'JULY-2026';
+        if (s.includes('AUG')) return 'AUG-2026';
+        return '';
+      };
+
+      const isRentBanner = (shop, allotee) => {
+        const s = String(shop || '').toUpperCase().trim();
+        const a = String(allotee || '').toUpperCase().trim();
+        if (s === 'DESCRCIPTION' || a === 'DESCRCIPTION') return true;
+        if (s.includes('RENT CHEQUES') || a.includes('RENT CHEQUES')) return true;
+        if (s.includes('RENT START') || a.includes('RENT START')) return true;
+        if (s.includes('RENT WILL BE') || a.includes('RENT WILL BE')) return true;
+        if (s.includes('SUMMARY') || a.includes('SUMMARY')) return true;
+        if (s.includes('FROM DEC-2025') || a.includes('FROM DEC-2025')) return true;
+        if (s === a && s.length > 20) return true;
+        return false;
+      };
+
+      const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
+
       workbook.SheetNames.forEach(sheetName => {
         const ws = workbook.Sheets[sheetName];
+        if (!ws) return;
         const jsonRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-        
-        let activeMonth = sheetName.toUpperCase().includes('2026') ? sheetName.toUpperCase() : 'JAN-2026';
+        if (!jsonRows || jsonRows.length === 0) return;
+
+        let defaultSheetMonth = normalizeRentMonth(sheetName);
+        let currentMonth = defaultSheetMonth || 'JAN-2026';
         let headers = [];
         let headerRowIdx = -1;
+        let snoIdx = -1, brandIdx = -1, shopIdx = -1, alloteeIdx = -1, sqftIdx = -1;
+        let amountIdx = -1, chqIdx = -1, paidIdx = -1, dateIdx = -1, inHandIdx = -1;
+        let currentBrand = '';
 
-        // Find headers
-        for (let r = 0; r < Math.min(jsonRows.length, 25); r++) {
+        for (let r = 0; r < jsonRows.length; r++) {
           const row = jsonRows[r];
-          // Check for month title row like 'RENT MONTH OF JAN-2026'
           const rowStr = row.join(' ').toUpperCase();
+
+          // Check for embedded month header row like 'RENT MONTH OF MARCH-2026'
           if (rowStr.includes('RENT MONTH OF')) {
-            const mMatch = rowStr.match(/RENT MONTH OF\s+([A-Z0-9\-_]+)/i);
-            if (mMatch) activeMonth = mMatch[1].toUpperCase();
+            const foundM = normalizeRentMonth(rowStr);
+            if (foundM) currentMonth = foundM;
           }
-          if (row.some(c => String(c).toUpperCase().includes('SHOP') || String(c).toUpperCase().includes('ALLOTEE'))) {
+
+          const isHeader = row.some(c => {
+            const s = String(c).toUpperCase();
+            return s.includes('SHOP NOS') || s.includes('SHOP NO') || s.includes('ALLOTEE') || s.includes('BRAND NAME');
+          });
+
+          if (isHeader) {
             headers = row.map(c => String(c).toUpperCase().replace(/[\r\n]+/g, ' ').trim());
             headerRowIdx = r;
-            break;
+            snoIdx = headers.findIndex(h => h.includes('S.NO') || h.includes('S.NOS'));
+            brandIdx = headers.findIndex(h => h.includes('BRAND'));
+            shopIdx = headers.findIndex(h => h.includes('SHOP'));
+            alloteeIdx = headers.findIndex(h => h.includes('ALLOTEE'));
+            sqftIdx = headers.findIndex(h => h.includes('SQ.FT') || h.includes('SQFT'));
+            amountIdx = headers.findIndex(h => h === 'AMOUNT' || h.includes('AMOUNT (RS)') || h.includes('RENT AMOUNT'));
+            chqIdx = headers.findIndex(h => h.includes('CHQ') || h.includes('CHEQUE'));
+            paidIdx = headers.findIndex(h => h.includes('PAID'));
+            dateIdx = headers.findIndex(h => h.includes('DATE'));
+            inHandIdx = headers.findIndex(h => h.includes('HAND') || h.includes('BALANCE'));
+
+            // Check if row r+1 contains subheaders
+            if (r + 1 < jsonRows.length) {
+              const nextRow = jsonRows[r + 1].map(c => String(c).toUpperCase().trim());
+              if (nextRow.some(c => c === 'AMOUNT' || c === 'CHQ NO.' || c === 'PAID')) {
+                if (amountIdx === -1) amountIdx = nextRow.findIndex(c => c === 'AMOUNT');
+                if (chqIdx === -1) chqIdx = nextRow.findIndex(c => c.includes('CHQ'));
+                if (paidIdx === -1) paidIdx = nextRow.findIndex(c => c === 'PAID');
+                if (dateIdx === -1) dateIdx = nextRow.findIndex(c => c.includes('DATE'));
+                if (inHandIdx === -1) inHandIdx = nextRow.findIndex(c => c.includes('HAND'));
+                r++;
+              }
+            }
+            continue;
           }
-        }
 
-        if (headerRowIdx !== -1) {
-          const snoIdx = headers.findIndex(h => h.includes('S.NO') || h.includes('S.NOS'));
-          const brandIdx = headers.findIndex(h => h.includes('BRAND'));
-          const shopIdx = headers.findIndex(h => h.includes('SHOP'));
-          const alloteeIdx = headers.findIndex(h => h.includes('ALLOTEE'));
-          const sqftIdx = headers.findIndex(h => h.includes('SQ.FT') || h.includes('SQFT'));
-          const amountIdx = headers.findIndex(h => h.includes('AMOUNT'));
-          const chqIdx = headers.findIndex(h => h.includes('CHQ') || h.includes('CHEQUE'));
-          const paidIdx = headers.findIndex(h => h.includes('PAID'));
-          const dateIdx = headers.findIndex(h => h.includes('DATE'));
-          const inHandIdx = headers.findIndex(h => h.includes('HAND') || h.includes('BALANCE'));
-
-          let currentBrand = '';
-
-          for (let r = headerRowIdx + 1; r < jsonRows.length; r++) {
-            const row = jsonRows[r];
-            const shopVal = shopIdx !== -1 ? String(row[shopIdx] || '').trim() : '';
-            const alloteeVal = alloteeIdx !== -1 ? String(row[alloteeIdx] || '').trim() : '';
-            const brandVal = brandIdx !== -1 ? String(row[brandIdx] || '').trim() : '';
+          if (shopIdx !== -1) {
+            let rawShop = shopIdx !== -1 ? cleanStr(row[shopIdx]) : '';
+            const rawAllotee = alloteeIdx !== -1 ? cleanStr(row[alloteeIdx]) : '';
+            const rawBrand = brandIdx !== -1 ? cleanStr(row[brandIdx]) : '';
 
             // Skip total or empty rows
-            const combined = row.join(' ').toUpperCase();
-            if (combined.includes('TOTAL') || (!shopVal && !alloteeVal && !brandVal)) continue;
+            if (rowStr.includes('TOTAL') || (!rawShop && !rawAllotee)) continue;
 
-            if (combined.includes('RENT MONTH OF')) {
-              const mMatch = combined.match(/RENT MONTH OF\s+([A-Z0-9\-_]+)/i);
-              if (mMatch) activeMonth = mMatch[1].toUpperCase();
-              continue;
-            }
+            // Skip banner / note rows
+            if (isRentBanner(rawShop, rawAllotee)) continue;
 
-            if (brandVal) currentBrand = brandVal;
+            if (rawShop && !rawShop.toUpperCase().includes('SHOP NOS')) {
+              if (rawBrand) currentBrand = rawBrand;
 
-            const rec = {
-              month: activeMonth,
-              s_no: snoIdx !== -1 ? (row[snoIdx] || '') : '',
-              brand_name: brandVal || currentBrand,
-              shop_no: shopVal,
-              allotee_name: alloteeVal,
-              sq_ft: sqftIdx !== -1 ? parseFloat(String(row[sqftIdx]).replace(/,/g, '')) || 0 : 0,
-              amount: amountIdx !== -1 ? parseInt(String(row[amountIdx]).replace(/,/g, ''), 10) || 0 : 0,
-              chq_no: chqIdx !== -1 ? String(row[chqIdx] || '-').trim() : '-',
-              paid: paidIdx !== -1 ? parseInt(String(row[paidIdx]).replace(/,/g, ''), 10) || 0 : 0,
-              date: dateIdx !== -1 ? String(row[dateIdx] || '').trim() : '',
-              in_hand: inHandIdx !== -1 ? parseInt(String(row[inHandIdx]).replace(/,/g, ''), 10) || 0 : 0
-            };
+              const rec = {
+                id: 'rent_' + currentMonth.replace(/[^A-Z0-9]/g, '') + '_' + rawShop.replace(/[^A-Z0-9]/g, ''),
+                month: currentMonth,
+                s_no: '',
+                brand_name: rawBrand || currentBrand,
+                shop_no: rawShop,
+                allotee_name: rawAllotee,
+                sq_ft: sqftIdx !== -1 ? parseFloat(String(row[sqftIdx]).replace(/,/g, '')) || 0 : 0,
+                amount: amountIdx !== -1 ? parseInt(String(row[amountIdx]).replace(/,/g, ''), 10) || 0 : 0,
+                chq_no: chqIdx !== -1 ? cleanStr(row[chqIdx] || '-') : '-',
+                paid: paidIdx !== -1 ? parseInt(String(row[paidIdx]).replace(/,/g, ''), 10) || 0 : 0,
+                date: dateIdx !== -1 ? cleanStr(row[dateIdx] || '') : '',
+                in_hand: inHandIdx !== -1 ? parseInt(String(row[inHandIdx]).replace(/,/g, ''), 10) || 0 : 0
+              };
 
-            if (rec.shop_no || rec.allotee_name) {
-              records.push(rec);
+              if (!rec.in_hand && rec.amount && !rec.paid) {
+                rec.in_hand = rec.amount;
+              }
+
+              if (rec.shop_no || rec.allotee_name) {
+                records.push(rec);
+              }
             }
           }
         }
@@ -2942,9 +3183,9 @@ function handleRentFileSelect(file) {
       }
 
       stagedImportRecords = records;
-      countEl.textContent = `${records.length} records detected`;
+      countEl.textContent = `${records.length} records detected across sheets`;
       confirmBtn.disabled = false;
-      showToast(`${records.length} records ready to import`, 'success');
+      showToast(`${records.length} records parsed and ready to import`, 'success');
     } catch (err) {
       console.error('Import parse error:', err);
       countEl.textContent = 'Error parsing file';
@@ -2963,7 +3204,7 @@ async function handleProcessRentImport() {
   confirmBtn.textContent = 'Importing to Site...';
 
   try {
-    const res = await fetch('/api/rents/import', {
+    const res = await rentsAuthFetch('/api/rents/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2986,27 +3227,79 @@ async function handleProcessRentImport() {
 }
 
 function exportRentsMasterExcel() {
-  window.location.href = '/api/rents/download/master-excel';
+  const token = getRentsToken();
+  window.location.href = `/api/rents/download/master-excel?token=${encodeURIComponent(token || '')}`;
+}
+
+function exportRentsMasterCsv() {
+  const records = (Array.isArray(rentsMasterRecords) && rentsMasterRecords.length > 0) ? rentsMasterRecords : [];
+  if (records.length === 0) {
+    const token = getRentsToken();
+    window.location.href = `/api/rents/download/master-csv?token=${encodeURIComponent(token || '')}`;
+    return;
+  }
+  const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
+  const quoteField = str => '"' + cleanStr(str).replace(/"/g, '""') + '"';
+  let csv = 'S.NOS.,MONTH,BRAND NAME,SHOP NOS.,ALLOTEE,SQ.FT.,AMOUNT,CHQ NO.,PAID,DATE,IN HAND\n';
+  records.forEach((r, idx) => {
+    csv += `${idx + 1},${r.month},${quoteField(r.brand_name)},${quoteField(r.shop_no)},${quoteField(r.allotee_name)},${r.sq_ft || 0},${r.amount || 0},${quoteField(r.chq_no || '-')},${r.paid || 0},${quoteField(r.date || '')},${r.in_hand || 0}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `consolidated_allottees_rent_master_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Consolidated Master CSV exported successfully', 'success');
 }
 
 function setupRentsEventListeners() {
+  if (rentsEventsInitialized) return;
+  rentsEventsInitialized = true;
+
+  // Password Login Form & Visibility Toggle
+  document.getElementById('rentsLoginForm')?.addEventListener('submit', handleRentsLogin);
+  document.getElementById('rentsLogoutBtn')?.addEventListener('click', handleRentsLogout);
+  document.getElementById('rentsTogglePassBtn')?.addEventListener('click', () => {
+    const input = document.getElementById('rentsPasswordInput');
+    const icon = document.getElementById('rentsPassEyeIcon');
+    if (!input || !icon) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />`;
+    } else {
+      input.type = 'password';
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
+    }
+  });
+
+  // Table Theme Switcher (Classic Excel Sheet vs Obsidian Dark)
+  document.getElementById('rentsThemeToggleBtn')?.addEventListener('click', toggleRentsTheme);
+
+  // Search filter
   document.getElementById('rentsSearchInput')?.addEventListener('input', (e) => {
     rentsSearchQuery = e.target.value.trim();
     renderRentsTable();
     updateRentsStats();
   });
 
+  // Database save & exports
   document.getElementById('rentsSaveDbBtn')?.addEventListener('click', () => saveRentsToDatabase(true));
   document.getElementById('rentsExportExcelBtn')?.addEventListener('click', exportRentsMasterExcel);
-  document.getElementById('rentsExportCsvBtn')?.addEventListener('click', () => {
-    window.location.href = '/api/rents/download/master-csv';
-  });
+  document.getElementById('rentsExportCsvBtn')?.addEventListener('click', exportRentsMasterCsv);
+  document.getElementById('rentsQuickExcelLink')?.addEventListener('click', exportRentsMasterExcel);
+  document.getElementById('rentsQuickCsvLink')?.addEventListener('click', exportRentsMasterCsv);
 
+  // Add & Edit modal
   document.getElementById('rentsAddNewBtn')?.addEventListener('click', () => openRentsEditModal(null));
   document.getElementById('rentsCloseEditModalBtn')?.addEventListener('click', closeRentsEditModal);
   document.getElementById('rentsCancelEditModalBtn')?.addEventListener('click', closeRentsEditModal);
   document.getElementById('rentsEditRecordForm')?.addEventListener('submit', handleSaveRentRecord);
 
+  // Import modal
   document.getElementById('rentsImportBtn')?.addEventListener('click', openRentsImportModal);
   document.getElementById('rentsCloseImportModalBtn')?.addEventListener('click', closeRentsImportModal);
   document.getElementById('rentsCancelImportModalBtn')?.addEventListener('click', closeRentsImportModal);
@@ -3038,10 +3331,11 @@ window.openRentsEditModal = openRentsEditModal;
 window.deleteRentRecord = deleteRentRecord;
 
 // ==========================================================
-// Route Isolation & View Initialization (/rents vs /kernelx vs /)
+// Route Isolation & View Initialization (/rent, /rents vs /kernelx vs /)
 // ==========================================================
 function checkRouteMode() {
-  const isRentsRoute = window.location.pathname.startsWith('/rents');
+  const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  const isRentsRoute = pathname === '/rent' || pathname === '/rents';
   if (isRentsRoute) {
     document.getElementById("loginScreen")?.remove();
     document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
@@ -3055,7 +3349,7 @@ function checkRouteMode() {
     return true;
   }
 
-  const isKernelxRoute = window.location.pathname.startsWith('/kernelx');
+  const isKernelxRoute = pathname === '/kernelx';
   if (isKernelxRoute) {
     // Dedicated KernelX Master Mode
     document.getElementById("loginScreen")?.remove();
@@ -3071,13 +3365,23 @@ function checkRouteMode() {
     return true;
   }
 
-  // Standard Root Invoice Mode
+  // Standard Root Invoice Mode - Guarantee rents portal is completely hidden
+  const rentsApp = document.getElementById("rentsApp");
+  if (rentsApp) rentsApp.style.display = "none";
+  const kernelxApp = document.getElementById("kernelxApp");
+  if (kernelxApp) kernelxApp.style.display = "none";
+
   switchTab("preview");
   return false;
 }
 
 // Setup Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
+  // Isolate execution: on /rents or /kernelx, initialize dedicated app and do not run water invoice code
+  if (checkRouteMode()) {
+    return;
+  }
+
   document.getElementById("preset-falaknaz")?.addEventListener("click", () => applyPreset("falaknaz"));
   document.getElementById("preset-mega")?.addEventListener("click", () => applyPreset("mega"));
 
@@ -3303,12 +3607,6 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
     } catch (e) {}
   });
-
-  // Route check for /kernelx vs root /
-  const isKernelx = checkRouteMode();
-  if (isKernelx) {
-    return;
-  }
 
   // Initialize Session Authentication for standard application
   checkAuthSession().then(async (isAuth) => {

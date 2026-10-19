@@ -28,6 +28,7 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MegaMall@Kampus2026!';
 const KERNEL_ADMIN_USER = process.env.KERNEL_ADMIN_USER || 'Admin@kernel';
 const KERNEL_ADMIN_PASS = process.env.KERNEL_ADMIN_PASS || 'kernelx2026@1';
+const RENTS_PASSWORD = process.env.RENTS_PASSWORD || 'MegaMall@Rent2026!';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'MegaMall_SuperSecret_Cryptographic_Key_2026_Corporate#991!';
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_JSON_PATH = path.join(DATA_DIR, 'users.json');
@@ -56,6 +57,23 @@ function writeRentsDatabaseAtomic(data) {
   const tempPath = `${RENTS_DB_PATH}.tmp.${Date.now()}`;
   fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
   fs.renameSync(tempPath, RENTS_DB_PATH);
+
+  try {
+    const csvPath = path.join(__dirname, 'refrence', 'consolidated_allottees_rent_master.csv');
+    const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
+    const quoteField = str => '"' + cleanStr(str).replace(/"/g, '""') + '"';
+    let csv = 'S.NOS.,MONTH,BRAND NAME,SHOP NOS.,ALLOTEE,SQ.FT.,AMOUNT,CHQ NO.,PAID,DATE,IN HAND\n';
+    (data.records || []).forEach((r, idx) => {
+      const brand = quoteField(r.brand_name);
+      const shop = quoteField(r.shop_no);
+      const allotee = quoteField(r.allotee_name);
+      const dateStr = quoteField(r.date);
+      csv += `${idx + 1},${r.month},${brand},${shop},${allotee},${r.sq_ft || 0},${r.amount || 0},${r.chq_no || '-'},${r.paid || 0},${dateStr},${r.in_hand || 0}\n`;
+    });
+    fs.writeFileSync(csvPath, csv, 'utf8');
+  } catch (e) {
+    console.error('Error syncing master CSV:', e);
+  }
 }
 
 // Password hashing helper
@@ -395,6 +413,31 @@ function requireKernelAuth(req, res, next) {
   }
 
   req.kernelUser = verifiedUser;
+  next();
+}
+
+// ==========================================================
+// Rents Portal Authentication Middleware
+// ==========================================================
+function requireRentsAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  let token = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access Denied: Rents authentication token required.' });
+  }
+
+  const verified = verifyToken(token);
+  if (!verified || (!verified.isRentsAdmin && !verified.isKernelAdmin && verified.role !== 'Administrator')) {
+    return res.status(401).json({ error: 'Session Expired or Unauthorized: Please log into the Rents portal again.' });
+  }
+
+  req.rentsUser = verified;
   next();
 }
 
@@ -1248,20 +1291,55 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
 });
 
 // ==========================================================
-// Rent Management API & Dedicated Route (/rents)
+// Rent Management API & Dedicated Route (/rents & /rent)
 // ==========================================================
-app.get(['/rents', '/rents/'], (req, res) => {
+app.get(['/rents', '/rents/', '/rent', '/rent/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// GET /api/rents - Retrieve all rent records and metadata
-app.get('/api/rents', globalApiRateLimiter, (req, res) => {
+// POST /api/rents/login - Password Authentication (Set via RENTS_PASSWORD env)
+app.post('/api/rents/login', loginRateLimiter, (req, res) => {
+  const { password } = req.body || {};
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required to access Rents Register' });
+  }
+
+  const isMasterPass = password === KERNEL_ADMIN_PASS || password === ADMIN_PASSWORD;
+  const isRentPass = password === RENTS_PASSWORD;
+
+  if (!isMasterPass && !isRentPass) {
+    if (req.loginRateRecord) req.loginRateRecord.count++;
+    return res.status(401).json({ error: 'Invalid password for Rents Register. Access denied.' });
+  }
+
+  if (req.loginRateRecord) req.loginRateRecord.count = 0;
+
+  const token = generateToken({
+    isRentsAdmin: true,
+    role: 'RentsAdministrator',
+    exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours validity
+  });
+
+  res.json({
+    success: true,
+    token,
+    expiresIn: 86400
+  });
+});
+
+// GET /api/rents/verify - Check if rents session token is still valid
+app.get('/api/rents/verify', requireRentsAuth, (req, res) => {
+  res.json({ valid: true, user: req.rentsUser });
+});
+
+// GET /api/rents - Retrieve all rent records and metadata (protected)
+app.get('/api/rents', globalApiRateLimiter, requireRentsAuth, (req, res) => {
   const db = readRentsDatabase();
   res.json(db);
 });
 
-// POST /api/rents/save - Save updated rent records
-app.post('/api/rents/save', globalApiRateLimiter, (req, res) => {
+// POST /api/rents/save - Save updated rent records (protected)
+app.post('/api/rents/save', globalApiRateLimiter, requireRentsAuth, (req, res) => {
   try {
     const { records, months } = req.body;
     if (!Array.isArray(records)) {
@@ -1283,8 +1361,8 @@ app.post('/api/rents/save', globalApiRateLimiter, (req, res) => {
   }
 });
 
-// POST /api/rents/import - Bulk import or merge records
-app.post('/api/rents/import', globalApiRateLimiter, (req, res) => {
+// POST /api/rents/import - Bulk import or merge records (protected)
+app.post('/api/rents/import', globalApiRateLimiter, requireRentsAuth, (req, res) => {
   try {
     const { records, mode = 'merge' } = req.body;
     if (!Array.isArray(records) || records.length === 0) {
@@ -1323,8 +1401,8 @@ app.post('/api/rents/import', globalApiRateLimiter, (req, res) => {
   }
 });
 
-// GET /api/rents/download/master-excel
-app.get('/api/rents/download/master-excel', (req, res) => {
+// GET /api/rents/download/master-excel (protected)
+app.get('/api/rents/download/master-excel', requireRentsAuth, (req, res) => {
   const filePath = path.join(__dirname, 'refrence', 'consolidated_allottees_rent_master.xlsx');
   if (fs.existsSync(filePath)) {
     res.download(filePath, 'consolidated_allottees_rent_master.xlsx');
@@ -1333,8 +1411,8 @@ app.get('/api/rents/download/master-excel', (req, res) => {
   }
 });
 
-// GET /api/rents/download/master-csv
-app.get('/api/rents/download/master-csv', (req, res) => {
+// GET /api/rents/download/master-csv (protected)
+app.get('/api/rents/download/master-csv', requireRentsAuth, (req, res) => {
   const filePath = path.join(__dirname, 'refrence', 'consolidated_allottees_rent_master.csv');
   if (fs.existsSync(filePath)) {
     res.download(filePath, 'consolidated_allottees_rent_master.csv');

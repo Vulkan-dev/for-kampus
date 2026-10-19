@@ -68,10 +68,6 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
         Data Editor &amp; Corrections
       </button>
-      <a href="/rents" class="tab-btn" id="tabRentsPortalLink" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem; color:inherit;">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px; color:#3b82f6;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-        Rents Portal (/rents)
-      </a>
     </div>
 
     <!-- Separate Export Options & Preview Toggle -->
@@ -761,50 +757,82 @@
 
   </div>
 
-  <!-- Dedicated Allottees Rent Master Portal (/rents) -->
+  <!-- Dedicated Allottees Rent Master Portal (/rents & /rent) -->
   <div id="rentsApp" class="rents-wrapper" style="display:none;">
     
-    <!-- Rents Header Navigation -->
-    <header class="rents-header">
-      <div class="rents-header-brand">
-        <div class="rents-brand-badge">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px; height:20px; color:#3b82f6;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+    <!-- State 1: Password Gateway Overlay (Set via RENTS_PASSWORD env) -->
+    <div id="rentsLoginGate" class="login-overlay" style="display:flex;">
+      <div class="login-card" style="width:400px; max-width:92vw;">
+        <div class="login-header">
+          <div class="login-brand-icon" style="background:rgba(59, 130, 246, 0.15); color:#3b82f6;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+          </div>
+          <h1 class="login-title">Allottees Rent Register</h1>
+          <p class="login-subtitle">Password Protected Portal • Enter Authorization Key</p>
         </div>
-        <div>
-          <h1 class="rents-title">Allottees Rent Master Register</h1>
-          <p class="rents-subtitle">The Mega Mall &amp; Kampus Integrated Services • All Data in 1 Window</p>
+
+        <form id="rentsLoginForm" class="login-form" autocomplete="off">
+          <div id="rentsLoginAlert" class="login-error-alert" style="display:none;"></div>
+
+          <div class="form-group">
+            <label class="form-label" for="rentsPasswordInput">Security Password</label>
+            <div class="input-with-icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+              <input type="password" id="rentsPasswordInput" class="form-input" placeholder="••••••••••••" required autofocus />
+              <button type="button" class="password-toggle-btn" id="rentsTogglePassBtn" title="Toggle password visibility">
+                <svg id="rentsPassEyeIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary login-submit-btn" id="rentsLoginSubmitBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+            <span id="rentsLoginSubmitText">Unlock Register</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- State 2: Active Dashboard (Shown after password verification) -->
+    <div id="rentsDashboard" style="display:none; flex-direction:column; min-height:100vh;">
+
+      <!-- Rents Header Navigation -->
+      <header class="rents-header">
+        <div class="rents-header-brand">
+          <div class="rents-brand-badge">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px; height:20px; color:#3b82f6;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+          </div>
+          <div>
+            <h1 class="rents-title">Allottees Rent Master Register</h1>
+            <p class="rents-subtitle">The Mega Mall &amp; Kampus Integrated Services • All Data in 1 Window</p>
+          </div>
         </div>
-      </div>
 
-      <div class="rents-header-actions">
-        <a href="/" class="btn btn-secondary btn-sm" style="text-decoration:none;">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-          Water Invoices
-        </a>
-        <a href="/kernelx" class="btn btn-secondary btn-sm" style="text-decoration:none;">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-          KernelX Admin
-        </a>
-        <button class="btn btn-secondary btn-sm" id="rentsImportBtn" title="Import an Excel or CSV file into the database">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-          Import Excel / CSV
-        </button>
-        <button class="btn btn-docx btn-sm" id="rentsExportExcelBtn" title="Download consolidated master Excel workbook">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-          Master Excel (.xlsx)
-        </button>
-        <button class="btn btn-pdf btn-sm" id="rentsExportCsvBtn" title="Download consolidated master CSV file">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-          Export CSV
-        </button>
-        <button class="btn btn-green btn-sm" id="rentsSaveDbBtn" title="Save any table edits directly to the database">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-          Save to Database
-        </button>
-      </div>
-    </header>
+        <div class="rents-header-actions">
+          <button class="btn btn-secondary btn-sm" id="rentsImportBtn" title="Import an Excel or CSV file into the database">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            Import Excel / CSV
+          </button>
+          <button class="btn btn-docx btn-sm" id="rentsExportExcelBtn" title="Download consolidated master Excel workbook">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            Master Excel (.xlsx)
+          </button>
+          <button class="btn btn-pdf btn-sm" id="rentsExportCsvBtn" title="Download consolidated master CSV file">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Export CSV
+          </button>
+          <button class="btn btn-green btn-sm" id="rentsSaveDbBtn" title="Save any table edits directly to the database">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+            Save to Database
+          </button>
+          <button class="btn btn-danger btn-sm" id="rentsLogoutBtn" title="Lock the register and log out">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            Lock Register
+          </button>
+        </div>
+      </header>
 
-    <div class="rents-content">
+      <div class="rents-content">
 
       <!-- Statistics Row -->
       <div class="rents-stats-row">
@@ -854,6 +882,9 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px; color:var(--text-dim);"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             <input type="text" id="rentsSearchInput" class="form-input" placeholder="Search Brand, Shop #, Allotee, Cheque..." />
           </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="rentsThemeToggleBtn" title="Toggle between Classic Excel Paper and Obsidian Dark Theme">
+            <span id="rentsThemeToggleText">📄 Classic Sheet</span>
+          </button>
           <button class="btn btn-primary btn-sm" id="rentsAddNewBtn">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
             Add Record
@@ -862,7 +893,7 @@
       </div>
 
       <!-- Master Table Container -->
-      <div class="rents-table-container">
+      <div class="rents-table-container excel-theme" id="rentsTableContainer">
         
         <!-- Table Header Banner (Identical to reference screenshot) -->
         <div class="rents-sheet-banner" id="rentsSheetBanner">
@@ -1013,8 +1044,8 @@
           <div style="margin-top:1.25rem; background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:6px; padding:0.75rem 0.9rem; font-size:0.76rem; color:#93c5fd; line-height:1.45;">
             <strong>Quick Pre-made Master Files Available:</strong><br/>
             You can download your master file anytime: 
-            <a href="/api/rents/download/master-excel" download style="color:#60a5fa; text-decoration:underline; font-weight:600;">Download Master Excel (.xlsx)</a> • 
-            <a href="/api/rents/download/master-csv" download style="color:#60a5fa; text-decoration:underline; font-weight:600;">Download Master CSV</a>
+            <a href="javascript:void(0)" id="rentsQuickExcelLink" style="color:#60a5fa; text-decoration:underline; font-weight:600;">Download Master Excel (.xlsx)</a> • 
+            <a href="javascript:void(0)" id="rentsQuickCsvLink" style="color:#60a5fa; text-decoration:underline; font-weight:600;">Download Master CSV</a>
           </div>
         </div>
         <div class="modal-footer">
@@ -1024,7 +1055,8 @@
       </div>
     </div>
 
-  </div>
+    </div> <!-- Close #rentsDashboard -->
+  </div> <!-- Close #rentsApp -->
 
   <!-- Themed Confirmation Modal -->
   <div class="modal-backdrop" id="confirmModalBackdrop">
