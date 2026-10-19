@@ -9,15 +9,17 @@
 let authUser = null;
 
 function getAuthToken() {
-  return sessionStorage.getItem('mega_mall_auth_token');
+  return sessionStorage.getItem('mega_mall_auth_token') || localStorage.getItem('mega_mall_auth_token');
 }
 
 function setAuthSession(token, user) {
   if (token) {
     sessionStorage.setItem('mega_mall_auth_token', token);
+    localStorage.setItem('mega_mall_auth_token', token);
   }
   if (user) {
     sessionStorage.setItem('mega_mall_auth_user', JSON.stringify(user));
+    localStorage.setItem('mega_mall_auth_user', JSON.stringify(user));
     authUser = user;
   }
 }
@@ -54,6 +56,8 @@ function stopSessionHeartbeat() {
 function clearAuthSession() {
   sessionStorage.removeItem('mega_mall_auth_token');
   sessionStorage.removeItem('mega_mall_auth_user');
+  localStorage.removeItem('mega_mall_auth_token');
+  localStorage.removeItem('mega_mall_auth_user');
   authUser = null;
   stopSessionHeartbeat();
 }
@@ -99,7 +103,7 @@ function hideLoginPortal() {
 
 async function checkAuthSession() {
   const token = getAuthToken();
-  const storedUser = sessionStorage.getItem('mega_mall_auth_user');
+  const storedUser = sessionStorage.getItem('mega_mall_auth_user') || localStorage.getItem('mega_mall_auth_user');
   if (storedUser) {
     try { authUser = JSON.parse(storedUser); } catch (e) {}
   }
@@ -377,6 +381,22 @@ let appState = {
   activeTab: "preview"
 };
 
+// Synchronously restore cached local state on startup so refresh never flashes or resets to defaults
+try {
+  const localSaved = localStorage.getItem('mega_mall_project_state');
+  if (localSaved) {
+    const parsed = JSON.parse(localSaved);
+    if (parsed && typeof parsed === 'object') {
+      if (!parsed.tableColumns || !Array.isArray(parsed.tableColumns) || parsed.tableColumns.length === 0) {
+        parsed.tableColumns = JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS));
+      }
+      appState = Object.assign({}, appState, parsed);
+    }
+  }
+} catch (e) {
+  console.warn("Could not load initial cached state:", e);
+}
+
 // ==========================================================
 // Database Persistence Manager (Atomic Server DB + Local Backup)
 // ==========================================================
@@ -465,12 +485,20 @@ async function loadProjectStateFromDatabase() {
       loadedState.tableColumns = JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS));
     }
     appState = Object.assign({}, appState, loadedState);
+    try {
+      localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
+    } catch (e) {}
     updateDbSyncStatus("synced", "Database Synced");
   }
   syncInputsWithState();
   updateYearConfigsUI();
   renderPreview();
   renderDataEditor();
+
+  // Restore active tab (preview vs editor)
+  if (appState.activeTab) {
+    switchTab(appState.activeTab);
+  }
 }
 
 // Date Strings and Calendar Math
@@ -1087,10 +1115,9 @@ function renderDataEditor() {
             <div style="display:inline-flex; align-items:center; gap:0.35rem;">
               <input type="number" 
                      value="${inv.billAmount}" 
-                     ${isManual ? '' : 'readonly'}
                      onchange="updateRowManualBillAmount('${inv.ym}', this.value)" 
-                     title="${isManual ? 'Manual Bill Amount active (custom override)' : 'Auto-calculated: Gallons × Rate (Turn toggle on to set manually)'}" 
-                     style="width:95px; font-weight:600; ${isManual ? 'border-color:var(--accent-green); color:var(--accent-green);' : 'opacity:0.8; background:var(--bg-app); cursor:not-allowed;'}" />
+                     title="${isManual ? 'Manual Bill Amount active (custom override)' : 'Auto-calculated: Gallons × Rate (Directly edit anytime or use toggle)'}" 
+                     style="width:95px; font-weight:600; cursor:text; ${isManual ? 'border-color:var(--accent-green); color:var(--accent-green);' : ''}" />
               <label class="switch switch-sm" title="Toggle manual bill amount ON/OFF for ${inv.monthName} ${inv.year}">
                 <input type="checkbox" ${isManual ? 'checked' : ''} onchange="toggleRowManualBill('${inv.ym}', this.checked)" />
                 <span class="slider"></span>
@@ -1147,7 +1174,7 @@ function toggleRowManualBill(ym, isEnabled) {
       const current = invs.find(i => i.ym === ym);
       appState.manualCorrections[ym].billAmount = current ? current.billAmount : 0;
     }
-    showToast(`Manual bill amount enabled for ${ym}. You can now edit the amount directly.`, "info");
+    showToast(`Manual bill amount enabled for ${ym}. You can edit the amount directly anytime.`, "info");
   } else {
     delete appState.manualCorrections[ym].billAmount;
     showToast(`Restored automatic Bill Amount calculation for ${ym}.`, "info");
@@ -1161,8 +1188,14 @@ function updateRowManualBillAmount(ym, val) {
   if (!appState.manualCorrections[ym]) {
     appState.manualCorrections[ym] = {};
   }
-  appState.manualCorrections[ym].manualBillAmountEnabled = true;
-  appState.manualCorrections[ym].billAmount = parseFloat(val) || 0;
+  if (val === "" || val === null || val === undefined) {
+    appState.manualCorrections[ym].manualBillAmountEnabled = false;
+    delete appState.manualCorrections[ym].billAmount;
+    showToast(`Restored automatic Bill Amount calculation for ${ym}.`, "info");
+  } else {
+    appState.manualCorrections[ym].manualBillAmountEnabled = true;
+    appState.manualCorrections[ym].billAmount = parseFloat(val) || 0;
+  }
   renderPreview();
   renderDataEditor();
   debouncedSaveProjectState();
@@ -1355,6 +1388,9 @@ function resetDefaultColumns() {
 // Switch Tabs
 function switchTab(tab) {
   appState.activeTab = tab;
+  try {
+    localStorage.setItem('mega_mall_active_tab', tab);
+  } catch (e) {}
   const isPreview = tab === "preview";
   const isEditor = tab === "editor";
 
@@ -1841,23 +1877,39 @@ function syncInputsWithState() {
   document.getElementById("invSuffixInput").value = appState.invSuffix;
   const autoSuffixToggle = document.getElementById("autoSuffixYearToggle");
   if (autoSuffixToggle) autoSuffixToggle.checked = !!appState.autoSuffixYear;
-  document.getElementById("prevBalanceToggle").checked = appState.includePrevBalance;
-  document.getElementById("prevBalanceOptions").style.display = appState.includePrevBalance ? "block" : "none";
+  document.getElementById("prevBalanceToggle").checked = !!appState.includePrevBalance;
+  const prevOptions = document.getElementById("prevBalanceOptions");
+  if (prevOptions) prevOptions.style.display = appState.includePrevBalance ? "flex" : "none";
+
+  // Opening Balance & Dropdown Behavior for Previous Amount
+  const openBalInput = document.getElementById("openingBalanceInput");
+  if (openBalInput) openBalInput.value = appState.openingBalance !== undefined ? appState.openingBalance : 0;
+
+  const prevModeSelect = document.getElementById("prevBalanceModeSelect");
+  if (prevModeSelect) prevModeSelect.value = appState.prevBalanceMode || "zero";
 
   // Also sync Editor Sequence Bar inputs
   const edPrefix = document.getElementById("editorSeqPrefix");
   const edStart = document.getElementById("editorSeqStartNum");
   const edSuffix = document.getElementById("editorSeqSuffix");
   const edAutoYear = document.getElementById("editorSeqAutoYear");
-  if (edPrefix) edPrefix.value = appState.invPrefix;
-  if (edStart) edStart.value = appState.invStartNum;
-  if (edSuffix) edSuffix.value = appState.invSuffix;
+  if (edPrefix) edPrefix.value = appState.invPrefix || "#INV-";
+  if (edStart) edStart.value = appState.invStartNum !== undefined ? appState.invStartNum : 3001;
+  if (edSuffix) edSuffix.value = appState.invSuffix || "-051026";
   if (edAutoYear) edAutoYear.checked = !!appState.autoSuffixYear;
 
-  const [sY] = appState.startMonth.split("-").map(Number);
-  const [eY] = appState.endMonth.split("-").map(Number);
+  const [sY] = (appState.startMonth || "2024-01").split("-").map(Number);
+  const [eY] = (appState.endMonth || "2026-07").split("-").map(Number);
   startCalYear = sY;
   endCalYear = eY;
+
+  // Active preset highlight
+  document.querySelectorAll(".preset-pill-btn").forEach(btn => btn.classList.remove("active"));
+  if (appState.occupier && appState.occupier.toUpperCase().includes("FALAKNAZ")) {
+    document.getElementById("preset-falaknaz")?.classList.add("active");
+  } else if (appState.occupier && appState.occupier.toUpperCase().includes("MEGA")) {
+    document.getElementById("preset-mega")?.classList.add("active");
+  }
 }
 
 // ----------------------------------------------------------
@@ -2573,7 +2625,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const prevToggle = document.getElementById("prevBalanceToggle");
   prevToggle.addEventListener("change", (e) => {
     appState.includePrevBalance = e.target.checked;
-    document.getElementById("prevBalanceOptions").style.display = e.target.checked ? "block" : "none";
+    const prevOptions = document.getElementById("prevBalanceOptions");
+    if (prevOptions) prevOptions.style.display = e.target.checked ? "flex" : "none";
     renderPreview();
     renderDataEditor();
     debouncedSaveProjectState();
@@ -2667,6 +2720,20 @@ document.addEventListener("DOMContentLoaded", () => {
   initCalendarPopovers();
   syncInputsWithState();
   updateYearConfigsUI();
+  renderPreview();
+  renderDataEditor();
+
+  const savedActiveTab = localStorage.getItem('mega_mall_active_tab') || appState.activeTab;
+  if (savedActiveTab) {
+    switchTab(savedActiveTab);
+  }
+
+  // Register beforeunload handler to immediately persist state to localStorage on refresh/exit
+  window.addEventListener("beforeunload", () => {
+    try {
+      localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
+    } catch (e) {}
+  });
 
   // Route check for /kernelx vs root /
   const isKernelx = checkRouteMode();
