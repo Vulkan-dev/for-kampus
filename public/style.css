@@ -2304,3 +2304,287 @@ input:checked + .slider:before {
     display: none;
   }
 }
+
+/* ==========================================================
+   Dedicated Allottees Rent Master Portal (/rents) Styling
+   ========================================================== */
+.rents-wrapper {
+  min-height: 100vh;
+  background-color: var(--bg-main, #0b0f19);
+  color: var(--text-main, #f8fafc);
+  display: flex;
+  flex-direction: column;
+}
+
+.rents-header {
+  height: 60px;
+  background: var(--bg-surface, #131b2e);
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.rents-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.rents-brand-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rents-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.rents-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted, #94a3b8);
+  margin: 0;
+}
+
+.rents-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rents-content {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 1650px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.rents-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.rents-stat-card {
+  background: var(--bg-surface, #131b2e);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rents-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.rents-month-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  background: var(--bg-surface, #131b2e);
+  padding: 0.3rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.rents-month-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.rents-month-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rents-month-btn.active {
+  background: var(--accent-blue, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.rents-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rents-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-surface, #131b2e);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  width: 290px;
+}
+
+.rents-search-box .form-input {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #ffffff;
+  width: 100%;
+}
+
+.rents-search-box .form-input:focus {
+  outline: none;
+}
+
+/* Master Table Layout matching user reference screenshot */
+.rents-table-container {
+  background: var(--bg-surface, #131b2e);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.rents-sheet-banner {
+  text-align: center;
+  padding: 0.75rem 1rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  background: #0d1424;
+  border-bottom: 2px solid #334155;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.rents-table-scroll {
+  overflow-x: auto;
+  max-height: calc(100vh - 310px);
+}
+
+.rents-master-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.rents-master-table thead {
+  position: sticky;
+  top: 0;
+  background: #192339;
+  z-index: 10;
+}
+
+.rents-master-table thead th {
+  padding: 0.65rem 0.75rem;
+  font-weight: 800;
+  font-style: italic;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: #f1f5f9;
+  border: 1px solid #334155;
+  white-space: nowrap;
+}
+
+.rents-master-table tbody td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
+.rents-master-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.rents-master-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.rents-master-table tfoot {
+  position: sticky;
+  bottom: 0;
+  background: #0d1424;
+  z-index: 10;
+}
+
+.rents-master-table tfoot td {
+  padding: 0.7rem 0.75rem;
+  font-weight: 800;
+  color: #ffffff;
+  border-top: 2px solid #64748b;
+  border-bottom: 3px double #94a3b8;
+  white-space: nowrap;
+}
+
+.rents-action-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.35rem;
+  border-radius: 4px;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.rents-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.rents-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+@media print {
+  .rents-header, .rents-toolbar, .no-print {
+    display: none !important;
+  }
+  .rents-table-container {
+    border: none;
+    box-shadow: none;
+  }
+  .rents-master-table thead th, .rents-master-table tbody td, .rents-master-table tfoot td {
+    color: #000000 !important;
+    border-color: #000000 !important;
+  }
+  .rents-sheet-banner {
+    color: #000000 !important;
+    border-color: #000000 !important;
+    background: transparent !important;
+  }
+}

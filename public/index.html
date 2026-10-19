@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/style.css?v=5">
   <script src="/assets/jspdf.umd.min.js"></script>
   <script src="/assets/html2canvas.min.js"></script>
+  <script src="/assets/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -67,6 +68,10 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
         Data Editor &amp; Corrections
       </button>
+      <a href="/rents" class="tab-btn" id="tabRentsPortalLink" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem; color:inherit;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px; color:#3b82f6;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+        Rents Portal (/rents)
+      </a>
     </div>
 
     <!-- Separate Export Options & Preview Toggle -->
@@ -750,6 +755,271 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="kernelxCancelDeleteModalBtn">Cancel</button>
           <button type="button" class="btn btn-danger" id="kernelxConfirmDeleteBtn">Revoke &amp; Delete</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Dedicated Allottees Rent Master Portal (/rents) -->
+  <div id="rentsApp" class="rents-wrapper" style="display:none;">
+    
+    <!-- Rents Header Navigation -->
+    <header class="rents-header">
+      <div class="rents-header-brand">
+        <div class="rents-brand-badge">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px; height:20px; color:#3b82f6;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+        </div>
+        <div>
+          <h1 class="rents-title">Allottees Rent Master Register</h1>
+          <p class="rents-subtitle">The Mega Mall &amp; Kampus Integrated Services • All Data in 1 Window</p>
+        </div>
+      </div>
+
+      <div class="rents-header-actions">
+        <a href="/" class="btn btn-secondary btn-sm" style="text-decoration:none;">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          Water Invoices
+        </a>
+        <a href="/kernelx" class="btn btn-secondary btn-sm" style="text-decoration:none;">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+          KernelX Admin
+        </a>
+        <button class="btn btn-secondary btn-sm" id="rentsImportBtn" title="Import an Excel or CSV file into the database">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+          Import Excel / CSV
+        </button>
+        <button class="btn btn-docx btn-sm" id="rentsExportExcelBtn" title="Download consolidated master Excel workbook">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          Master Excel (.xlsx)
+        </button>
+        <button class="btn btn-pdf btn-sm" id="rentsExportCsvBtn" title="Download consolidated master CSV file">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-green btn-sm" id="rentsSaveDbBtn" title="Save any table edits directly to the database">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+          Save to Database
+        </button>
+      </div>
+    </header>
+
+    <div class="rents-content">
+
+      <!-- Statistics Row -->
+      <div class="rents-stats-row">
+        <div class="rents-stat-card">
+          <div class="stat-label">View Scope</div>
+          <div class="stat-value" id="rentsStatMonth" style="color:#60a5fa; font-size:1.1rem;">All Months</div>
+          <div class="stat-meta" id="rentsStatRange">JAN-2026 to AUG-2026</div>
+        </div>
+        <div class="rents-stat-card">
+          <div class="stat-label">Total Rent Payable</div>
+          <div class="stat-value" id="rentsStatTotalAmount" style="color:#ffffff;">Rs. 0</div>
+          <div class="stat-meta">Cumulative rent amount</div>
+        </div>
+        <div class="rents-stat-card">
+          <div class="stat-label">Total Paid</div>
+          <div class="stat-value" id="rentsStatTotalPaid" style="color:#34d399;">Rs. 0</div>
+          <div class="stat-meta">Disbursed cheques</div>
+        </div>
+        <div class="rents-stat-card">
+          <div class="stat-label">In Hand / Balance</div>
+          <div class="stat-value" id="rentsStatTotalInHand" style="color:#f59e0b;">Rs. 0</div>
+          <div class="stat-meta">Outstanding / Cheques in hand</div>
+        </div>
+        <div class="rents-stat-card">
+          <div class="stat-label">Records Count</div>
+          <div class="stat-value" id="rentsStatRecordCount" style="color:#93c5fd;">0</div>
+          <div class="stat-meta">Allottee shop rows</div>
+        </div>
+      </div>
+
+      <!-- Controls & Filter Toolbar -->
+      <div class="rents-toolbar">
+        <div class="rents-month-tabs" id="rentsMonthTabs">
+          <button class="rents-month-btn active" data-month="ALL">ALL MONTHS</button>
+          <button class="rents-month-btn" data-month="JAN-2026">JAN-2026</button>
+          <button class="rents-month-btn" data-month="FEB-2026">FEB-2026</button>
+          <button class="rents-month-btn" data-month="MARCH-2026">MARCH-2026</button>
+          <button class="rents-month-btn" data-month="APRIL-2026">APRIL-2026</button>
+          <button class="rents-month-btn" data-month="MAY-2026">MAY-2026</button>
+          <button class="rents-month-btn" data-month="JUNE-2026">JUNE-2026</button>
+          <button class="rents-month-btn" data-month="JULY-2026">JULY-2026</button>
+          <button class="rents-month-btn" data-month="AUG-2026">AUG-2026</button>
+        </div>
+
+        <div class="rents-filter-group">
+          <div class="rents-search-box">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px; color:var(--text-dim);"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input type="text" id="rentsSearchInput" class="form-input" placeholder="Search Brand, Shop #, Allotee, Cheque..." />
+          </div>
+          <button class="btn btn-primary btn-sm" id="rentsAddNewBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+            Add Record
+          </button>
+        </div>
+      </div>
+
+      <!-- Master Table Container -->
+      <div class="rents-table-container">
+        
+        <!-- Table Header Banner (Identical to reference screenshot) -->
+        <div class="rents-sheet-banner" id="rentsSheetBanner">
+          RENT MONTH OF ALL MONTHS
+        </div>
+
+        <div class="rents-table-scroll">
+          <table class="rents-master-table" id="rentsMasterTable">
+            <thead>
+              <tr>
+                <th style="width: 55px; text-align:center;">S.NOS.</th>
+                <th style="width: 90px; text-align:center;">MONTH</th>
+                <th style="width: 140px;">BRAND NAME</th>
+                <th style="width: 90px; text-align:center;">SHOP NOS.</th>
+                <th style="min-width: 180px;">ALLOTEE</th>
+                <th style="width: 75px; text-align:right;">SQ.FT.</th>
+                <th style="width: 100px; text-align:right;">AMOUNT</th>
+                <th style="width: 110px; text-align:center;">CHQ NO.</th>
+                <th style="width: 95px; text-align:right;">PAID</th>
+                <th style="width: 100px; text-align:center;">DATE</th>
+                <th style="width: 100px; text-align:right;">IN HAND</th>
+                <th style="width: 70px; text-align:center;" class="no-print">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="rentsTableBody">
+              <!-- Rendered Dynamically -->
+            </tbody>
+            <tfoot id="rentsTableFoot">
+              <!-- Rendered Dynamically -->
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal: Add / Edit Rent Record -->
+    <div class="modal-backdrop" id="rentsEditModalBackdrop" style="display:none;">
+      <div class="modal-card" style="width: 560px; max-width: 95vw;">
+        <div class="modal-header">
+          <div class="modal-title" id="rentsEditModalTitle">Edit Rent Record</div>
+          <button type="button" class="btn btn-secondary btn-sm" id="rentsCloseEditModalBtn">&times;</button>
+        </div>
+        <form id="rentsEditRecordForm" autocomplete="off">
+          <input type="hidden" id="rentsEditRecordId" />
+          <div class="modal-body" style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
+            <div class="form-group">
+              <label class="form-label" for="rentsEditMonth">Month</label>
+              <select id="rentsEditMonth" class="form-input" required>
+                <option value="JAN-2026">JAN-2026</option>
+                <option value="FEB-2026">FEB-2026</option>
+                <option value="MARCH-2026">MARCH-2026</option>
+                <option value="APRIL-2026">APRIL-2026</option>
+                <option value="MAY-2026">MAY-2026</option>
+                <option value="JUNE-2026">JUNE-2026</option>
+                <option value="JULY-2026">JULY-2026</option>
+                <option value="AUG-2026">AUG-2026</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditSNo">S.No</label>
+              <input type="text" id="rentsEditSNo" class="form-input" placeholder="1, 2, 3..." />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditBrand">Brand Name</label>
+              <input type="text" id="rentsEditBrand" class="form-input" placeholder="e.g. HRY JEWELLERS" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditShop">Shop No</label>
+              <input type="text" id="rentsEditShop" class="form-input" placeholder="e.g. G0059" required />
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+              <label class="form-label" for="rentsEditAllotee">Allottee Name</label>
+              <input type="text" id="rentsEditAllotee" class="form-input" placeholder="Full name of allottee" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditSqFt">Sq.Ft.</label>
+              <input type="number" step="0.5" id="rentsEditSqFt" class="form-input" placeholder="96" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditAmount">Amount (Rs.)</label>
+              <input type="number" id="rentsEditAmount" class="form-input" placeholder="14400" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditChqNo">Cheque No. / Status</label>
+              <input type="text" id="rentsEditChqNo" class="form-input" placeholder="33394909 or '-'" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditPaid">Paid Amount (Rs.)</label>
+              <input type="number" id="rentsEditPaid" class="form-input" placeholder="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditDate">Date</label>
+              <input type="text" id="rentsEditDate" class="form-input" placeholder="DD-MM-YYYY or OK" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="rentsEditInHand">In Hand (Rs.)</label>
+              <input type="number" id="rentsEditInHand" class="form-input" placeholder="14400" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="rentsCancelEditModalBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="rentsSubmitEditBtn">Apply Record</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Import Excel / CSV -->
+    <div class="modal-backdrop" id="rentsImportModalBackdrop" style="display:none;">
+      <div class="modal-card" style="width: 580px; max-width: 95vw;">
+        <div class="modal-header">
+          <div class="modal-title">Import Rent Records into Site Database</div>
+          <button type="button" class="btn btn-secondary btn-sm" id="rentsCloseImportModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:0.83rem; color:var(--text-muted); margin-bottom: 0.9rem;">
+            Upload your Excel workbook (.xlsx, .xls) or CSV file. All data will be parsed, verified, and loaded directly into the site database.
+          </p>
+          
+          <div class="file-dropzone" id="rentsFileDropzone" style="cursor:pointer; border:2px dashed var(--border-medium); border-radius:8px; padding:1.75rem; text-align:center; background:rgba(255,255,255,0.02); transition:all 0.2s ease;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:36px; height:36px; color:#3b82f6; margin-bottom:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            <div style="font-weight:600; font-size:0.9rem; color:var(--text-main);">Click or Drag &amp; Drop Excel / CSV file here</div>
+            <div style="font-size:0.75rem; color:var(--text-dim); margin-top:0.25rem;">Supports .xlsx, .xls, .csv files</div>
+            <input type="file" id="rentsFileInput" accept=".xlsx,.xls,.csv,.json" style="display:none;" />
+          </div>
+
+          <div id="rentsImportPreviewArea" style="display:none; margin-top:1rem; border-top:1px solid var(--border-light); padding-top:0.85rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+              <span id="rentsImportFileName" style="font-weight:600; font-size:0.85rem; color:#60a5fa;"></span>
+              <span id="rentsImportRowCount" class="badge" style="background:#1e3a8a; color:#93c5fd; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem;"></span>
+            </div>
+            <div class="form-group" style="margin-bottom:0.5rem;">
+              <label class="form-label" style="font-size:0.76rem;">Import Action:</label>
+              <div style="display:flex; gap:1rem; font-size:0.8rem;">
+                <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                  <input type="radio" name="rentsImportMode" value="merge" checked />
+                  <span>Update &amp; Merge with Existing Database (Recommended)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                  <input type="radio" name="rentsImportMode" value="replace" />
+                  <span>Replace Entire Database</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:1.25rem; background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:6px; padding:0.75rem 0.9rem; font-size:0.76rem; color:#93c5fd; line-height:1.45;">
+            <strong>Quick Pre-made Master Files Available:</strong><br/>
+            You can download your master file anytime: 
+            <a href="/api/rents/download/master-excel" download style="color:#60a5fa; text-decoration:underline; font-weight:600;">Download Master Excel (.xlsx)</a> • 
+            <a href="/api/rents/download/master-csv" download style="color:#60a5fa; text-decoration:underline; font-weight:600;">Download Master CSV</a>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="rentsCancelImportModalBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="rentsConfirmImportModalBtn" disabled>Process &amp; Load into Site</button>
         </div>
       </div>
     </div>

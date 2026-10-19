@@ -32,10 +32,30 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'MegaMall_SuperSecret_Crypt
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_JSON_PATH = path.join(DATA_DIR, 'users.json');
 const PROJECT_STATE_PATH = path.join(DATA_DIR, 'project_state.json');
+const RENTS_DB_PATH = path.join(DATA_DIR, 'rents_database.json');
 
 // Ensure private data directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function readRentsDatabase() {
+  try {
+    if (!fs.existsSync(RENTS_DB_PATH)) {
+      return { updatedAt: new Date().toISOString(), months: [], totalRecords: 0, records: [] };
+    }
+    const data = fs.readFileSync(RENTS_DB_PATH, 'utf-8');
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('Error reading rents database:', err);
+    return { updatedAt: new Date().toISOString(), months: [], totalRecords: 0, records: [] };
+  }
+}
+
+function writeRentsDatabaseAtomic(data) {
+  const tempPath = `${RENTS_DB_PATH}.tmp.${Date.now()}`;
+  fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(tempPath, RENTS_DB_PATH);
 }
 
 // Password hashing helper
@@ -1224,6 +1244,102 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Word export error:', error);
     res.status(500).json({ error: 'Failed to generate Word document', details: error.message });
+  }
+});
+
+// ==========================================================
+// Rent Management API & Dedicated Route (/rents)
+// ==========================================================
+app.get(['/rents', '/rents/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// GET /api/rents - Retrieve all rent records and metadata
+app.get('/api/rents', globalApiRateLimiter, (req, res) => {
+  const db = readRentsDatabase();
+  res.json(db);
+});
+
+// POST /api/rents/save - Save updated rent records
+app.post('/api/rents/save', globalApiRateLimiter, (req, res) => {
+  try {
+    const { records, months } = req.body;
+    if (!Array.isArray(records)) {
+      return res.status(400).json({ error: 'Invalid records array' });
+    }
+    const existing = readRentsDatabase();
+    const updatedMonths = months || Array.from(new Set(records.map(r => r.month))).filter(Boolean);
+    const updatedDb = {
+      updatedAt: new Date().toISOString(),
+      months: updatedMonths.length ? updatedMonths : existing.months,
+      totalRecords: records.length,
+      records
+    };
+    writeRentsDatabaseAtomic(updatedDb);
+    res.json({ success: true, totalRecords: records.length, updatedAt: updatedDb.updatedAt });
+  } catch (err) {
+    console.error('Failed to save rents database:', err);
+    res.status(500).json({ error: 'Failed to save rents database', details: err.message });
+  }
+});
+
+// POST /api/rents/import - Bulk import or merge records
+app.post('/api/rents/import', globalApiRateLimiter, (req, res) => {
+  try {
+    const { records, mode = 'merge' } = req.body;
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ error: 'No records provided to import' });
+    }
+    const existing = readRentsDatabase();
+    let finalRecords = [];
+    if (mode === 'replace') {
+      finalRecords = records.map((r, i) => ({ ...r, id: r.id || `rent_imp_${Date.now()}_${i}` }));
+    } else {
+      const map = new Map();
+      (existing.records || []).forEach(r => {
+        const key = `${r.month}_${r.shop_no}`.toUpperCase();
+        map.set(key, r);
+      });
+      records.forEach((r, i) => {
+        const key = `${r.month}_${r.shop_no}`.toUpperCase();
+        const prev = map.get(key) || {};
+        map.set(key, { ...prev, ...r, id: prev.id || r.id || `rent_imp_${Date.now()}_${i}` });
+      });
+      finalRecords = Array.from(map.values());
+    }
+
+    const monthsSet = new Set(finalRecords.map(r => r.month).filter(Boolean));
+    const updatedDb = {
+      updatedAt: new Date().toISOString(),
+      months: Array.from(monthsSet),
+      totalRecords: finalRecords.length,
+      records: finalRecords
+    };
+    writeRentsDatabaseAtomic(updatedDb);
+    res.json({ success: true, count: finalRecords.length, updatedAt: updatedDb.updatedAt });
+  } catch (err) {
+    console.error('Failed to import rents:', err);
+    res.status(500).json({ error: 'Failed to import rents', details: err.message });
+  }
+});
+
+// GET /api/rents/download/master-excel
+app.get('/api/rents/download/master-excel', (req, res) => {
+  const filePath = path.join(__dirname, 'refrence', 'consolidated_allottees_rent_master.xlsx');
+  if (fs.existsSync(filePath)) {
+    res.download(filePath, 'consolidated_allottees_rent_master.xlsx');
+  } else {
+    res.status(404).json({ error: 'Master Excel file not found' });
+  }
+});
+
+// GET /api/rents/download/master-csv
+app.get('/api/rents/download/master-csv', (req, res) => {
+  const filePath = path.join(__dirname, 'refrence', 'consolidated_allottees_rent_master.csv');
+  if (fs.existsSync(filePath)) {
+    res.download(filePath, 'consolidated_allottees_rent_master.csv');
+  } else {
+    res.status(404).json({ error: 'Master CSV file not found' });
   }
 });
 

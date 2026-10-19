@@ -2484,16 +2484,585 @@ function openKernelxDeleteModal(userId, username) {
 }
 
 // ==========================================================
-// Route Isolation & View Initialization (/kernelx vs /)
+// Toast Notification Helper (Universal)
+// ==========================================================
+function showToast(message, type = 'info') {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  const bg = type === 'error' ? '#ef4444' : (type === 'success' ? '#10b981' : '#3b82f6');
+  toast.style.cssText = `
+    background: ${bg};
+    color: #ffffff;
+    padding: 0.65rem 1rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 99999;
+  `;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+// ==========================================================
+// Allottees Rent Master Portal Logic (/rents)
+// ==========================================================
+let rentsDb = {
+  updatedAt: null,
+  months: [],
+  records: []
+};
+let currentRentsMonth = 'ALL';
+let rentsSearchQuery = '';
+let stagedImportRecords = [];
+
+async function initRentsApp() {
+  setupRentsEventListeners();
+  await loadRentsFromDatabase();
+}
+
+async function loadRentsFromDatabase() {
+  try {
+    const res = await fetch('/api/rents');
+    if (!res.ok) throw new Error('Failed to fetch rents data');
+    const data = await res.json();
+    rentsDb = data || { months: [], records: [] };
+    if (!rentsDb.months || rentsDb.months.length === 0) {
+      rentsDb.months = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
+    }
+    renderRentsMonthTabs();
+    renderRentsTable();
+    updateRentsStats();
+  } catch (err) {
+    console.error('Error loading rents database:', err);
+    showToast('Failed to load rents database: ' + err.message, 'error');
+  }
+}
+
+function renderRentsMonthTabs() {
+  const container = document.getElementById('rentsMonthTabs');
+  if (!container) return;
+  const months = ['ALL', ...(rentsDb.months || [])];
+  container.innerHTML = months.map(m => {
+    const label = m === 'ALL' ? 'ALL MONTHS' : m;
+    const isActive = currentRentsMonth === m;
+    return `<button type="button" class="rents-month-btn ${isActive ? 'active' : ''}" data-month="${escapeHtml(m)}">${escapeHtml(label)}</button>`;
+  }).join('');
+
+  container.querySelectorAll('.rents-month-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.rents-month-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentRentsMonth = btn.getAttribute('data-month');
+      renderRentsTable();
+      updateRentsStats();
+    });
+  });
+}
+
+function getFilteredRentRecords() {
+  let list = rentsDb.records || [];
+  if (currentRentsMonth && currentRentsMonth !== 'ALL') {
+    list = list.filter(r => r.month === currentRentsMonth);
+  }
+  if (rentsSearchQuery) {
+    const q = rentsSearchQuery.toLowerCase();
+    list = list.filter(r => 
+      (r.brand_name || '').toLowerCase().includes(q) ||
+      (r.shop_no || '').toLowerCase().includes(q) ||
+      (r.allotee_name || '').toLowerCase().includes(q) ||
+      (r.chq_no || '').toLowerCase().includes(q) ||
+      (r.month || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function renderRentsTable() {
+  const tbody = document.getElementById('rentsTableBody');
+  const tfoot = document.getElementById('rentsTableFoot');
+  const banner = document.getElementById('rentsSheetBanner');
+  if (!tbody) return;
+
+  const records = getFilteredRentRecords();
+  const bannerTitle = currentRentsMonth === 'ALL' ? 'RENT MASTER REGISTER - ALL MONTHS' : `RENT MONTH OF ${currentRentsMonth}`;
+  if (banner) banner.textContent = bannerTitle;
+
+  if (records.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:2.5rem; color:var(--text-muted);">No matching rent records found.</td></tr>`;
+    if (tfoot) tfoot.innerHTML = '';
+    return;
+  }
+
+  let totalSqFt = 0;
+  let totalAmount = 0;
+  let totalPaid = 0;
+  let totalInHand = 0;
+
+  tbody.innerHTML = records.map(r => {
+    totalSqFt += Number(r.sq_ft) || 0;
+    totalAmount += Number(r.amount) || 0;
+    totalPaid += Number(r.paid) || 0;
+    totalInHand += Number(r.in_hand) || 0;
+
+    const sqFtStr = r.sq_ft ? Number(r.sq_ft).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '0.0';
+    const amountStr = r.amount ? Number(r.amount).toLocaleString() : '0';
+    const paidStr = r.paid ? Number(r.paid).toLocaleString() : '0';
+    const inHandStr = r.in_hand ? Number(r.in_hand).toLocaleString() : '0';
+
+    return `
+      <tr data-id="${escapeHtml(r.id)}">
+        <td style="text-align:center; font-weight:600; color:var(--text-dim);">${escapeHtml(r.s_no || '')}</td>
+        <td style="text-align:center; color:#93c5fd; font-weight:500;">${escapeHtml(r.month || '')}</td>
+        <td style="font-weight:600; color:#f8fafc;">${escapeHtml(r.brand_name || '')}</td>
+        <td style="text-align:center; font-weight:700; color:#60a5fa; letter-spacing:0.04em;">${escapeHtml(r.shop_no || '')}</td>
+        <td style="color:#e2e8f0;">${escapeHtml(r.allotee_name || '')}</td>
+        <td style="text-align:right;">${sqFtStr}</td>
+        <td style="text-align:right; font-weight:700; color:#ffffff;">${amountStr}</td>
+        <td style="text-align:center; color:#cbd5e1; font-family:monospace; font-size:0.85rem;">${escapeHtml(r.chq_no || '-')}</td>
+        <td style="text-align:right; color:#34d399; font-weight:600;">${paidStr}</td>
+        <td style="text-align:center; color:var(--text-muted); font-size:0.75rem;">${escapeHtml(r.date || '-')}</td>
+        <td style="text-align:right; color:#f59e0b; font-weight:700;">${inHandStr}</td>
+        <td style="text-align:center;" class="no-print">
+          <button type="button" class="rents-action-btn edit" onclick="openRentsEditModal('${escapeHtml(r.id)}')" title="Edit Record">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+          </button>
+          <button type="button" class="rents-action-btn delete" onclick="deleteRentRecord('${escapeHtml(r.id)}')" title="Delete Record">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (tfoot) {
+    tfoot.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align:center; font-weight:800; font-size:0.85rem; letter-spacing:0.06em; color:#ffffff;">TOTAL</td>
+        <td style="text-align:right; font-weight:700; color:var(--text-muted);">${records.length} shops</td>
+        <td style="text-align:right; font-weight:800; color:#ffffff;">${totalSqFt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+        <td style="text-align:right; font-weight:800; color:#60a5fa; font-size:0.9rem;">Rs. ${totalAmount.toLocaleString()}</td>
+        <td></td>
+        <td style="text-align:right; font-weight:800; color:#34d399; font-size:0.9rem;">Rs. ${totalPaid.toLocaleString()}</td>
+        <td></td>
+        <td style="text-align:right; font-weight:800; color:#f59e0b; font-size:0.9rem;">Rs. ${totalInHand.toLocaleString()}</td>
+        <td class="no-print"></td>
+      </tr>
+    `;
+  }
+}
+
+function updateRentsStats() {
+  const records = getFilteredRentRecords();
+  let totalAmount = 0;
+  let totalPaid = 0;
+  let totalInHand = 0;
+
+  records.forEach(r => {
+    totalAmount += Number(r.amount) || 0;
+    totalPaid += Number(r.paid) || 0;
+    totalInHand += Number(r.in_hand) || 0;
+  });
+
+  const scopeLabel = document.getElementById('rentsStatMonth');
+  if (scopeLabel) scopeLabel.textContent = currentRentsMonth === 'ALL' ? 'All Months' : currentRentsMonth;
+  const totAmtEl = document.getElementById('rentsStatTotalAmount');
+  if (totAmtEl) totAmtEl.textContent = `Rs. ${totalAmount.toLocaleString()}`;
+  const totPaidEl = document.getElementById('rentsStatTotalPaid');
+  if (totPaidEl) totPaidEl.textContent = `Rs. ${totalPaid.toLocaleString()}`;
+  const totInHandEl = document.getElementById('rentsStatTotalInHand');
+  if (totInHandEl) totInHandEl.textContent = `Rs. ${totalInHand.toLocaleString()}`;
+  const recCntEl = document.getElementById('rentsStatRecordCount');
+  if (recCntEl) recCntEl.textContent = records.length;
+}
+
+function openRentsEditModal(recordId) {
+  const modal = document.getElementById('rentsEditModalBackdrop');
+  const title = document.getElementById('rentsEditModalTitle');
+  if (!modal) return;
+
+  if (recordId) {
+    const record = (rentsDb.records || []).find(r => r.id === recordId);
+    if (!record) return;
+    title.textContent = `Edit Record (${record.shop_no})`;
+    document.getElementById('rentsEditRecordId').value = record.id;
+    document.getElementById('rentsEditMonth').value = record.month || 'JAN-2026';
+    document.getElementById('rentsEditSNo').value = record.s_no || '';
+    document.getElementById('rentsEditBrand').value = record.brand_name || '';
+    document.getElementById('rentsEditShop').value = record.shop_no || '';
+    document.getElementById('rentsEditAllotee').value = record.allotee_name || '';
+    document.getElementById('rentsEditSqFt').value = record.sq_ft !== undefined ? record.sq_ft : 96;
+    document.getElementById('rentsEditAmount').value = record.amount !== undefined ? record.amount : 0;
+    document.getElementById('rentsEditChqNo').value = record.chq_no || '';
+    document.getElementById('rentsEditPaid').value = record.paid !== undefined ? record.paid : 0;
+    document.getElementById('rentsEditDate').value = record.date || '';
+    document.getElementById('rentsEditInHand').value = record.in_hand !== undefined ? record.in_hand : 0;
+  } else {
+    title.textContent = 'Add New Rent Record';
+    document.getElementById('rentsEditRecordId').value = '';
+    document.getElementById('rentsEditMonth').value = currentRentsMonth !== 'ALL' ? currentRentsMonth : 'JAN-2026';
+    document.getElementById('rentsEditSNo').value = (rentsDb.records || []).length + 1;
+    document.getElementById('rentsEditBrand').value = '';
+    document.getElementById('rentsEditShop').value = '';
+    document.getElementById('rentsEditAllotee').value = '';
+    document.getElementById('rentsEditSqFt').value = 96;
+    document.getElementById('rentsEditAmount').value = 0;
+    document.getElementById('rentsEditChqNo').value = '-';
+    document.getElementById('rentsEditPaid').value = 0;
+    document.getElementById('rentsEditDate').value = '';
+    document.getElementById('rentsEditInHand').value = 0;
+  }
+
+  modal.style.display = 'flex';
+}
+
+function closeRentsEditModal() {
+  const modal = document.getElementById('rentsEditModalBackdrop');
+  if (modal) modal.style.display = 'none';
+}
+
+async function handleSaveRentRecord(e) {
+  e.preventDefault();
+  const id = document.getElementById('rentsEditRecordId').value;
+  const month = document.getElementById('rentsEditMonth').value;
+  const s_no = document.getElementById('rentsEditSNo').value;
+  const brand_name = document.getElementById('rentsEditBrand').value.trim();
+  const shop_no = document.getElementById('rentsEditShop').value.trim().toUpperCase();
+  const allotee_name = document.getElementById('rentsEditAllotee').value.trim();
+  const sq_ft = parseFloat(document.getElementById('rentsEditSqFt').value) || 0;
+  const amount = parseInt(document.getElementById('rentsEditAmount').value, 10) || 0;
+  const chq_no = document.getElementById('rentsEditChqNo').value.trim();
+  const paid = parseInt(document.getElementById('rentsEditPaid').value, 10) || 0;
+  const date = document.getElementById('rentsEditDate').value.trim();
+  const in_hand = parseInt(document.getElementById('rentsEditInHand').value, 10) || 0;
+
+  if (id) {
+    const idx = (rentsDb.records || []).findIndex(r => r.id === id);
+    if (idx !== -1) {
+      rentsDb.records[idx] = {
+        ...rentsDb.records[idx],
+        month, s_no, brand_name, shop_no, allotee_name, sq_ft, amount, chq_no, paid, date, in_hand
+      };
+      showToast(`Record for Shop ${shop_no} updated!`, 'success');
+    }
+  } else {
+    const newRecord = {
+      id: `rent_${Date.now()}`,
+      month, s_no, brand_name, shop_no, allotee_name, sq_ft, amount, chq_no, paid, date, in_hand
+    };
+    rentsDb.records.push(newRecord);
+    showToast(`New record for Shop ${shop_no} added!`, 'success');
+  }
+
+  closeRentsEditModal();
+  renderRentsTable();
+  updateRentsStats();
+  await saveRentsToDatabase(false);
+}
+
+function deleteRentRecord(recordId) {
+  const record = (rentsDb.records || []).find(r => r.id === recordId);
+  if (!record) return;
+
+  if (confirm(`Are you sure you want to delete the record for Shop ${record.shop_no} (${record.allotee_name}) in ${record.month}?`)) {
+    rentsDb.records = rentsDb.records.filter(r => r.id !== recordId);
+    renderRentsTable();
+    updateRentsStats();
+    showToast(`Record for Shop ${record.shop_no} deleted`, 'info');
+    saveRentsToDatabase(false);
+  }
+}
+
+async function saveRentsToDatabase(notify = true) {
+  const saveBtn = document.getElementById('rentsSaveDbBtn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+  try {
+    const res = await fetch('/api/rents/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        records: rentsDb.records,
+        months: rentsDb.months
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save');
+    if (notify) {
+      showToast('All changes saved securely to database!', 'success');
+    }
+  } catch (err) {
+    showToast('Failed to save database: ' + err.message, 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+        Save to Database
+      `;
+    }
+  }
+}
+
+function openRentsImportModal() {
+  const modal = document.getElementById('rentsImportModalBackdrop');
+  if (modal) modal.style.display = 'flex';
+  stagedImportRecords = [];
+  document.getElementById('rentsImportPreviewArea').style.display = 'none';
+  document.getElementById('rentsConfirmImportModalBtn').disabled = true;
+  document.getElementById('rentsFileInput').value = '';
+}
+
+function closeRentsImportModal() {
+  const modal = document.getElementById('rentsImportModalBackdrop');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleRentFileSelect(file) {
+  if (!file) return;
+  const fileName = file.name;
+  const previewArea = document.getElementById('rentsImportPreviewArea');
+  const fileNameEl = document.getElementById('rentsImportFileName');
+  const countEl = document.getElementById('rentsImportRowCount');
+  const confirmBtn = document.getElementById('rentsConfirmImportModalBtn');
+
+  fileNameEl.textContent = fileName;
+  countEl.textContent = 'Parsing...';
+  previewArea.style.display = 'block';
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      if (typeof XLSX === 'undefined') {
+        throw new Error('XLSX parser library not loaded. Please ensure assets/xlsx.full.min.js is present.');
+      }
+      const workbook = XLSX.read(data, { type: 'array' });
+      const records = [];
+
+      workbook.SheetNames.forEach(sheetName => {
+        const ws = workbook.Sheets[sheetName];
+        const jsonRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        
+        let activeMonth = sheetName.toUpperCase().includes('2026') ? sheetName.toUpperCase() : 'JAN-2026';
+        let headers = [];
+        let headerRowIdx = -1;
+
+        // Find headers
+        for (let r = 0; r < Math.min(jsonRows.length, 25); r++) {
+          const row = jsonRows[r];
+          // Check for month title row like 'RENT MONTH OF JAN-2026'
+          const rowStr = row.join(' ').toUpperCase();
+          if (rowStr.includes('RENT MONTH OF')) {
+            const mMatch = rowStr.match(/RENT MONTH OF\s+([A-Z0-9\-_]+)/i);
+            if (mMatch) activeMonth = mMatch[1].toUpperCase();
+          }
+          if (row.some(c => String(c).toUpperCase().includes('SHOP') || String(c).toUpperCase().includes('ALLOTEE'))) {
+            headers = row.map(c => String(c).toUpperCase().replace(/[\r\n]+/g, ' ').trim());
+            headerRowIdx = r;
+            break;
+          }
+        }
+
+        if (headerRowIdx !== -1) {
+          const snoIdx = headers.findIndex(h => h.includes('S.NO') || h.includes('S.NOS'));
+          const brandIdx = headers.findIndex(h => h.includes('BRAND'));
+          const shopIdx = headers.findIndex(h => h.includes('SHOP'));
+          const alloteeIdx = headers.findIndex(h => h.includes('ALLOTEE'));
+          const sqftIdx = headers.findIndex(h => h.includes('SQ.FT') || h.includes('SQFT'));
+          const amountIdx = headers.findIndex(h => h.includes('AMOUNT'));
+          const chqIdx = headers.findIndex(h => h.includes('CHQ') || h.includes('CHEQUE'));
+          const paidIdx = headers.findIndex(h => h.includes('PAID'));
+          const dateIdx = headers.findIndex(h => h.includes('DATE'));
+          const inHandIdx = headers.findIndex(h => h.includes('HAND') || h.includes('BALANCE'));
+
+          let currentBrand = '';
+
+          for (let r = headerRowIdx + 1; r < jsonRows.length; r++) {
+            const row = jsonRows[r];
+            const shopVal = shopIdx !== -1 ? String(row[shopIdx] || '').trim() : '';
+            const alloteeVal = alloteeIdx !== -1 ? String(row[alloteeIdx] || '').trim() : '';
+            const brandVal = brandIdx !== -1 ? String(row[brandIdx] || '').trim() : '';
+
+            // Skip total or empty rows
+            const combined = row.join(' ').toUpperCase();
+            if (combined.includes('TOTAL') || (!shopVal && !alloteeVal && !brandVal)) continue;
+
+            if (combined.includes('RENT MONTH OF')) {
+              const mMatch = combined.match(/RENT MONTH OF\s+([A-Z0-9\-_]+)/i);
+              if (mMatch) activeMonth = mMatch[1].toUpperCase();
+              continue;
+            }
+
+            if (brandVal) currentBrand = brandVal;
+
+            const rec = {
+              month: activeMonth,
+              s_no: snoIdx !== -1 ? (row[snoIdx] || '') : '',
+              brand_name: brandVal || currentBrand,
+              shop_no: shopVal,
+              allotee_name: alloteeVal,
+              sq_ft: sqftIdx !== -1 ? parseFloat(String(row[sqftIdx]).replace(/,/g, '')) || 0 : 0,
+              amount: amountIdx !== -1 ? parseInt(String(row[amountIdx]).replace(/,/g, ''), 10) || 0 : 0,
+              chq_no: chqIdx !== -1 ? String(row[chqIdx] || '-').trim() : '-',
+              paid: paidIdx !== -1 ? parseInt(String(row[paidIdx]).replace(/,/g, ''), 10) || 0 : 0,
+              date: dateIdx !== -1 ? String(row[dateIdx] || '').trim() : '',
+              in_hand: inHandIdx !== -1 ? parseInt(String(row[inHandIdx]).replace(/,/g, ''), 10) || 0 : 0
+            };
+
+            if (rec.shop_no || rec.allotee_name) {
+              records.push(rec);
+            }
+          }
+        }
+      });
+
+      if (records.length === 0) {
+        countEl.textContent = '0 valid rows detected';
+        confirmBtn.disabled = true;
+        showToast('No recognizable rent tables found in file. Please check column headers.', 'error');
+        return;
+      }
+
+      stagedImportRecords = records;
+      countEl.textContent = `${records.length} records detected`;
+      confirmBtn.disabled = false;
+      showToast(`${records.length} records ready to import`, 'success');
+    } catch (err) {
+      console.error('Import parse error:', err);
+      countEl.textContent = 'Error parsing file';
+      confirmBtn.disabled = true;
+      showToast('Error parsing file: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function handleProcessRentImport() {
+  if (!stagedImportRecords || stagedImportRecords.length === 0) return;
+  const mode = document.querySelector('input[name="rentsImportMode"]:checked')?.value || 'merge';
+  const confirmBtn = document.getElementById('rentsConfirmImportModalBtn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Importing to Site...';
+
+  try {
+    const res = await fetch('/api/rents/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        records: stagedImportRecords,
+        mode
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Import failed');
+
+    showToast(`Successfully imported ${data.count} records into the site database!`, 'success');
+    closeRentsImportModal();
+    await loadRentsFromDatabase();
+  } catch (err) {
+    showToast('Import failed: ' + err.message, 'error');
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Process & Load into Site';
+  }
+}
+
+function exportRentsMasterExcel() {
+  window.location.href = '/api/rents/download/master-excel';
+}
+
+function setupRentsEventListeners() {
+  document.getElementById('rentsSearchInput')?.addEventListener('input', (e) => {
+    rentsSearchQuery = e.target.value.trim();
+    renderRentsTable();
+    updateRentsStats();
+  });
+
+  document.getElementById('rentsSaveDbBtn')?.addEventListener('click', () => saveRentsToDatabase(true));
+  document.getElementById('rentsExportExcelBtn')?.addEventListener('click', exportRentsMasterExcel);
+  document.getElementById('rentsExportCsvBtn')?.addEventListener('click', () => {
+    window.location.href = '/api/rents/download/master-csv';
+  });
+
+  document.getElementById('rentsAddNewBtn')?.addEventListener('click', () => openRentsEditModal(null));
+  document.getElementById('rentsCloseEditModalBtn')?.addEventListener('click', closeRentsEditModal);
+  document.getElementById('rentsCancelEditModalBtn')?.addEventListener('click', closeRentsEditModal);
+  document.getElementById('rentsEditRecordForm')?.addEventListener('submit', handleSaveRentRecord);
+
+  document.getElementById('rentsImportBtn')?.addEventListener('click', openRentsImportModal);
+  document.getElementById('rentsCloseImportModalBtn')?.addEventListener('click', closeRentsImportModal);
+  document.getElementById('rentsCancelImportModalBtn')?.addEventListener('click', closeRentsImportModal);
+  document.getElementById('rentsConfirmImportModalBtn')?.addEventListener('click', handleProcessRentImport);
+
+  const dropzone = document.getElementById('rentsFileDropzone');
+  const fileInput = document.getElementById('rentsFileInput');
+  if (dropzone && fileInput) {
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.borderColor = '#3b82f6'; });
+    dropzone.addEventListener('dragleave', () => { dropzone.style.borderColor = 'var(--border-medium)'; });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--border-medium)';
+      if (e.dataTransfer.files.length > 0) {
+        handleRentFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleRentFileSelect(e.target.files[0]);
+      }
+    });
+  }
+}
+
+// Make helpers available on window for onclick attributes
+window.openRentsEditModal = openRentsEditModal;
+window.deleteRentRecord = deleteRentRecord;
+
+// ==========================================================
+// Route Isolation & View Initialization (/rents vs /kernelx vs /)
 // ==========================================================
 function checkRouteMode() {
-  const isKernelxRoute = window.location.pathname.startsWith('/kernelx');
+  const isRentsRoute = window.location.pathname.startsWith('/rents');
+  if (isRentsRoute) {
+    document.getElementById("loginScreen")?.remove();
+    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
+    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
+    const kernelxApp = document.getElementById("kernelxApp");
+    if (kernelxApp) kernelxApp.style.display = "none";
+    const rentsApp = document.getElementById("rentsApp");
+    if (rentsApp) rentsApp.style.display = "block";
+    document.title = "Allottees Rent Master Register - The Mega Mall";
+    initRentsApp();
+    return true;
+  }
 
+  const isKernelxRoute = window.location.pathname.startsWith('/kernelx');
   if (isKernelxRoute) {
     // Dedicated KernelX Master Mode
     document.getElementById("loginScreen")?.remove();
     document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
     document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
+    const rentsApp = document.getElementById("rentsApp");
+    if (rentsApp) rentsApp.style.display = "none";
 
     const kernelxApp = document.getElementById("kernelxApp");
     if (kernelxApp) kernelxApp.style.display = "block";
