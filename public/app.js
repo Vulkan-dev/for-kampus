@@ -808,9 +808,9 @@ function calculateInvoices() {
       isManualBill = true;
     }
 
-    let totalPayable = billAmount + previous;
-    if (custom.totalPayable !== undefined && custom.totalPayable !== "") {
-      totalPayable = Number(custom.totalPayable);
+    const totalPayable = billAmount + previous;
+    if (custom.totalPayable !== undefined) {
+      delete custom.totalPayable;
     }
 
     if (appState.includePrevBalance && appState.prevBalanceMode === "cumulative") {
@@ -1125,8 +1125,7 @@ function renderDataEditor() {
             </div>
           </td>`;
       } else if (col.id === 'totalPayable') {
-        const val = (inv.customValues && inv.customValues.totalPayable !== undefined) ? inv.customValues.totalPayable : inv.totalPayable;
-        return `<td><input type="number" value="${val}" onchange="updateCorrection('${inv.ym}', 'totalPayable', this.value)" title="Directly editable Total Payable" style="width:110px; font-weight:700; color:var(--accent-green);" /></td>`;
+        return `<td><input type="text" value="${formatNumber(inv.totalPayable)}" readonly tabindex="-1" title="Total Payable = Bill Amount + Previous (Auto-calculated summary, not editable)" style="width:110px; font-weight:700; color:var(--accent-green); background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.22); cursor:not-allowed; text-align:right; font-variant-numeric:tabular-nums;" /></td>`;
       } else {
         const val = (inv.customValues && inv.customValues[col.id] !== undefined)
           ? inv.customValues[col.id]
@@ -1224,6 +1223,7 @@ function toggleGlobalManualBill(isEnabled) {
 }
 
 function updateCorrection(ym, field, val) {
+  if (field === 'totalPayable') return;
   if (!appState.manualCorrections[ym]) {
     appState.manualCorrections[ym] = {};
   }
