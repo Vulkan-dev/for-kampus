@@ -59,18 +59,21 @@ function writeRentsDatabaseAtomic(data) {
   fs.renameSync(tempPath, RENTS_DB_PATH);
 
   try {
-    const csvPath = path.join(__dirname, 'refrence', 'consolidated_allottees_rent_master.csv');
-    const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
-    const quoteField = str => '"' + cleanStr(str).replace(/"/g, '""') + '"';
-    let csv = 'S.NOS.,MONTH,BRAND NAME,SHOP NOS.,ALLOTEE,SQ.FT.,AMOUNT,CHQ NO.,PAID,DATE,IN HAND\n';
-    (data.records || []).forEach((r, idx) => {
-      const brand = quoteField(r.brand_name);
-      const shop = quoteField(r.shop_no);
-      const allotee = quoteField(r.allotee_name);
-      const dateStr = quoteField(r.date);
-      csv += `${idx + 1},${r.month},${brand},${shop},${allotee},${r.sq_ft || 0},${r.amount || 0},${r.chq_no || '-'},${r.paid || 0},${dateStr},${r.in_hand || 0}\n`;
-    });
-    fs.writeFileSync(csvPath, csv, 'utf8');
+    const refDir = path.join(__dirname, 'refrence');
+    if (fs.existsSync(refDir)) {
+      const csvPath = path.join(refDir, 'consolidated_allottees_rent_master.csv');
+      const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
+      const quoteField = str => '"' + cleanStr(str).replace(/"/g, '""') + '"';
+      let csv = 'S.NOS.,MONTH,BRAND NAME,SHOP NOS.,ALLOTEE,SQ.FT.,AMOUNT,CHQ NO.,PAID,DATE,IN HAND\n';
+      (data.records || []).forEach((r, idx) => {
+        const brand = quoteField(r.brand_name);
+        const shop = quoteField(r.shop_no);
+        const allotee = quoteField(r.allotee_name);
+        const dateStr = quoteField(r.date);
+        csv += `${idx + 1},${r.month},${brand},${shop},${allotee},${r.sq_ft || 0},${r.amount || 0},${r.chq_no || '-'},${r.paid || 0},${dateStr},${r.in_hand || 0}\n`;
+      });
+      fs.writeFileSync(csvPath, csv, 'utf8');
+    }
   } catch (e) {
     console.error('Error syncing master CSV:', e);
   }
@@ -1415,9 +1418,25 @@ app.get('/api/rents/download/master-excel', requireRentsAuth, (req, res) => {
 app.get('/api/rents/download/master-csv', requireRentsAuth, (req, res) => {
   const filePath = path.join(__dirname, 'refrence', 'consolidated_allottees_rent_master.csv');
   if (fs.existsSync(filePath)) {
-    res.download(filePath, 'consolidated_allottees_rent_master.csv');
-  } else {
-    res.status(404).json({ error: 'Master CSV file not found' });
+    return res.download(filePath, 'consolidated_allottees_rent_master.csv');
+  }
+  try {
+    const db = readRentsDatabase();
+    const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
+    const quoteField = str => '"' + cleanStr(str).replace(/"/g, '""') + '"';
+    let csv = 'S.NOS.,MONTH,BRAND NAME,SHOP NOS.,ALLOTEE,SQ.FT.,AMOUNT,CHQ NO.,PAID,DATE,IN HAND\n';
+    (db.records || []).forEach((r, idx) => {
+      const brand = quoteField(r.brand_name);
+      const shop = quoteField(r.shop_no);
+      const allotee = quoteField(r.allotee_name);
+      const dateStr = quoteField(r.date);
+      csv += `${idx + 1},${r.month},${brand},${shop},${allotee},${r.sq_ft || 0},${r.amount || 0},${r.chq_no || '-'},${r.paid || 0},${dateStr},${r.in_hand || 0}\n`;
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="consolidated_allottees_rent_master.csv"');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate master CSV' });
   }
 });
 

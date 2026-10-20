@@ -8,13 +8,9 @@ __pycache__/
 *.pyc
 data/*
 !data/rents_database.json
-refrence/*
-!refrence/consolidated_allottees_rent_master.csv
-!refrence/consolidated_allottees_rent_master.xlsx
+refrence/
 reference/
 *.xlsx
-!refrence/consolidated_allottees_rent_master.xlsx
 *.csv
-!refrence/consolidated_allottees_rent_master.csv
 *.tmp*
 temp_*
