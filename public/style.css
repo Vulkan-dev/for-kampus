@@ -2307,19 +2307,20 @@ input:checked + .slider:before {
 
 /* ==========================================================
    Dedicated Allottees Rent Master Portal (/rents) Styling
+   Theme: Pure Dark+ Matte Charcoal & Obsidian with Crisp White Text
    ========================================================== */
 .rents-wrapper {
   min-height: 100vh;
-  background-color: var(--bg-main, #0b0f19);
-  color: var(--text-main, #f8fafc);
+  background-color: #0d0d0d;
+  color: #ffffff;
   display: flex;
   flex-direction: column;
 }
 
 .rents-header {
   height: 60px;
-  background: var(--bg-surface, #131b2e);
-  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: #141414;
+  border-bottom: 1px solid #262626;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2339,11 +2340,12 @@ input:checked + .slider:before {
   width: 38px;
   height: 38px;
   border-radius: 8px;
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: #1f1f1f;
+  border: 1px solid #2e2e2e;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #ffffff;
 }
 
 .rents-title {
@@ -2357,7 +2359,7 @@ input:checked + .slider:before {
 
 .rents-subtitle {
   font-size: 0.72rem;
-  color: var(--text-muted, #94a3b8);
+  color: #a3a3a3;
   margin: 0;
 }
 
@@ -2383,13 +2385,32 @@ input:checked + .slider:before {
 }
 
 .rents-stat-card {
-  background: var(--bg-surface, #131b2e);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: #141414;
+  border: 1px solid #262626;
   border-radius: 8px;
   padding: 0.9rem 1.1rem;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+}
+
+.rents-stat-card .stat-label {
+  color: #a3a3a3;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.rents-stat-card .stat-value {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+.rents-stat-card .stat-meta {
+  color: #737373;
+  font-size: 0.7rem;
 }
 
 .rents-toolbar {
@@ -2406,20 +2427,20 @@ input:checked + .slider:before {
   align-items: center;
   gap: 0.3rem;
   flex-wrap: wrap;
-  background: var(--bg-surface, #131b2e);
+  background: #141414;
   padding: 0.3rem;
   border-radius: 8px;
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border: 1px solid #262626;
 }
 
 .rents-month-btn {
   background: transparent;
-  border: none;
-  color: var(--text-muted, #94a3b8);
+  border: 1px solid transparent;
+  color: #a3a3a3;
   font-size: 0.76rem;
   font-weight: 600;
   padding: 0.45rem 0.85rem;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
@@ -2427,13 +2448,14 @@ input:checked + .slider:before {
 
 .rents-month-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.05);
+  background: #202020;
 }
 
 .rents-month-btn.active {
-  background: var(--accent-blue, #3b82f6);
+  background: #262626;
   color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  border: 1px solid #3d3d3d;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .rents-filter-group {
@@ -2446,8 +2468,8 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--bg-surface, #131b2e);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  background: #141414;
+  border: 1px solid #262626;
   border-radius: 6px;
   padding: 0.35rem 0.75rem;
   width: 290px;
@@ -2468,11 +2490,11 @@ input:checked + .slider:before {
 
 /* Master Table Layout matching user reference screenshot */
 .rents-table-container {
-  background: var(--bg-surface, #131b2e);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background: #141414;
+  border: 1px solid #262626;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
 }
 
 .rents-sheet-banner {
@@ -2483,8 +2505,8 @@ input:checked + .slider:before {
   font-style: italic;
   letter-spacing: 0.07em;
   color: #ffffff;
-  background: #090e1a;
-  border-bottom: 2px solid #1e293b;
+  background: #0a0a0a;
+  border-bottom: 2px solid #262626;
   text-transform: uppercase;
   user-select: none;
 }
@@ -2504,7 +2526,7 @@ input:checked + .slider:before {
 .rents-master-table thead {
   position: sticky;
   top: 0;
-  background: #131d33;
+  background: #181818;
   z-index: 10;
 }
 
@@ -2514,31 +2536,35 @@ input:checked + .slider:before {
   font-style: italic;
   font-size: 0.78rem;
   letter-spacing: 0.04em;
-  color: #f8fafc;
-  background: #131d33;
-  border: 1px solid #1e293b;
+  color: #ffffff;
+  background: #181818;
+  border: 1px solid #2b2b2b;
   white-space: nowrap;
 }
 
 .rents-master-table tbody td {
   padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #cbd5e1;
+  border: 1px solid #222222;
+  color: #ffffff;
   white-space: nowrap;
 }
 
 .rents-master-table tbody tr:nth-child(even) td {
-  background: rgba(255, 255, 255, 0.02);
+  background: #111111;
+}
+
+.rents-master-table tbody tr:nth-child(odd) td {
+  background: #141414;
 }
 
 .rents-master-table tbody tr:hover td {
-  background: rgba(59, 130, 246, 0.12) !important;
+  background: #242424 !important;
 }
 
 .rents-master-table tfoot {
   position: sticky;
   bottom: 0;
-  background: #090e1a;
+  background: #0d0d0d;
   z-index: 10;
 }
 
@@ -2546,9 +2572,9 @@ input:checked + .slider:before {
   padding: 0.75rem 0.75rem;
   font-weight: 800;
   color: #ffffff;
-  background: #090e1a;
-  border-top: 2px solid #334155;
-  border-bottom: 3px double #475569;
+  background: #0d0d0d;
+  border-top: 2px solid #333333;
+  border-bottom: 3px double #444444;
   white-space: nowrap;
 }
 
@@ -2558,17 +2584,17 @@ input:checked + .slider:before {
   cursor: pointer;
   padding: 0.25rem 0.35rem;
   border-radius: 4px;
-  color: var(--text-muted);
+  color: #a3a3a3;
   transition: all 0.15s ease;
 }
 
 .rents-action-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: #262626;
   color: #ffffff;
 }
 
 .rents-action-btn.delete:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
 }
 

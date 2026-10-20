@@ -2816,17 +2816,17 @@ function renderRentsTable() {
 
     return `
       <tr data-id="${escapeHtml(r.id)}">
-        <td style="text-align:center; font-weight:700; color:var(--text-dim, #94a3b8);">${idx + 1}</td>
-        ${isAll ? `<td style="text-align:center; font-weight:600; color:#60a5fa;">${escapeHtml(r.month || '')}</td>` : ''}
-        <td style="font-weight:600; color:#f8fafc;">${escapeHtml(r.brand_name || '')}</td>
-        <td style="text-align:center; font-weight:700; color:#38bdf8; letter-spacing:0.04em;">${escapeHtml(r.shop_no || '')}</td>
-        <td style="color:#e2e8f0;">${escapeHtml(r.allotee_name || '')}</td>
-        <td style="text-align:right; color:#cbd5e1;">${sqFtStr}</td>
+        <td style="text-align:center; font-weight:700; color:#ffffff;">${idx + 1}</td>
+        ${isAll ? `<td style="text-align:center; font-weight:700; color:#ffffff;">${escapeHtml(r.month || '')}</td>` : ''}
+        <td style="font-weight:700; color:#ffffff;">${escapeHtml(r.brand_name || '')}</td>
+        <td style="text-align:center; font-weight:700; color:#ffffff; letter-spacing:0.04em;">${escapeHtml(r.shop_no || '')}</td>
+        <td style="font-weight:500; color:#ffffff;">${escapeHtml(r.allotee_name || '')}</td>
+        <td style="text-align:right; font-weight:500; color:#ffffff;">${sqFtStr}</td>
         <td style="text-align:right; font-weight:700; color:#ffffff;">${amountStr}</td>
-        <td style="text-align:center; font-family:monospace; font-size:0.85rem; color:#cbd5e1;">${escapeHtml(r.chq_no || '-')}</td>
-        <td style="text-align:right; font-weight:600; color:#34d399;">${paidStr}</td>
-        <td style="text-align:center; font-size:0.75rem; color:#94a3b8;">${escapeHtml(r.date || '-')}</td>
-        <td style="text-align:right; font-weight:700; color:#fbbf24;">${inHandStr}</td>
+        <td style="text-align:center; font-family:monospace; font-size:0.85rem; color:#ffffff;">${escapeHtml(r.chq_no || '-')}</td>
+        <td style="text-align:right; font-weight:700; color:#ffffff;">${paidStr}</td>
+        <td style="text-align:center; font-size:0.75rem; color:#ffffff;">${escapeHtml(r.date || '-')}</td>
+        <td style="text-align:right; font-weight:700; color:#ffffff;">${inHandStr}</td>
         <td style="text-align:center;" class="no-print">
           <button type="button" class="rents-action-btn edit" onclick="openRentsEditModal('${escapeHtml(r.id)}')" title="Edit Record">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -2844,13 +2844,13 @@ function renderRentsTable() {
     tfoot.innerHTML = `
       <tr>
         <td colspan="${totalLeadColSpan}" style="text-align:center; font-weight:800; font-size:0.85rem; letter-spacing:0.06em; color:#ffffff;">TOTAL</td>
-        <td style="text-align:right; font-weight:700; color:var(--text-muted, #94a3b8);">${records.length} shops</td>
+        <td style="text-align:right; font-weight:700; color:#a3a3a3;">${records.length} shops</td>
         <td style="text-align:right; font-weight:800; color:#ffffff;">${totalSqFt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#60a5fa;">Rs. ${totalAmount.toLocaleString()}</td>
-        <td></td>
-        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#34d399;">Rs. ${totalPaid.toLocaleString()}</td>
-        <td></td>
-        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#fbbf24;">Rs. ${totalInHand.toLocaleString()}</td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#ffffff;">Rs. ${totalAmount.toLocaleString()}</td>
+        <td style="color:#ffffff;"></td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#ffffff;">Rs. ${totalPaid.toLocaleString()}</td>
+        <td style="color:#ffffff;"></td>
+        <td style="text-align:right; font-weight:800; font-size:0.9rem; color:#ffffff;">Rs. ${totalInHand.toLocaleString()}</td>
         <td class="no-print"></td>
       </tr>
     `;
@@ -3065,12 +3065,18 @@ function handleRentFileSelect(file) {
         const s = String(shop || '').toUpperCase().trim();
         const a = String(allotee || '').toUpperCase().trim();
         if (s === 'DESCRCIPTION' || a === 'DESCRCIPTION') return true;
+        if (s.includes('PREPAID') || a.includes('PREPAID')) return true;
+        if (s.includes('CHECKED') || a.includes('CHECKED')) return true;
+        if (s.includes('VERIFIED') || a.includes('VERIFIED')) return true;
+        if (s.includes('APPROVED') || a.includes('APPROVED')) return true;
+        if (s.includes('POSSESION') || a.includes('POSSESION')) return true;
         if (s.includes('RENT CHEQUES') || a.includes('RENT CHEQUES')) return true;
         if (s.includes('RENT START') || a.includes('RENT START')) return true;
         if (s.includes('RENT WILL BE') || a.includes('RENT WILL BE')) return true;
         if (s.includes('SUMMARY') || a.includes('SUMMARY')) return true;
         if (s.includes('FROM DEC-2025') || a.includes('FROM DEC-2025')) return true;
         if (s === a && s.length > 20) return true;
+        if (s === '?' || a === '?') return true;
         return false;
       };
 
@@ -3142,8 +3148,9 @@ function handleRentFileSelect(file) {
             // Skip total or empty rows
             if (rowStr.includes('TOTAL') || (!rawShop && !rawAllotee)) continue;
 
-            // Skip banner / note rows
+            // Skip banner / signature / note rows
             if (isRentBanner(rawShop, rawAllotee)) continue;
+            if (rawShop === '?' || rawShop.length < 2) continue;
 
             if (rawShop && !rawShop.toUpperCase().includes('SHOP NOS')) {
               if (rawBrand) currentBrand = rawBrand;
@@ -3232,7 +3239,7 @@ function exportRentsMasterExcel() {
 }
 
 function exportRentsMasterCsv() {
-  const records = (Array.isArray(rentsMasterRecords) && rentsMasterRecords.length > 0) ? rentsMasterRecords : [];
+  const records = (rentsDb && Array.isArray(rentsDb.records) && rentsDb.records.length > 0) ? rentsDb.records : [];
   if (records.length === 0) {
     const token = getRentsToken();
     window.location.href = `/api/rents/download/master-csv?token=${encodeURIComponent(token || '')}`;
@@ -3309,7 +3316,7 @@ function setupRentsEventListeners() {
   const fileInput = document.getElementById('rentsFileInput');
   if (dropzone && fileInput) {
     dropzone.addEventListener('click', () => fileInput.click());
-    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.borderColor = '#3b82f6'; });
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.borderColor = '#ffffff'; });
     dropzone.addEventListener('dragleave', () => { dropzone.style.borderColor = 'var(--border-medium)'; });
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
