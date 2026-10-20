@@ -206,29 +206,46 @@
             Invoice Sequence
           </div>
         </div>
-        <div class="form-row-3">
+        <div class="form-group" style="margin-bottom:0.6rem;">
+          <label class="form-label">Sequence Format</label>
+          <select id="seqModeSelect" class="form-input">
+            <option value="month_year">Monthly: #INV-01-MM-YYYY (e.g. #INV-01-01-2024)</option>
+            <option value="incremental">Sequential: #INV-3001 (Number + Suffix)</option>
+          </select>
+        </div>
+        <div id="monthlySeqFields" class="form-row">
           <div class="form-group">
-            <label class="form-label">Prefix</label>
-            <input type="text" id="invPrefixInput" class="form-input" placeholder="#INV-" />
+            <label class="form-label">Prefix / Series</label>
+            <input type="text" id="invPrefixInput" class="form-input" placeholder="#INV-01-" />
           </div>
           <div class="form-group">
-            <label class="form-label">Start #</label>
-            <input type="number" id="invStartNumInput" class="form-input" placeholder="3001" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Suffix</label>
-            <input type="text" id="invSuffixInput" class="form-input" placeholder="-051026" />
+            <label class="form-label">Format Preview</label>
+            <div style="font-size:0.75rem; font-family:monospace; font-weight:700; color:var(--accent-blue); padding:0.45rem 0.6rem; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.25); border-radius:6px; height:36px; display:flex; align-items:center;">
+              <span id="monthlySeqPreviewText">#INV-01-01-2024</span>
+            </div>
           </div>
         </div>
-        <div class="toggle-row" style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--border-subtle);">
-          <div>
-            <div style="font-size:0.78rem; font-weight:500; color:var(--text-main);">Year-Based Suffix Changer</div>
-            <div style="font-size:0.70rem; color:var(--text-dim);">Auto-updates suffix sequence by invoice year (e.g. -051026 &rarr; -051027)</div>
+        <div id="incrementalSeqFields" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Start #</label>
+              <input type="number" id="invStartNumInput" class="form-input" placeholder="3001" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Suffix</label>
+              <input type="text" id="invSuffixInput" class="form-input" placeholder="-051026" />
+            </div>
           </div>
-          <label class="switch">
-            <input type="checkbox" id="autoSuffixYearToggle">
-            <span class="slider"></span>
-          </label>
+          <div class="toggle-row" style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--border-subtle);">
+            <div>
+              <div style="font-size:0.78rem; font-weight:500; color:var(--text-main);">Year-Based Suffix Changer</div>
+              <div style="font-size:0.70rem; color:var(--text-dim);">Auto-updates suffix sequence by invoice year (e.g. -051026 &rarr; -051027)</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="autoSuffixYearToggle">
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -361,18 +378,25 @@
       </div>
       <div class="seq-bar-controls">
         <div class="seq-item">
-          <label>Prefix</label>
-          <input type="text" id="editorSeqPrefix" value="#INV-" placeholder="#INV-" style="width:90px;" />
+          <label>Format</label>
+          <select id="editorSeqMode" class="form-input" style="width:175px; height:28px; font-size:0.75rem; padding:2px 6px;">
+            <option value="month_year">#INV-01-MM-YYYY (Monthly)</option>
+            <option value="incremental">#INV-3001 (Sequential)</option>
+          </select>
         </div>
         <div class="seq-item">
+          <label>Prefix / Series</label>
+          <input type="text" id="editorSeqPrefix" value="#INV-01-" placeholder="#INV-01-" style="width:105px;" />
+        </div>
+        <div class="seq-item" id="editorSeqStartItem" style="display:none;">
           <label>Start Number</label>
           <input type="number" id="editorSeqStartNum" value="3001" style="width:85px;" />
         </div>
-        <div class="seq-item">
+        <div class="seq-item" id="editorSeqSuffixItem" style="display:none;">
           <label>Suffix</label>
           <input type="text" id="editorSeqSuffix" value="-051026" placeholder="-051026" style="width:105px;" />
         </div>
-        <div class="seq-item seq-check-item">
+        <div class="seq-item seq-check-item" id="editorSeqAutoYearItem" style="display:none;">
           <label class="seq-checkbox-label">
             <input type="checkbox" id="editorSeqAutoYear" />
             <span>Auto-Year Suffix</span>

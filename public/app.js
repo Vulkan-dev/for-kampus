@@ -706,6 +706,33 @@ let appState = {
   activeTab: "preview"
 };
 
+function sanitizeAndMigrateState(state) {
+  if (!state) return state;
+  // If not explicitly set to incremental, default to month_year
+  if (!state.seqMode || state.seqMode === "default" || (state.occupier && state.occupier.toUpperCase().includes("FALAKNAZ"))) {
+    state.seqMode = "month_year";
+  }
+  // Ensure invPrefix for month_year is #INV-01-
+  if (state.seqMode === "month_year") {
+    if (!state.invPrefix || state.invPrefix === "#INV-" || state.invPrefix === "#INV" || state.invPrefix === "INV-" || state.invPrefix === "INV") {
+      state.invPrefix = "#INV-01-";
+    }
+  }
+  // Upgrade any outdated invoice numbers in manual corrections
+  if (state.manualCorrections && state.seqMode === "month_year") {
+    Object.entries(state.manualCorrections).forEach(([ym, corr]) => {
+      if (corr && corr.invoiceNumber) {
+        const num = String(corr.invoiceNumber).trim();
+        if (/^#INV-\d{2}-\d{4}$/.test(num) || /^#INV-01-\d{4}$/.test(num) || /^#INV-\d{4}/.test(num)) {
+          const [y, m] = ym.split("-");
+          corr.invoiceNumber = `#INV-01-${m}-${y}`;
+        }
+      }
+    });
+  }
+  return state;
+}
+
 // Synchronously restore cached local state on startup so refresh never flashes or resets to defaults
 try {
   const localSaved = localStorage.getItem('mega_mall_project_state');
@@ -716,6 +743,7 @@ try {
         parsed.tableColumns = JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS));
       }
       appState = Object.assign({}, appState, parsed);
+      appState = sanitizeAndMigrateState(appState);
     }
   }
 } catch (e) {
@@ -810,6 +838,7 @@ async function loadProjectStateFromDatabase() {
       loadedState.tableColumns = JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS));
     }
     appState = Object.assign({}, appState, loadedState);
+    appState = sanitizeAndMigrateState(appState);
     try {
       localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
     } catch (e) {}
@@ -1137,12 +1166,24 @@ function calculateInvoices() {
     let rate = yearConfig.rate || 2.25;
     
     let invNum = "";
-    if (appState.seqMode === "month_year" || appState.invPrefix === "#INV-01-") {
+    const isMonthlySeq = (appState.seqMode === "month_year" || !appState.seqMode || appState.seqMode === "month" || (appState.invPrefix && appState.invPrefix.includes("01")));
+    if (isMonthlySeq) {
       const mm = String(m.month).padStart(2, '0');
-      invNum = `${appState.invPrefix || "#INV-01-"}${mm}-${m.year}${getEffectiveSuffix(m)}`;
+      let pfx = (appState.invPrefix || "#INV-01-").trim();
+      // If user typed whole pattern like #INV-01-01-2024 into prefix field
+      if (/#INV-\d+-\d{2}-\d{4}/i.test(pfx)) {
+        const pm = pfx.match(/^([#A-Za-z0-9]+-\d+-)/);
+        if (pm) pfx = pm[1];
+      }
+      if (pfx === "#INV-" || pfx === "#INV" || pfx === "INV-" || pfx === "INV") {
+        pfx = "#INV-01-";
+      } else if (!pfx.endsWith("-")) {
+        pfx += "-";
+      }
+      invNum = `${pfx}${mm}-${m.year}`;
     } else {
       const effectiveSuffix = getEffectiveSuffix(m);
-      invNum = `${appState.invPrefix}${appState.invStartNum + index}${effectiveSuffix}`;
+      invNum = `${appState.invPrefix || "#INV-"}${appState.invStartNum + index}${effectiveSuffix}`;
     }
 
     let previous = 0;
@@ -1159,7 +1200,13 @@ function calculateInvoices() {
 
     // Apply manual corrections if present
     const custom = appState.manualCorrections[m.ym] || {};
-    if (custom.invoiceNumber !== undefined && custom.invoiceNumber !== "") invNum = custom.invoiceNumber;
+    if (custom.invoiceNumber !== undefined && custom.invoiceNumber !== "") {
+      let customNum = String(custom.invoiceNumber).trim();
+      if (/^#INV-\d{2}-\d{4}$/.test(customNum) || /^#INV-01-\d{4}$/.test(customNum)) {
+        customNum = `#INV-01-${String(m.month).padStart(2, '0')}-${m.year}`;
+      }
+      invNum = customNum;
+    }
     if (custom.billingPeriod !== undefined && custom.billingPeriod !== "") billingPeriod = normalizeMonthNames(custom.billingPeriod);
     if (custom.issueDate !== undefined && custom.issueDate !== "") issueDate = normalizeMonthNames(custom.issueDate);
     if (custom.gallons !== undefined && custom.gallons !== "") gallons = Number(custom.gallons);
@@ -1645,20 +1692,35 @@ function resetManualCorrections() {
 // Invoice Sequence Manager (Table Editor)
 // ----------------------------------------------------------
 function applyEditorSequence() {
+  const modeSelect = document.getElementById("editorSeqMode");
   const prefixInput = document.getElementById("editorSeqPrefix");
   const startNumInput = document.getElementById("editorSeqStartNum");
   const suffixInput = document.getElementById("editorSeqSuffix");
   const autoYearToggle = document.getElementById("editorSeqAutoYear");
 
-  const prefix = prefixInput ? prefixInput.value : appState.invPrefix;
+  const mode = modeSelect ? modeSelect.value : (appState.seqMode || "month_year");
+  let prefix = (prefixInput ? prefixInput.value : appState.invPrefix) || "#INV-01-";
   const startNum = startNumInput ? parseInt(startNumInput.value, 10) || 1 : appState.invStartNum;
   const suffix = suffixInput ? suffixInput.value : appState.invSuffix;
   const autoYear = autoYearToggle ? autoYearToggle.checked : appState.autoSuffixYear;
 
-  appState.invPrefix = prefix;
+  appState.seqMode = mode;
   appState.invStartNum = startNum;
   appState.invSuffix = suffix;
   appState.autoSuffixYear = autoYear;
+
+  if (mode === "month_year") {
+    if (/#INV-\d+-\d{2}-\d{4}/i.test(prefix)) {
+      const pm = prefix.match(/^([#A-Za-z0-9]+-\d+-)/);
+      if (pm) prefix = pm[1];
+    }
+    if (prefix === "#INV-" || prefix === "#INV" || prefix === "INV-" || prefix === "INV") {
+      prefix = "#INV-01-";
+    } else if (!prefix.endsWith("-")) {
+      prefix += "-";
+    }
+  }
+  appState.invPrefix = prefix;
 
   // Clear per-row custom invoice numbers so the clean sequence applies to all
   if (appState.manualCorrections) {
@@ -1671,7 +1733,12 @@ function applyEditorSequence() {
   renderPreview();
   renderDataEditor();
   debouncedSaveProjectState();
-  showToast(`Applied sequence starting from ${prefix}${startNum}${suffix} to all invoices!`, "success");
+
+  if (mode === "month_year") {
+    showToast(`Applied monthly sequence (e.g. ${prefix}01-2024) to all invoices!`, "success");
+  } else {
+    showToast(`Applied sequence starting from ${prefix}${startNum}${suffix} to all invoices!`, "success");
+  }
 }
 
 // ----------------------------------------------------------
@@ -2269,9 +2336,33 @@ function syncInputsWithState() {
   document.getElementById("ntnInput").value = appState.ntn;
   document.getElementById("startMonthInput").value = appState.startMonth;
   document.getElementById("endMonthInput").value = appState.endMonth;
-  document.getElementById("invPrefixInput").value = appState.invPrefix;
-  document.getElementById("invStartNumInput").value = appState.invStartNum;
-  document.getElementById("invSuffixInput").value = appState.invSuffix;
+
+  const isMonthly = (appState.seqMode || "month_year") === "month_year";
+  const seqSelect = document.getElementById("seqModeSelect");
+  if (seqSelect) seqSelect.value = isMonthly ? "month_year" : "incremental";
+
+  const monthlyFields = document.getElementById("monthlySeqFields");
+  const incFields = document.getElementById("incrementalSeqFields");
+  if (monthlyFields) monthlyFields.style.display = isMonthly ? "grid" : "none";
+  if (incFields) incFields.style.display = isMonthly ? "none" : "block";
+
+  const prefixInput = document.getElementById("invPrefixInput");
+  if (prefixInput) prefixInput.value = appState.invPrefix || (isMonthly ? "#INV-01-" : "#INV-");
+
+  const previewText = document.getElementById("monthlySeqPreviewText");
+  if (previewText) {
+    let p = (appState.invPrefix || "#INV-01-").trim();
+    if (/#INV-\d+-\d{2}-\d{4}/i.test(p)) {
+      const pm = p.match(/^([#A-Za-z0-9]+-\d+-)/);
+      if (pm) p = pm[1];
+    }
+    if (p === "#INV-" || p === "#INV" || p === "INV-" || p === "INV") p = "#INV-01-";
+    if (!p.endsWith("-")) p += "-";
+    previewText.textContent = `${p}01-2024`;
+  }
+
+  document.getElementById("invStartNumInput").value = appState.invStartNum !== undefined ? appState.invStartNum : 3001;
+  document.getElementById("invSuffixInput").value = appState.invSuffix || "";
   const autoSuffixToggle = document.getElementById("autoSuffixYearToggle");
   if (autoSuffixToggle) autoSuffixToggle.checked = !!appState.autoSuffixYear;
   document.getElementById("prevBalanceToggle").checked = !!appState.includePrevBalance;
@@ -2286,14 +2377,24 @@ function syncInputsWithState() {
   if (prevModeSelect) prevModeSelect.value = appState.prevBalanceMode || "zero";
 
   // Also sync Editor Sequence Bar inputs
+  const edMode = document.getElementById("editorSeqMode");
   const edPrefix = document.getElementById("editorSeqPrefix");
   const edStart = document.getElementById("editorSeqStartNum");
   const edSuffix = document.getElementById("editorSeqSuffix");
   const edAutoYear = document.getElementById("editorSeqAutoYear");
-  if (edPrefix) edPrefix.value = appState.invPrefix || "#INV-";
+  const edStartItem = document.getElementById("editorSeqStartItem");
+  const edSuffixItem = document.getElementById("editorSeqSuffixItem");
+  const edAutoYearItem = document.getElementById("editorSeqAutoYearItem");
+
+  if (edMode) edMode.value = isMonthly ? "month_year" : "incremental";
+  if (edPrefix) edPrefix.value = appState.invPrefix || (isMonthly ? "#INV-01-" : "#INV-");
   if (edStart) edStart.value = appState.invStartNum !== undefined ? appState.invStartNum : 3001;
-  if (edSuffix) edSuffix.value = appState.invSuffix || "-051026";
+  if (edSuffix) edSuffix.value = appState.invSuffix || "";
   if (edAutoYear) edAutoYear.checked = !!appState.autoSuffixYear;
+
+  if (edStartItem) edStartItem.style.display = isMonthly ? "none" : "flex";
+  if (edSuffixItem) edSuffixItem.style.display = isMonthly ? "none" : "flex";
+  if (edAutoYearItem) edAutoYearItem.style.display = isMonthly ? "none" : "flex";
 
   const [sY] = (appState.startMonth || "2024-01").split("-").map(Number);
   const [eY] = (appState.endMonth || "2026-07").split("-").map(Number);
@@ -3830,15 +3931,58 @@ document.addEventListener("DOMContentLoaded", () => {
     updateBillingDate("end", e.target.value);
   });
 
-  document.getElementById("invPrefixInput").addEventListener("input", (e) => {
-    appState.invPrefix = e.target.value;
-    const edInput = document.getElementById("editorSeqPrefix");
-    if (edInput) edInput.value = e.target.value;
+  const handleSeqModeChange = (newMode) => {
+    appState.seqMode = newMode;
+    if (newMode === "month_year") {
+      if (!appState.invPrefix || appState.invPrefix === "#INV-" || appState.invPrefix === "#INV") {
+        appState.invPrefix = "#INV-01-";
+      }
+    }
+    syncInputsWithState();
     renderPreview();
     renderDataEditor();
     debouncedSaveProjectState();
+    showToast(newMode === "month_year" ? "Switched to Monthly sequence (#INV-01-MM-YYYY)" : "Switched to Sequential numbering", "info");
+  };
+
+  document.getElementById("seqModeSelect")?.addEventListener("change", (e) => {
+    handleSeqModeChange(e.target.value);
   });
-  document.getElementById("invStartNumInput").addEventListener("input", (e) => {
+  document.getElementById("editorSeqMode")?.addEventListener("change", (e) => {
+    handleSeqModeChange(e.target.value);
+  });
+
+  const handlePrefixInput = (val) => {
+    appState.invPrefix = val;
+    const sbInput = document.getElementById("invPrefixInput");
+    const edInput = document.getElementById("editorSeqPrefix");
+    if (sbInput && sbInput.value !== val) sbInput.value = val;
+    if (edInput && edInput.value !== val) edInput.value = val;
+
+    const previewText = document.getElementById("monthlySeqPreviewText");
+    if (previewText) {
+      let p = (val || "#INV-01-").trim();
+      if (/#INV-\d+-\d{2}-\d{4}/i.test(p)) {
+        const pm = p.match(/^([#A-Za-z0-9]+-\d+-)/);
+        if (pm) p = pm[1];
+      }
+      if (p === "#INV-" || p === "#INV" || p === "INV-" || p === "INV") p = "#INV-01-";
+      if (!p.endsWith("-")) p += "-";
+      previewText.textContent = `${p}01-2024`;
+    }
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  };
+
+  document.getElementById("invPrefixInput")?.addEventListener("input", (e) => {
+    handlePrefixInput(e.target.value);
+  });
+  document.getElementById("editorSeqPrefix")?.addEventListener("input", (e) => {
+    handlePrefixInput(e.target.value);
+  });
+
+  document.getElementById("invStartNumInput")?.addEventListener("input", (e) => {
     appState.invStartNum = parseInt(e.target.value, 10) || 1;
     const edInput = document.getElementById("editorSeqStartNum");
     if (edInput) edInput.value = e.target.value;
@@ -3846,10 +3990,27 @@ document.addEventListener("DOMContentLoaded", () => {
     renderDataEditor();
     debouncedSaveProjectState();
   });
-  document.getElementById("invSuffixInput").addEventListener("input", (e) => {
+  document.getElementById("editorSeqStartNum")?.addEventListener("input", (e) => {
+    appState.invStartNum = parseInt(e.target.value, 10) || 1;
+    const sbInput = document.getElementById("invStartNumInput");
+    if (sbInput) sbInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+
+  document.getElementById("invSuffixInput")?.addEventListener("input", (e) => {
     appState.invSuffix = e.target.value;
     const edInput = document.getElementById("editorSeqSuffix");
     if (edInput) edInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("editorSeqSuffix")?.addEventListener("input", (e) => {
+    appState.invSuffix = e.target.value;
+    const sbInput = document.getElementById("invSuffixInput");
+    if (sbInput) sbInput.value = e.target.value;
     renderPreview();
     renderDataEditor();
     debouncedSaveProjectState();
@@ -3869,38 +4030,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Table Editor Sequence Bar Inputs & Apply Button
-  document.getElementById("editorSeqPrefix")?.addEventListener("input", (e) => {
-    appState.invPrefix = e.target.value;
-    const sbInput = document.getElementById("invPrefixInput");
-    if (sbInput) sbInput.value = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
-  document.getElementById("editorSeqStartNum")?.addEventListener("input", (e) => {
-    appState.invStartNum = parseInt(e.target.value, 10) || 1;
-    const sbInput = document.getElementById("invStartNumInput");
-    if (sbInput) sbInput.value = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
-  document.getElementById("editorSeqSuffix")?.addEventListener("input", (e) => {
-    appState.invSuffix = e.target.value;
-    const sbInput = document.getElementById("invSuffixInput");
-    if (sbInput) sbInput.value = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
   document.getElementById("editorSeqAutoYear")?.addEventListener("change", (e) => {
     appState.autoSuffixYear = e.target.checked;
     const sbToggle = document.getElementById("autoSuffixYearToggle");
     if (sbToggle) sbToggle.checked = e.target.checked;
     renderPreview();
     renderDataEditor();
-    debouncedSaveProjectState();
   });
   document.getElementById("editorManualBillGlobalToggle")?.addEventListener("change", (e) => {
     toggleGlobalManualBill(e.target.checked);
