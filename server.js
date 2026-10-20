@@ -41,15 +41,19 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 function readRentsDatabase() {
+  const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
   try {
     if (!fs.existsSync(RENTS_DB_PATH)) {
-      return { updatedAt: new Date().toISOString(), months: [], totalRecords: 0, records: [] };
+      return { updatedAt: new Date().toISOString(), months: standardMonths, totalRecords: 0, records: [] };
     }
     const data = fs.readFileSync(RENTS_DB_PATH, 'utf-8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    const recordMonths = Array.from(new Set((parsed.records || []).map(r => r.month))).filter(Boolean);
+    parsed.months = Array.from(new Set([...standardMonths, ...recordMonths]));
+    return parsed;
   } catch (err) {
     console.error('Error reading rents database:', err);
-    return { updatedAt: new Date().toISOString(), months: [], totalRecords: 0, records: [] };
+    return { updatedAt: new Date().toISOString(), months: standardMonths, totalRecords: 0, records: [] };
   }
 }
 
@@ -1338,6 +1342,9 @@ app.get('/api/rents/verify', requireRentsAuth, (req, res) => {
 // GET /api/rents - Retrieve all rent records and metadata (protected)
 app.get('/api/rents', globalApiRateLimiter, requireRentsAuth, (req, res) => {
   const db = readRentsDatabase();
+  const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
+  const recordMonths = Array.from(new Set((db.records || []).map(r => r.month))).filter(Boolean);
+  db.months = Array.from(new Set([...standardMonths, ...recordMonths]));
   res.json(db);
 });
 

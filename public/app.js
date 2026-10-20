@@ -2688,9 +2688,10 @@ async function loadRentsFromDatabase() {
     const res = await rentsAuthFetch('/api/rents');
     const data = await res.json();
     rentsDb = data || { months: [], records: [] };
-    if (!rentsDb.months || rentsDb.months.length === 0) {
-      rentsDb.months = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
-    }
+    const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
+    const recordMonths = Array.from(new Set((rentsDb.records || []).map(r => r.month))).filter(Boolean);
+    rentsDb.months = Array.from(new Set([...standardMonths, ...recordMonths]));
+
     renderRentsMonthTabs();
     renderRentsTable();
     updateRentsStats();
@@ -2705,7 +2706,10 @@ async function loadRentsFromDatabase() {
 function renderRentsMonthTabs() {
   const container = document.getElementById('rentsMonthTabs');
   if (!container) return;
-  const months = ['ALL', ...(rentsDb.months || [])];
+  const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
+  const recordMonths = Array.from(new Set((rentsDb.records || []).map(r => r.month))).filter(Boolean);
+  const months = ['ALL', ...Array.from(new Set([...standardMonths, ...recordMonths]))];
+
   container.innerHTML = months.map(m => {
     const label = m === 'ALL' ? 'ALL MONTHS' : m;
     const isActive = currentRentsMonth === m;
@@ -2802,6 +2806,7 @@ function renderRentsTable() {
   let totalAmount = 0;
   let totalPaid = 0;
   let totalInHand = 0;
+  let lastMonth = '';
 
   tbody.innerHTML = records.map((r, idx) => {
     totalSqFt += Number(r.sq_ft) || 0;
@@ -2814,7 +2819,20 @@ function renderRentsTable() {
     const paidStr = r.paid ? Number(r.paid).toLocaleString() : '0';
     const inHandStr = r.in_hand ? Number(r.in_hand).toLocaleString() : '0';
 
+    let monthDivider = '';
+    if (isAll && r.month && r.month !== lastMonth) {
+      lastMonth = r.month;
+      monthDivider = `
+        <tr class="rents-month-divider-row">
+          <td colspan="12" style="background:#1c1c1c; color:#ffffff; font-weight:800; font-size:0.85rem; padding:0.55rem 0.85rem; border-top:2px solid #383838; border-bottom:1px solid #2e2e2e; letter-spacing:0.04em;">
+            📋 RENT REGISTER • ${escapeHtml(r.month)}
+          </td>
+        </tr>
+      `;
+    }
+
     return `
+      ${monthDivider}
       <tr data-id="${escapeHtml(r.id)}">
         <td style="text-align:center; font-weight:700; color:#ffffff;">${idx + 1}</td>
         ${isAll ? `<td style="text-align:center; font-weight:700; color:#ffffff;">${escapeHtml(r.month || '')}</td>` : ''}
