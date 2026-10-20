@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Mega Mall - Billing &amp; Reimbursement Invoices</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0d0f14">
   <link rel="stylesheet" href="/style.css?v=5">
   <script src="/assets/jspdf.umd.min.js"></script>
   <script src="/assets/html2canvas.min.js"></script>
@@ -72,6 +74,10 @@
 
     <!-- Separate Export Options & Preview Toggle -->
     <div class="header-actions">
+      <div class="offline-support-badge" id="offlineSupportBadge" title="Offline Support Active — All formulas, data, and exports work without internet">
+        <span class="offline-status-dot"></span>
+        <span id="offlineSupportText">Offline Ready</span>
+      </div>
       <button class="btn btn-secondary" id="togglePreviewBtn" title="Toggle Live Preview on/off to free up screen space">
         <svg id="togglePreviewIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
         <span id="togglePreviewText">Hide Preview</span>

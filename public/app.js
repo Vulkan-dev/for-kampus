@@ -4040,12 +4040,41 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {}
   });
 
+  // Offline Support Status Indicator Manager
+  function updateOfflineSupportUI() {
+    const badge = document.getElementById("offlineSupportBadge");
+    const textEl = document.getElementById("offlineSupportText");
+    if (!badge) return;
+
+    if (navigator.onLine) {
+      badge.classList.remove("offline-now");
+      if (textEl) textEl.textContent = "Offline Ready";
+      badge.title = "Offline Support Active: All app assets, formulas, and local data are saved to your device. You can use the site without internet.";
+    } else {
+      badge.classList.add("offline-now");
+      if (textEl) textEl.textContent = "Offline Mode Active";
+      badge.title = "Currently Offline: Full calculation engine, editing, and exports remain 100% functional locally.";
+    }
+  }
+
+  updateOfflineSupportUI();
+
+  document.getElementById("offlineSupportBadge")?.addEventListener("click", () => {
+    if (navigator.onLine) {
+      showToast("Offline Support Active: All formulas and app assets are cached. You can disconnect internet anytime and continue working.", "info");
+    } else {
+      showToast("Offline Mode Active: Calculations and exports running locally in your browser. Changes are saved to your device.", "info");
+    }
+  });
+
   // Offline / Online network event listeners
   window.addEventListener('online', () => {
+    updateOfflineSupportUI();
     showToast("Internet connection restored. Back online.", "success");
     saveProjectStateToDatabase(false);
   });
   window.addEventListener('offline', () => {
+    updateOfflineSupportUI();
     showToast("Offline Mode Active — calculations, preview, and exports work 100% locally.", "info");
   });
 

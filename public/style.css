@@ -1470,6 +1470,55 @@ input:checked + .slider:before {
   100% { opacity: 1; transform: scale(1.1); }
 }
 
+/* Offline Support Badge in Header */
+.offline-support-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #34d399;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.offline-support-badge:hover {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.offline-support-badge.offline-now {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.offline-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  display: inline-block;
+  animation: offlineDotPulse 2s infinite ease-in-out;
+}
+
+.offline-support-badge.offline-now .offline-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+
+@keyframes offlineDotPulse {
+  0% { transform: scale(0.85); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.85); opacity: 0.7; }
+}
+
 /* Realtime Invoice Sequence Bar in Data Editor */
 .editor-sequence-bar {
   background: var(--bg-card);
