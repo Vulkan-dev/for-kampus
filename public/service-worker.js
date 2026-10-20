@@ -63,7 +63,7 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req).catch(() => {
-        return caches.match('/index.html').then((res) => res || caches.match('/'));
+        return caches.match('/index.html', { ignoreSearch: true }).then((res) => res || caches.match('/'));
       })
     );
     return;
@@ -71,7 +71,7 @@ self.addEventListener('fetch', (event) => {
 
   // Static Assets (CSS, JS, images, icons): Cache First, with Stale-While-Revalidate
   event.respondWith(
-    caches.match(req).then((cachedResponse) => {
+    caches.match(req, { ignoreSearch: true }).then((cachedResponse) => {
       if (cachedResponse) {
         // Fetch in background to keep cache up to date
         fetch(req).then((networkResponse) => {
