@@ -127,7 +127,14 @@ async function checkAuthSession() {
       }
     }
   } catch (e) {
-    console.warn("Auth verification error:", e);
+    console.warn("Auth verification network error:", e);
+    // If offline or network disconnected, allow cached authenticated session to continue offline!
+    if (!navigator.onLine || (e && (e.name === 'TypeError' || String(e).includes('Failed to fetch')))) {
+      if (token && authUser) {
+        hideLoginPortal();
+        return true;
+      }
+    }
   }
 
   clearAuthSession();
@@ -2858,6 +2865,14 @@ async function checkRentsAuthSession() {
       showRentsLoginGate("Session expired. Please enter security password.");
     }
   } catch (err) {
+    console.warn("Rents verification network error:", err);
+    if (!navigator.onLine || (err && (err.name === 'TypeError' || String(err).includes('Failed to fetch')))) {
+      if (token) {
+        hideRentsLoginGate();
+        loadRentsFromLocalStorage();
+        return;
+      }
+    }
     clearRentsSession();
     showRentsLoginGate();
   }
@@ -4023,6 +4038,15 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
     } catch (e) {}
+  });
+
+  // Offline / Online network event listeners
+  window.addEventListener('online', () => {
+    showToast("Internet connection restored. Back online.", "success");
+    saveProjectStateToDatabase(false);
+  });
+  window.addEventListener('offline', () => {
+    showToast("Offline Mode Active — calculations, preview, and exports work 100% locally.", "info");
   });
 
   // Initialize Session Authentication for standard application
