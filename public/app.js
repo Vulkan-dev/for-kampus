@@ -3089,7 +3089,7 @@ async function checkRentsAuthSession() {
     });
     if (res.ok) {
       hideRentsLoginGate();
-      await loadRentsFromDatabase();
+      loadRentsFromLocalStorage();
     } else {
       clearRentsSession();
       showRentsLoginGate("Session expired. Please enter security password.");
@@ -3128,7 +3128,7 @@ async function handleRentsLogin(e) {
     input.value = "";
     hideRentsLoginGate();
     showToast("Password verified! Unlocked Allottees Rent Master.", "success");
-    await loadRentsFromDatabase();
+    loadRentsFromLocalStorage();
   } catch (err) {
     if (alertEl) {
       alertEl.textContent = err.message;
@@ -3181,24 +3181,69 @@ async function initRentsApp() {
   await checkRentsAuthSession();
 }
 
-async function loadRentsFromDatabase() {
-  try {
-    const res = await rentsAuthFetch('/api/rents');
-    const data = await res.json();
-    rentsDb = data || { months: [], records: [] };
-    const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
-    const recordMonths = Array.from(new Set((rentsDb.records || []).map(r => r.month))).filter(Boolean);
-    rentsDb.months = Array.from(new Set([...standardMonths, ...recordMonths]));
+const RENTS_LOCAL_STORAGE_KEY = 'mega_mall_rents_local_db';
 
+function loadRentsFromLocalStorage() {
+  const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
+  try {
+    const saved = localStorage.getItem(RENTS_LOCAL_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        rentsDb = parsed;
+        const recordMonths = Array.from(new Set((rentsDb.records || []).map(r => r.month))).filter(Boolean);
+        rentsDb.months = Array.from(new Set([...standardMonths, ...recordMonths]));
+      }
+    }
+  } catch (e) {
+    console.warn("Could not load rents from local storage:", e);
+  }
+
+  if (!rentsDb || !rentsDb.records) {
+    rentsDb = {
+      updatedAt: null,
+      months: standardMonths,
+      totalRecords: 0,
+      records: []
+    };
+  }
+
+  renderRentsMonthTabs();
+  renderRentsTable();
+  updateRentsStats();
+}
+
+function saveRentsToLocalStorage(notify = false) {
+  try {
+    if (!rentsDb) rentsDb = { records: [], months: [] };
+    rentsDb.updatedAt = new Date().toISOString();
+    rentsDb.totalRecords = (rentsDb.records || []).length;
+    localStorage.setItem(RENTS_LOCAL_STORAGE_KEY, JSON.stringify(rentsDb));
+    if (notify) {
+      showToast('All changes saved securely to private local storage!', 'success');
+    }
+  } catch (e) {
+    console.error("Local storage save error:", e);
+    showToast('Failed to save to local storage: ' + e.message, 'error');
+  }
+}
+
+function clearLocalRentsData() {
+  const count = (rentsDb && rentsDb.records) ? rentsDb.records.length : 0;
+  showConfirm("Clear Private Local Rent Data", `Are you sure you want to permanently delete all ${count} rent records from your device's local storage? This cannot be undone.`, () => {
+    localStorage.removeItem(RENTS_LOCAL_STORAGE_KEY);
+    const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
+    rentsDb = {
+      updatedAt: null,
+      months: standardMonths,
+      totalRecords: 0,
+      records: []
+    };
     renderRentsMonthTabs();
     renderRentsTable();
     updateRentsStats();
-  } catch (err) {
-    console.error('Error loading rents database:', err);
-    if (err.message !== 'Unauthorized') {
-      showToast('Failed to load rents database: ' + err.message, 'error');
-    }
-  }
+    showToast("All rent data cleared from local storage.", "info");
+  });
 }
 
 function renderRentsMonthTabs() {
@@ -3478,7 +3523,7 @@ async function handleSaveRentRecord(e) {
   closeRentsEditModal();
   renderRentsTable();
   updateRentsStats();
-  await saveRentsToDatabase(false);
+  saveRentsToLocalStorage(true);
 }
 
 function deleteRentRecord(recordId) {
@@ -3490,41 +3535,12 @@ function deleteRentRecord(recordId) {
     renderRentsTable();
     updateRentsStats();
     showToast(`Record for Shop ${record.shop_no} deleted`, 'info');
-    saveRentsToDatabase(false);
+    saveRentsToLocalStorage(false);
   }
 }
 
-async function saveRentsToDatabase(notify = true) {
-  const saveBtn = document.getElementById('rentsSaveDbBtn');
-  if (saveBtn) {
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
-  }
-  try {
-    const res = await rentsAuthFetch('/api/rents/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        records: rentsDb.records,
-        months: rentsDb.months
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to save');
-    if (notify) {
-      showToast('All changes saved securely to database!', 'success');
-    }
-  } catch (err) {
-    showToast('Failed to save database: ' + err.message, 'error');
-  } finally {
-    if (saveBtn) {
-      saveBtn.disabled = false;
-      saveBtn.innerHTML = `
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-        Save to Database
-      `;
-    }
-  }
+function saveRentsToDatabase(notify = true) {
+  saveRentsToLocalStorage(notify);
 }
 
 function openRentsImportModal() {
@@ -3719,46 +3735,126 @@ function handleRentFileSelect(file) {
   reader.readAsArrayBuffer(file);
 }
 
-async function handleProcessRentImport() {
+function handleProcessRentImport() {
   if (!stagedImportRecords || stagedImportRecords.length === 0) return;
   const mode = document.querySelector('input[name="rentsImportMode"]:checked')?.value || 'merge';
   const confirmBtn = document.getElementById('rentsConfirmImportModalBtn');
-  confirmBtn.disabled = true;
-  confirmBtn.textContent = 'Importing to Site...';
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Importing to Local Storage...';
+  }
 
   try {
-    const res = await rentsAuthFetch('/api/rents/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        records: stagedImportRecords,
-        mode
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Import failed');
+    if (!rentsDb) rentsDb = { records: [], months: [] };
+    if (!rentsDb.records) rentsDb.records = [];
 
-    showToast(`Successfully imported ${data.count} records into the site database!`, 'success');
+    let finalRecords = [];
+    if (mode === 'replace') {
+      finalRecords = stagedImportRecords.map((r, i) => ({ ...r, id: r.id || `rent_imp_${Date.now()}_${i}` }));
+    } else {
+      const map = new Map();
+      (rentsDb.records || []).forEach(r => {
+        const key = `${r.month}_${r.shop_no}`.toUpperCase();
+        map.set(key, r);
+      });
+      stagedImportRecords.forEach((r, i) => {
+        const key = `${r.month}_${r.shop_no}`.toUpperCase();
+        const prev = map.get(key) || {};
+        map.set(key, { ...prev, ...r, id: prev.id || r.id || `rent_imp_${Date.now()}_${i}` });
+      });
+      finalRecords = Array.from(map.values());
+    }
+
+    const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
+    const recordMonths = Array.from(new Set(finalRecords.map(r => r.month))).filter(Boolean);
+    rentsDb.months = Array.from(new Set([...standardMonths, ...recordMonths]));
+    rentsDb.records = finalRecords;
+
+    saveRentsToLocalStorage(false);
+
+    showToast(`Successfully imported ${stagedImportRecords.length} records into your private local storage!`, 'success');
     closeRentsImportModal();
-    await loadRentsFromDatabase();
+    renderRentsMonthTabs();
+    renderRentsTable();
+    updateRentsStats();
   } catch (err) {
+    console.error('Local import error:', err);
     showToast('Import failed: ' + err.message, 'error');
   } finally {
-    confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Process & Load into Site';
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Process & Load into Local Storage';
+    }
   }
 }
 
 function exportRentsMasterExcel() {
-  const token = getRentsToken();
-  window.location.href = `/api/rents/download/master-excel?token=${encodeURIComponent(token || '')}`;
+  const records = (rentsDb && Array.isArray(rentsDb.records) && rentsDb.records.length > 0) ? rentsDb.records : [];
+  if (records.length === 0) {
+    showToast('No rent records available in local storage to export.', 'info');
+    return;
+  }
+  if (typeof XLSX === 'undefined') {
+    showToast('Excel library not loaded. Please ensure XLSX is loaded.', 'error');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const headers = ['S.NOS.', 'MONTH', 'BRAND NAME', 'SHOP NOS.', 'ALLOTEE', 'SQ.FT.', 'AMOUNT', 'CHQ NO.', 'PAID', 'DATE', 'IN HAND'];
+
+  // Master Sheet with all records
+  const masterAoa = [headers];
+  records.forEach((r, idx) => {
+    masterAoa.push([
+      idx + 1,
+      r.month || '',
+      r.brand_name || '',
+      r.shop_no || '',
+      r.allotee_name || '',
+      Number(r.sq_ft) || 0,
+      Number(r.amount) || 0,
+      r.chq_no || '-',
+      Number(r.paid) || 0,
+      r.date || '',
+      Number(r.in_hand) || 0
+    ]);
+  });
+  const wsMaster = XLSX.utils.aoa_to_sheet(masterAoa);
+  XLSX.utils.book_append_sheet(wb, wsMaster, 'ALL-MONTHS');
+
+  // Month-by-month sheets matching original multi-sheet format
+  const months = Array.from(new Set(records.map(r => r.month))).filter(Boolean);
+  months.forEach(m => {
+    const monthRecords = records.filter(r => r.month === m);
+    const monthAoa = [['S.NOS.', 'BRAND NAME', 'SHOP NOS.', 'ALLOTEE', 'SQ.FT.', 'AMOUNT', 'CHQ NO.', 'PAID', 'DATE', 'IN HAND']];
+    monthRecords.forEach((r, idx) => {
+      monthAoa.push([
+        idx + 1,
+        r.brand_name || '',
+        r.shop_no || '',
+        r.allotee_name || '',
+        Number(r.sq_ft) || 0,
+        Number(r.amount) || 0,
+        r.chq_no || '-',
+        Number(r.paid) || 0,
+        r.date || '',
+        Number(r.in_hand) || 0
+      ]);
+    });
+    const wsMonth = XLSX.utils.aoa_to_sheet(monthAoa);
+    const safeSheetName = m.substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, '-');
+    XLSX.utils.book_append_sheet(wb, wsMonth, safeSheetName);
+  });
+
+  const filename = `consolidated_allottees_rent_master_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('Master Excel workbook generated directly from private local storage!', 'success');
 }
 
 function exportRentsMasterCsv() {
   const records = (rentsDb && Array.isArray(rentsDb.records) && rentsDb.records.length > 0) ? rentsDb.records : [];
   if (records.length === 0) {
-    const token = getRentsToken();
-    window.location.href = `/api/rents/download/master-csv?token=${encodeURIComponent(token || '')}`;
+    showToast('No rent records available in local storage to export.', 'info');
     return;
   }
   const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
@@ -3811,6 +3907,7 @@ function setupRentsEventListeners() {
 
   // Database save & exports
   document.getElementById('rentsSaveDbBtn')?.addEventListener('click', () => saveRentsToDatabase(true));
+  document.getElementById('rentsClearLocalBtn')?.addEventListener('click', clearLocalRentsData);
   document.getElementById('rentsExportExcelBtn')?.addEventListener('click', exportRentsMasterExcel);
   document.getElementById('rentsExportCsvBtn')?.addEventListener('click', exportRentsMasterCsv);
   document.getElementById('rentsQuickExcelLink')?.addEventListener('click', exportRentsMasterExcel);

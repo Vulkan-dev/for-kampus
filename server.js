@@ -42,45 +42,13 @@ if (!fs.existsSync(DATA_DIR)) {
 
 function readRentsDatabase() {
   const standardMonths = ['JAN-2026', 'FEB-2026', 'MARCH-2026', 'APRIL-2026', 'MAY-2026', 'JUNE-2026', 'JULY-2026', 'AUG-2026'];
-  try {
-    if (!fs.existsSync(RENTS_DB_PATH)) {
-      return { updatedAt: new Date().toISOString(), months: standardMonths, totalRecords: 0, records: [] };
-    }
-    const data = fs.readFileSync(RENTS_DB_PATH, 'utf-8');
-    const parsed = JSON.parse(data);
-    const recordMonths = Array.from(new Set((parsed.records || []).map(r => r.month))).filter(Boolean);
-    parsed.months = Array.from(new Set([...standardMonths, ...recordMonths]));
-    return parsed;
-  } catch (err) {
-    console.error('Error reading rents database:', err);
-    return { updatedAt: new Date().toISOString(), months: standardMonths, totalRecords: 0, records: [] };
-  }
+  return { updatedAt: null, months: standardMonths, totalRecords: 0, records: [] };
 }
 
 function writeRentsDatabaseAtomic(data) {
-  const tempPath = `${RENTS_DB_PATH}.tmp.${Date.now()}`;
-  fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tempPath, RENTS_DB_PATH);
-
-  try {
-    const refDir = path.join(__dirname, 'refrence');
-    if (fs.existsSync(refDir)) {
-      const csvPath = path.join(refDir, 'consolidated_allottees_rent_master.csv');
-      const cleanStr = str => String(str || '').replace(/[\r\n\t]+/g, ' ').trim();
-      const quoteField = str => '"' + cleanStr(str).replace(/"/g, '""') + '"';
-      let csv = 'S.NOS.,MONTH,BRAND NAME,SHOP NOS.,ALLOTEE,SQ.FT.,AMOUNT,CHQ NO.,PAID,DATE,IN HAND\n';
-      (data.records || []).forEach((r, idx) => {
-        const brand = quoteField(r.brand_name);
-        const shop = quoteField(r.shop_no);
-        const allotee = quoteField(r.allotee_name);
-        const dateStr = quoteField(r.date);
-        csv += `${idx + 1},${r.month},${brand},${shop},${allotee},${r.sq_ft || 0},${r.amount || 0},${r.chq_no || '-'},${r.paid || 0},${dateStr},${r.in_hand || 0}\n`;
-      });
-      fs.writeFileSync(csvPath, csv, 'utf8');
-    }
-  } catch (e) {
-    console.error('Error syncing master CSV:', e);
-  }
+  // Rent records are confidential and kept exclusively in client-side localStorage.
+  // No records are persisted to server disk or database.
+  return;
 }
 
 // Password hashing helper
@@ -1451,67 +1419,14 @@ app.get('/api/rents', globalApiRateLimiter, requireRentsAuth, (req, res) => {
   res.json(db);
 });
 
-// POST /api/rents/save - Save updated rent records (protected)
+// POST /api/rents/save - Safe route: private client local storage (protected)
 app.post('/api/rents/save', globalApiRateLimiter, requireRentsAuth, (req, res) => {
-  try {
-    const { records, months } = req.body;
-    if (!Array.isArray(records)) {
-      return res.status(400).json({ error: 'Invalid records array' });
-    }
-    const existing = readRentsDatabase();
-    const updatedMonths = months || Array.from(new Set(records.map(r => r.month))).filter(Boolean);
-    const updatedDb = {
-      updatedAt: new Date().toISOString(),
-      months: updatedMonths.length ? updatedMonths : existing.months,
-      totalRecords: records.length,
-      records
-    };
-    writeRentsDatabaseAtomic(updatedDb);
-    res.json({ success: true, totalRecords: records.length, updatedAt: updatedDb.updatedAt });
-  } catch (err) {
-    console.error('Failed to save rents database:', err);
-    res.status(500).json({ error: 'Failed to save rents database', details: err.message });
-  }
+  res.json({ success: true, message: 'Private client local storage active. No server persistence.' });
 });
 
-// POST /api/rents/import - Bulk import or merge records (protected)
+// POST /api/rents/import - Safe route: private client local storage (protected)
 app.post('/api/rents/import', globalApiRateLimiter, requireRentsAuth, (req, res) => {
-  try {
-    const { records, mode = 'merge' } = req.body;
-    if (!Array.isArray(records) || records.length === 0) {
-      return res.status(400).json({ error: 'No records provided to import' });
-    }
-    const existing = readRentsDatabase();
-    let finalRecords = [];
-    if (mode === 'replace') {
-      finalRecords = records.map((r, i) => ({ ...r, id: r.id || `rent_imp_${Date.now()}_${i}` }));
-    } else {
-      const map = new Map();
-      (existing.records || []).forEach(r => {
-        const key = `${r.month}_${r.shop_no}`.toUpperCase();
-        map.set(key, r);
-      });
-      records.forEach((r, i) => {
-        const key = `${r.month}_${r.shop_no}`.toUpperCase();
-        const prev = map.get(key) || {};
-        map.set(key, { ...prev, ...r, id: prev.id || r.id || `rent_imp_${Date.now()}_${i}` });
-      });
-      finalRecords = Array.from(map.values());
-    }
-
-    const monthsSet = new Set(finalRecords.map(r => r.month).filter(Boolean));
-    const updatedDb = {
-      updatedAt: new Date().toISOString(),
-      months: Array.from(monthsSet),
-      totalRecords: finalRecords.length,
-      records: finalRecords
-    };
-    writeRentsDatabaseAtomic(updatedDb);
-    res.json({ success: true, count: finalRecords.length, updatedAt: updatedDb.updatedAt });
-  } catch (err) {
-    console.error('Failed to import rents:', err);
-    res.status(500).json({ error: 'Failed to import rents', details: err.message });
-  }
+  res.json({ success: true, message: 'Private client local storage active. No server persistence.' });
 });
 
 // GET /api/rents/download/master-excel (protected)
