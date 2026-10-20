@@ -339,320 +339,9 @@ const PRESETS = {
             "gallons": 170957
         }
     },
-    "manualCorrections": {
-        "2024-01": {
-            "invoiceNumber": "#INV-01-01-2024",
-            "issueDate": "31st Jan 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 0,
-            "totalPayable": 120958,
-            "manualBillAmountEnabled": true
-        },
-        "2024-02": {
-            "invoiceNumber": "#INV-01-02-2024",
-            "issueDate": "29th Feb 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 120958,
-            "totalPayable": 241916,
-            "manualBillAmountEnabled": true
-        },
-        "2024-03": {
-            "invoiceNumber": "#INV-01-03-2024",
-            "issueDate": "31st March 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 241916,
-            "totalPayable": 362873,
-            "manualBillAmountEnabled": true
-        },
-        "2024-04": {
-            "invoiceNumber": "#INV-01-04-2024",
-            "issueDate": "30th April 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 362873,
-            "totalPayable": 483831,
-            "manualBillAmountEnabled": true
-        },
-        "2024-05": {
-            "invoiceNumber": "#INV-01-05-2024",
-            "issueDate": "31st May 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 483831,
-            "totalPayable": 604789,
-            "manualBillAmountEnabled": true
-        },
-        "2024-06": {
-            "invoiceNumber": "#INV-01-06-2024",
-            "issueDate": "30th June 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 604789,
-            "totalPayable": 725747,
-            "manualBillAmountEnabled": true
-        },
-        "2024-07": {
-            "invoiceNumber": "#INV-01-07-2024",
-            "issueDate": "31st July 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 725747,
-            "totalPayable": 846704,
-            "manualBillAmountEnabled": true
-        },
-        "2024-08": {
-            "invoiceNumber": "#INV-01-08-2024",
-            "issueDate": "31st Aug 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 846704,
-            "totalPayable": 967662,
-            "manualBillAmountEnabled": true
-        },
-        "2024-09": {
-            "invoiceNumber": "#INV-01-09-2024",
-            "issueDate": "30th Sep 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 967662,
-            "totalPayable": 1088620,
-            "manualBillAmountEnabled": true
-        },
-        "2024-10": {
-            "invoiceNumber": "#INV-01-10-2024",
-            "issueDate": "31st Oct 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 1088620,
-            "totalPayable": 1209578,
-            "manualBillAmountEnabled": true
-        },
-        "2024-11": {
-            "invoiceNumber": "#INV-01-11-2024",
-            "issueDate": "30th Nov 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 1209578,
-            "totalPayable": 1330535,
-            "manualBillAmountEnabled": true
-        },
-        "2024-12": {
-            "invoiceNumber": "#INV-01-12-2024",
-            "issueDate": "31st Dec 2024",
-            "gallons": 53759,
-            "rate": 2.25,
-            "billAmount": 120958,
-            "previous": 1330535,
-            "totalPayable": 1451493,
-            "manualBillAmountEnabled": true
-        },
-        "2025-01": {
-            "invoiceNumber": "#INV-01-01-2025",
-            "issueDate": "31st Jan 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 1451493,
-            "totalPayable": 1761515,
-            "manualBillAmountEnabled": true
-        },
-        "2025-02": {
-            "invoiceNumber": "#INV-01-02-2025",
-            "issueDate": "28 Feb 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 1761515,
-            "totalPayable": 2071538,
-            "manualBillAmountEnabled": true
-        },
-        "2025-03": {
-            "invoiceNumber": "#INV-01-03-2025",
-            "issueDate": "31st March 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 2071538,
-            "totalPayable": 2381560,
-            "manualBillAmountEnabled": true
-        },
-        "2025-04": {
-            "invoiceNumber": "#INV-01-04-2025",
-            "issueDate": "30th April 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 2381560,
-            "totalPayable": 2691582,
-            "manualBillAmountEnabled": true
-        },
-        "2025-05": {
-            "invoiceNumber": "#INV-01-05-2025",
-            "issueDate": "31st May 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 2691582,
-            "totalPayable": 3001605,
-            "manualBillAmountEnabled": true
-        },
-        "2025-06": {
-            "invoiceNumber": "#INV-01-06-2025",
-            "issueDate": "30th June 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 3001605,
-            "totalPayable": 3311627,
-            "manualBillAmountEnabled": true
-        },
-        "2025-07": {
-            "invoiceNumber": "#INV-01-07-2025",
-            "issueDate": "31st July 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 3311627,
-            "totalPayable": 3621650,
-            "manualBillAmountEnabled": true
-        },
-        "2025-08": {
-            "invoiceNumber": "#INV-01-08-2025",
-            "issueDate": "31st Aug 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 3621650,
-            "totalPayable": 3931672,
-            "manualBillAmountEnabled": true
-        },
-        "2025-09": {
-            "invoiceNumber": "#INV-01-09-2025",
-            "issueDate": "30th Sep 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 3931672,
-            "totalPayable": 4241694,
-            "manualBillAmountEnabled": true
-        },
-        "2025-10": {
-            "invoiceNumber": "#INV-01-10-2025",
-            "issueDate": "31st Oct 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 4241694,
-            "totalPayable": 4551717,
-            "manualBillAmountEnabled": true
-        },
-        "2025-11": {
-            "invoiceNumber": "#INV-01-11-2025",
-            "issueDate": "30th Nov 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 4551717,
-            "totalPayable": 4861739,
-            "manualBillAmountEnabled": true
-        },
-        "2025-12": {
-            "invoiceNumber": "#INV-01-12-2025",
-            "issueDate": "31st Dec 2025",
-            "gallons": 137788,
-            "rate": 2.25,
-            "billAmount": 310022,
-            "previous": 4861739,
-            "totalPayable": 5171761,
-            "manualBillAmountEnabled": true
-        },
-        "2026-01": {
-            "invoiceNumber": "#INV-01-01-2026",
-            "issueDate": "31st Jan 2026",
-            "gallons": 170957,
-            "rate": 2.25,
-            "billAmount": 384653,
-            "previous": 5171761,
-            "totalPayable": 5556415,
-            "manualBillAmountEnabled": true
-        },
-        "2026-02": {
-            "invoiceNumber": "#INV-01-02-2026",
-            "issueDate": "28 Feb 2026",
-            "gallons": 170957,
-            "rate": 2.25,
-            "billAmount": 384653,
-            "previous": 5556415,
-            "totalPayable": 5941068,
-            "manualBillAmountEnabled": true
-        },
-        "2026-03": {
-            "invoiceNumber": "#INV-01-03-2026",
-            "issueDate": "31st March 2026",
-            "gallons": 170957,
-            "rate": 2.25,
-            "billAmount": 384653,
-            "previous": 5941068,
-            "totalPayable": 6325721,
-            "manualBillAmountEnabled": true
-        },
-        "2026-04": {
-            "invoiceNumber": "#INV-01-04-2026",
-            "issueDate": "30 April 2026",
-            "gallons": 170957,
-            "rate": 2.25,
-            "billAmount": 384653,
-            "previous": 6325721,
-            "totalPayable": 6710374,
-            "manualBillAmountEnabled": true
-        },
-        "2026-05": {
-            "invoiceNumber": "#INV-01-05-2026",
-            "issueDate": "31st May 2026",
-            "gallons": 170957,
-            "rate": 2.25,
-            "billAmount": 384653,
-            "previous": 6710374,
-            "totalPayable": 7095028,
-            "manualBillAmountEnabled": true
-        },
-        "2026-06": {
-            "invoiceNumber": "#INV-01-06-2026",
-            "issueDate": "30 June 2026",
-            "gallons": 170957,
-            "rate": 2.25,
-            "billAmount": 384653,
-            "previous": 7095028,
-            "totalPayable": 7479681,
-            "manualBillAmountEnabled": true
-        },
-        "2026-07": {
-            "invoiceNumber": "#INV-01-07-2026",
-            "issueDate": "31st July 2026",
-            "gallons": 170957,
-            "rate": 2.25,
-            "billAmount": 384653,
-            "previous": 7479681,
-            "totalPayable": 7864334,
-            "manualBillAmountEnabled": true
-        }
-    }
-},
-  mega: {
+    "manualCorrections": {}
+  },
+    mega: {
     occupier: "MEGA RESIDENCY,",
     location: "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,",
     ntn: "C951537",
@@ -729,6 +418,30 @@ function sanitizeAndMigrateState(state) {
         }
       }
     });
+  }
+  // Purge any frozen/stale calculations from old synthetic preset dumps
+  if (state.manualCorrections && typeof state.manualCorrections === 'object') {
+    const keys = Object.keys(state.manualCorrections);
+    const hasStaticDump = keys.some(k => {
+      const c = state.manualCorrections[k];
+      return c && (c.rate === 2.25 || c.rate === 1.25) && c.manualBillAmountEnabled;
+    });
+    if (hasStaticDump) {
+      keys.forEach(k => {
+        const c = state.manualCorrections[k];
+        if (c) {
+          delete c.rate;
+          delete c.gallons;
+          delete c.billAmount;
+          delete c.previous;
+          delete c.totalPayable;
+          delete c.manualBillAmountEnabled;
+        }
+        if (Object.keys(c || {}).length === 0) {
+          delete state.manualCorrections[k];
+        }
+      });
+    }
   }
   return state;
 }
@@ -1401,33 +1114,33 @@ function updateYearConfigsUI() {
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" style="color:var(--accent-green); font-weight:600;">Manual Bill Amount (PKR)</label>
-            <input type="number" step="1" class="form-input" style="border-color:rgba(34,197,94,0.4); font-weight:600; color:var(--accent-green);" value="${currentBill}" onchange="setYearManualBillAmount(${year}, this.value)" />
+            <input type="number" step="1" class="form-input" style="border-color:rgba(34,197,94,0.4); font-weight:600; color:var(--accent-green);" value="${currentBill}" oninput="setYearManualBillAmount(${year}, this.value)" onchange="setYearManualBillAmount(${year}, this.value)" />
           </div>
           <div class="form-group">
             <label class="form-label">Rate / Gal (PKR)</label>
-            <input type="number" step="0.01" class="form-input" value="${config.rate}" onchange="setYearRate(${year}, this.value)" />
+            <input type="number" step="0.01" class="form-input" value="${config.rate}" oninput="setYearRate(${year}, this.value)" onchange="setYearRate(${year}, this.value)" />
           </div>
         </div>
         <div class="form-row" style="margin-top:0.45rem;">
           <div class="form-group">
             <label class="form-label">Consumption Gallons</label>
-            <input type="number" step="1" class="form-input" value="${config.gallons}" onchange="setYearGallons(${year}, this.value)" />
+            <input type="number" step="1" class="form-input" value="${config.gallons}" oninput="setYearGallons(${year}, this.value)" onchange="setYearGallons(${year}, this.value)" />
           </div>
         </div>
       ` : `
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Rate / Gal (PKR)</label>
-            <input type="number" step="0.01" class="form-input" value="${config.rate}" onchange="setYearRate(${year}, this.value)" />
+            <input type="number" step="0.01" class="form-input" value="${config.rate}" oninput="setYearRate(${year}, this.value)" onchange="setYearRate(${year}, this.value)" />
           </div>
           <div class="form-group">
             <label class="form-label">Monthly Gallons</label>
-            <input type="number" step="1" class="form-input" value="${config.gallons}" onchange="setYearGallons(${year}, this.value)" />
+            <input type="number" step="1" class="form-input" value="${config.gallons}" oninput="setYearGallons(${year}, this.value)" onchange="setYearGallons(${year}, this.value)" />
           </div>
         </div>
         <div style="font-size:0.72rem; color:var(--text-dim); margin-top:0.35rem; display:flex; justify-content:space-between; align-items:center;">
           <span>Auto Bill Amount:</span>
-          <strong style="color:var(--text-main);">PKR ${formatNumber(currentBill)}</strong>
+          <strong id="autoBillDisplay-${year}" style="color:var(--text-main);">PKR ${formatNumber(currentBill)}</strong>
         </div>
       `}
     `;
@@ -1461,7 +1174,29 @@ function setYearManualBillAmount(year, val) {
 
 function setYearRate(year, val) {
   if (!appState.yearRates[year]) appState.yearRates[year] = {};
-  appState.yearRates[year].rate = parseFloat(val) || 1.25;
+  const num = parseFloat(val);
+  appState.yearRates[year].rate = isNaN(num) ? 0 : num;
+
+  // Clear any per-row rate, bill amount, or frozen total locks for this year so new rate applies to all months
+  if (appState.manualCorrections) {
+    Object.keys(appState.manualCorrections).forEach(ym => {
+      if (ym.startsWith(String(year) + "-")) {
+        delete appState.manualCorrections[ym].rate;
+        delete appState.manualCorrections[ym].previous;
+        delete appState.manualCorrections[ym].totalPayable;
+        if (!appState.yearRates[year].manualBillAmountEnabled) {
+          delete appState.manualCorrections[ym].billAmount;
+          delete appState.manualCorrections[ym].manualBillAmountEnabled;
+        }
+      }
+    });
+  }
+
+  const config = appState.yearRates[year];
+  const autoBill = Math.round((config.gallons || 0) * (config.rate || 0));
+  const autoBillEl = document.getElementById(`autoBillDisplay-${year}`);
+  if (autoBillEl) autoBillEl.textContent = `PKR ${formatNumber(autoBill)}`;
+
   renderPreview();
   renderDataEditor();
   debouncedSaveProjectState();
@@ -1469,7 +1204,28 @@ function setYearRate(year, val) {
 
 function setYearGallons(year, val) {
   if (!appState.yearRates[year]) appState.yearRates[year] = {};
-  appState.yearRates[year].gallons = parseInt(val, 10) || 50000;
+  const num = parseInt(val, 10);
+  appState.yearRates[year].gallons = isNaN(num) ? 0 : num;
+
+  if (appState.manualCorrections) {
+    Object.keys(appState.manualCorrections).forEach(ym => {
+      if (ym.startsWith(String(year) + "-")) {
+        delete appState.manualCorrections[ym].gallons;
+        delete appState.manualCorrections[ym].previous;
+        delete appState.manualCorrections[ym].totalPayable;
+        if (!appState.yearRates[year].manualBillAmountEnabled) {
+          delete appState.manualCorrections[ym].billAmount;
+          delete appState.manualCorrections[ym].manualBillAmountEnabled;
+        }
+      }
+    });
+  }
+
+  const config = appState.yearRates[year];
+  const autoBill = Math.round((config.gallons || 0) * (config.rate || 0));
+  const autoBillEl = document.getElementById(`autoBillDisplay-${year}`);
+  if (autoBillEl) autoBillEl.textContent = `PKR ${formatNumber(autoBill)}`;
+
   renderPreview();
   renderDataEditor();
   debouncedSaveProjectState();
@@ -1666,7 +1422,14 @@ function updateCorrection(ym, field, val) {
   if (!appState.manualCorrections[ym]) {
     appState.manualCorrections[ym] = {};
   }
-  appState.manualCorrections[ym][field] = val;
+  if (val === "" || val === null || val === undefined) {
+    delete appState.manualCorrections[ym][field];
+    if (Object.keys(appState.manualCorrections[ym]).length === 0) {
+      delete appState.manualCorrections[ym];
+    }
+  } else {
+    appState.manualCorrections[ym][field] = val;
+  }
   renderPreview();
   renderDataEditor();
   debouncedSaveProjectState();
