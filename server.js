@@ -956,6 +956,55 @@ app.post('/api/import/file', requireAuth, async (req, res) => {
   }
 });
 
+// Helper: Convert numbers to English words e.g. (Rupees One Hundred Twenty Thousand Nine Hundred Fifty-Eight Only)
+function numberToWords(num) {
+  num = Math.round(Number(num) || 0);
+  if (num === 0) return 'Zero';
+
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function convertHundreds(n) {
+    let str = '';
+    if (n >= 100) {
+      str += ones[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n >= 20) {
+      str += tens[Math.floor(n / 10)];
+      if (n % 10 > 0) str += '-' + ones[n % 10];
+      str += ' ';
+    } else if (n > 0) {
+      str += ones[n] + ' ';
+    }
+    return str.trim();
+  }
+
+  let result = '';
+  const millions = Math.floor(num / 1000000);
+  num %= 1000000;
+  const thousands = Math.floor(num / 1000);
+  const remainder = num % 1000;
+
+  if (millions > 0) {
+    result += convertHundreds(millions) + ' Million ';
+  }
+  if (thousands > 0) {
+    result += convertHundreds(thousands) + ' Thousand ';
+  }
+  if (remainder > 0) {
+    result += convertHundreds(remainder);
+  }
+
+  return result.trim();
+}
+
+function formatAmountInWords(amount) {
+  const words = numberToWords(amount);
+  return `(Rupees ${words} Only)`;
+}
+
 // ==========================================================
 // Protected Word Export Endpoint (.docx)
 // ==========================================================
@@ -1186,7 +1235,11 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
         if (val === undefined || val === null) val = "";
         let displayVal = String(val);
         if (col.type === 'currency' && !isNaN(Number(val)) && val !== "") {
-          displayVal = Number(val) === 0 ? "0" : `${Number(val).toLocaleString()}/-`;
+          if (col.id === 'previous') {
+            displayVal = Number(val) === 0 ? "0" : Number(val).toLocaleString();
+          } else {
+            displayVal = Number(val) === 0 ? "0" : `${Number(val).toLocaleString()}/-`;
+          }
         } else if (col.id === 'rate' && !isNaN(Number(val)) && val !== "") {
           displayVal = Number(val).toFixed(2);
         } else if (col.type === 'number' && !isNaN(Number(val)) && val !== "") {
@@ -1219,9 +1272,26 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
       });
 
       children.push(billTable);
-      children.push(new Paragraph({ spacing: { after: 320 } }));
+      children.push(new Paragraph({ spacing: { after: 180 } }));
 
-      // 4. Bullet Notices
+      // 4. Amount in Words (Rupees ... Only)
+      const words = formatAmountInWords(inv.totalPayable);
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({
+              text: words,
+              bold: true,
+              size: 21,
+              font: "Segoe UI"
+            })
+          ],
+          spacing: { before: 180, after: 260 }
+        })
+      );
+
+      // 5. Bullet Notices
       children.push(
         new Paragraph({
           children: [
@@ -1237,25 +1307,58 @@ app.post('/api/export/docx', requireAuth, async (req, res) => {
             new TextRun({ text: "\"The Mega Mall\"", bold: true, size: 17, font: "Segoe UI" }),
             new TextRun({ text: " will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.", size: 17, font: "Segoe UI" })
           ],
-          spacing: { after: 350 }
+          spacing: { after: 380 }
         })
       );
 
-      // 5. Signoff
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: "Account Department", bold: true, size: 18, font: "Segoe UI" })],
-          spacing: { after: 50 }
-        })
-      );
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: `Date : ${normalizeMonthNames(inv.issueDate)}`, bold: true, size: 18, font: "Segoe UI" })],
-          spacing: { after: 1200 }
-        })
-      );
+      // 6. Signoff (Two-column: Left Account Dept, Right Management)
+      const signoffTable = new Table({
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                borders: noBorders,
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: "Account Department", bold: true, size: 18, font: "Segoe UI" })],
+                    spacing: { after: 50 }
+                  }),
+                  new Paragraph({
+                    children: [new TextRun({ text: `Date : ${normalizeMonthNames(inv.issueDate)}`, bold: true, size: 18, font: "Segoe UI" })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                borders: noBorders,
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.RIGHT,
+                    children: [new TextRun({ text: "Management", bold: true, size: 18, font: "Segoe UI" })],
+                    spacing: { after: 200 }
+                  }),
+                  new Paragraph({
+                    alignment: AlignmentType.RIGHT,
+                    children: [new TextRun({ text: "(Kampus Integrated Services)", bold: true, size: 17, font: "Segoe UI" })],
+                    spacing: { after: 50 }
+                  }),
+                  new Paragraph({
+                    alignment: AlignmentType.RIGHT,
+                    children: [new TextRun({ text: "(The Mega Mall)", bold: true, size: 17, font: "Segoe UI" })]
+                  })
+                ]
+              })
+            ]
+          })
+        ],
+        width: { size: 100, type: WidthType.PERCENTAGE }
+      });
 
-      // 6. Footer Address
+      children.push(signoffTable);
+      children.push(new Paragraph({ spacing: { after: 800 } }));
+
+      // 7. Footer Address
       children.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,

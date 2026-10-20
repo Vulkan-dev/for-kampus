@@ -312,22 +312,346 @@ async function handleLogout() {
 // Preset Configurations
 const PRESETS = {
   falaknaz: {
-    occupier: "FALAKNAZ SPRINGS,",
-    location: "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,",
-    ntn: "C951537",
-    startMonth: "2024-01",
-    endMonth: "2026-07",
-    invPrefix: "#INV-",
-    invStartNum: 3001,
-    invSuffix: "-051026",
-    includePrevBalance: false,
-    prevBalanceMode: "zero",
-    rates: {
-      "2024": { rate: 1.25, gallons: 53759 },
-      "2025": { rate: 1.25, gallons: 137788, overrides: { "2025-12": 99725 } },
-      "2026": { rate: 1.25, gallons: 137788 }
+    "occupier": "FALAKNAZ SPRINGS,",
+    "location": "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,",
+    "ntn": "C951537",
+    "startMonth": "2024-01",
+    "endMonth": "2026-07",
+    "invPrefix": "#INV-01-",
+    "invStartNum": 1,
+    "invSuffix": "",
+    "seqMode": "month_year",
+    "autoSuffixYear": false,
+    "includePrevBalance": true,
+    "prevBalanceMode": "cumulative",
+    "openingBalance": 0,
+    "rates": {
+        "2024": {
+            "rate": 2.25,
+            "gallons": 53759
+        },
+        "2025": {
+            "rate": 2.25,
+            "gallons": 137788
+        },
+        "2026": {
+            "rate": 2.25,
+            "gallons": 170957
+        }
+    },
+    "manualCorrections": {
+        "2024-01": {
+            "invoiceNumber": "#INV-01-01-2024",
+            "issueDate": "31st Jan 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 0,
+            "totalPayable": 120958,
+            "manualBillAmountEnabled": true
+        },
+        "2024-02": {
+            "invoiceNumber": "#INV-01-02-2024",
+            "issueDate": "29th Feb 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 120958,
+            "totalPayable": 241916,
+            "manualBillAmountEnabled": true
+        },
+        "2024-03": {
+            "invoiceNumber": "#INV-01-03-2024",
+            "issueDate": "31st March 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 241916,
+            "totalPayable": 362873,
+            "manualBillAmountEnabled": true
+        },
+        "2024-04": {
+            "invoiceNumber": "#INV-01-04-2024",
+            "issueDate": "30th April 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 362873,
+            "totalPayable": 483831,
+            "manualBillAmountEnabled": true
+        },
+        "2024-05": {
+            "invoiceNumber": "#INV-01-05-2024",
+            "issueDate": "31st May 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 483831,
+            "totalPayable": 604789,
+            "manualBillAmountEnabled": true
+        },
+        "2024-06": {
+            "invoiceNumber": "#INV-01-06-2024",
+            "issueDate": "30th June 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 604789,
+            "totalPayable": 725747,
+            "manualBillAmountEnabled": true
+        },
+        "2024-07": {
+            "invoiceNumber": "#INV-01-07-2024",
+            "issueDate": "31st July 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 725747,
+            "totalPayable": 846704,
+            "manualBillAmountEnabled": true
+        },
+        "2024-08": {
+            "invoiceNumber": "#INV-01-08-2024",
+            "issueDate": "31st Aug 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 846704,
+            "totalPayable": 967662,
+            "manualBillAmountEnabled": true
+        },
+        "2024-09": {
+            "invoiceNumber": "#INV-01-09-2024",
+            "issueDate": "30th Sep 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 967662,
+            "totalPayable": 1088620,
+            "manualBillAmountEnabled": true
+        },
+        "2024-10": {
+            "invoiceNumber": "#INV-01-10-2024",
+            "issueDate": "31st Oct 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 1088620,
+            "totalPayable": 1209578,
+            "manualBillAmountEnabled": true
+        },
+        "2024-11": {
+            "invoiceNumber": "#INV-01-11-2024",
+            "issueDate": "30th Nov 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 1209578,
+            "totalPayable": 1330535,
+            "manualBillAmountEnabled": true
+        },
+        "2024-12": {
+            "invoiceNumber": "#INV-01-12-2024",
+            "issueDate": "31st Dec 2024",
+            "gallons": 53759,
+            "rate": 2.25,
+            "billAmount": 120958,
+            "previous": 1330535,
+            "totalPayable": 1451493,
+            "manualBillAmountEnabled": true
+        },
+        "2025-01": {
+            "invoiceNumber": "#INV-01-01-2025",
+            "issueDate": "31st Jan 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 1451493,
+            "totalPayable": 1761515,
+            "manualBillAmountEnabled": true
+        },
+        "2025-02": {
+            "invoiceNumber": "#INV-01-02-2025",
+            "issueDate": "28 Feb 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 1761515,
+            "totalPayable": 2071538,
+            "manualBillAmountEnabled": true
+        },
+        "2025-03": {
+            "invoiceNumber": "#INV-01-03-2025",
+            "issueDate": "31st March 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 2071538,
+            "totalPayable": 2381560,
+            "manualBillAmountEnabled": true
+        },
+        "2025-04": {
+            "invoiceNumber": "#INV-01-04-2025",
+            "issueDate": "30th April 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 2381560,
+            "totalPayable": 2691582,
+            "manualBillAmountEnabled": true
+        },
+        "2025-05": {
+            "invoiceNumber": "#INV-01-05-2025",
+            "issueDate": "31st May 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 2691582,
+            "totalPayable": 3001605,
+            "manualBillAmountEnabled": true
+        },
+        "2025-06": {
+            "invoiceNumber": "#INV-01-06-2025",
+            "issueDate": "30th June 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 3001605,
+            "totalPayable": 3311627,
+            "manualBillAmountEnabled": true
+        },
+        "2025-07": {
+            "invoiceNumber": "#INV-01-07-2025",
+            "issueDate": "31st July 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 3311627,
+            "totalPayable": 3621650,
+            "manualBillAmountEnabled": true
+        },
+        "2025-08": {
+            "invoiceNumber": "#INV-01-08-2025",
+            "issueDate": "31st Aug 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 3621650,
+            "totalPayable": 3931672,
+            "manualBillAmountEnabled": true
+        },
+        "2025-09": {
+            "invoiceNumber": "#INV-01-09-2025",
+            "issueDate": "30th Sep 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 3931672,
+            "totalPayable": 4241694,
+            "manualBillAmountEnabled": true
+        },
+        "2025-10": {
+            "invoiceNumber": "#INV-01-10-2025",
+            "issueDate": "31st Oct 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 4241694,
+            "totalPayable": 4551717,
+            "manualBillAmountEnabled": true
+        },
+        "2025-11": {
+            "invoiceNumber": "#INV-01-11-2025",
+            "issueDate": "30th Nov 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 4551717,
+            "totalPayable": 4861739,
+            "manualBillAmountEnabled": true
+        },
+        "2025-12": {
+            "invoiceNumber": "#INV-01-12-2025",
+            "issueDate": "31st Dec 2025",
+            "gallons": 137788,
+            "rate": 2.25,
+            "billAmount": 310022,
+            "previous": 4861739,
+            "totalPayable": 5171761,
+            "manualBillAmountEnabled": true
+        },
+        "2026-01": {
+            "invoiceNumber": "#INV-01-01-2026",
+            "issueDate": "31st Jan 2026",
+            "gallons": 170957,
+            "rate": 2.25,
+            "billAmount": 384653,
+            "previous": 5171761,
+            "totalPayable": 5556415,
+            "manualBillAmountEnabled": true
+        },
+        "2026-02": {
+            "invoiceNumber": "#INV-01-02-2026",
+            "issueDate": "28 Feb 2026",
+            "gallons": 170957,
+            "rate": 2.25,
+            "billAmount": 384653,
+            "previous": 5556415,
+            "totalPayable": 5941068,
+            "manualBillAmountEnabled": true
+        },
+        "2026-03": {
+            "invoiceNumber": "#INV-01-03-2026",
+            "issueDate": "31st March 2026",
+            "gallons": 170957,
+            "rate": 2.25,
+            "billAmount": 384653,
+            "previous": 5941068,
+            "totalPayable": 6325721,
+            "manualBillAmountEnabled": true
+        },
+        "2026-04": {
+            "invoiceNumber": "#INV-01-04-2026",
+            "issueDate": "30 April 2026",
+            "gallons": 170957,
+            "rate": 2.25,
+            "billAmount": 384653,
+            "previous": 6325721,
+            "totalPayable": 6710374,
+            "manualBillAmountEnabled": true
+        },
+        "2026-05": {
+            "invoiceNumber": "#INV-01-05-2026",
+            "issueDate": "31st May 2026",
+            "gallons": 170957,
+            "rate": 2.25,
+            "billAmount": 384653,
+            "previous": 6710374,
+            "totalPayable": 7095028,
+            "manualBillAmountEnabled": true
+        },
+        "2026-06": {
+            "invoiceNumber": "#INV-01-06-2026",
+            "issueDate": "30 June 2026",
+            "gallons": 170957,
+            "rate": 2.25,
+            "billAmount": 384653,
+            "previous": 7095028,
+            "totalPayable": 7479681,
+            "manualBillAmountEnabled": true
+        },
+        "2026-07": {
+            "invoiceNumber": "#INV-01-07-2026",
+            "issueDate": "31st July 2026",
+            "gallons": 170957,
+            "rate": 2.25,
+            "billAmount": 384653,
+            "previous": 7479681,
+            "totalPayable": 7864334,
+            "manualBillAmountEnabled": true
+        }
     }
-  },
+},
   mega: {
     occupier: "MEGA RESIDENCY,",
     location: "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,",
@@ -362,19 +686,20 @@ let appState = {
   ntn: "C951537",
   startMonth: "2024-01",
   endMonth: "2026-07",
-  invPrefix: "#INV-",
-  invStartNum: 3001,
-  invSuffix: "-051026",
+  invPrefix: "#INV-01-",
+  invStartNum: 1,
+  invSuffix: "",
+  seqMode: "month_year",
   autoSuffixYear: false,
-  includePrevBalance: false,
-  prevBalanceMode: "zero",
+  includePrevBalance: true,
+  prevBalanceMode: "cumulative",
   openingBalance: 0,
   yearRates: {
-    "2024": { rate: 1.25, gallons: 53759 },
-    "2025": { rate: 1.25, gallons: 137788, overrides: { "2025-12": 99725 } },
-    "2026": { rate: 1.25, gallons: 137788 }
+    "2024": { rate: 2.25, gallons: 53759 },
+    "2025": { rate: 2.25, gallons: 137788 },
+    "2026": { rate: 2.25, gallons: 170957 }
   },
-  manualCorrections: {},
+  manualCorrections: JSON.parse(JSON.stringify(PRESETS.falaknaz.manualCorrections || {})),
   tableColumns: JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS)),
   currentPageIndex: 0,
   viewAllPages: false,
@@ -533,6 +858,55 @@ function getDaysInMonth(year, monthIndex0) {
 function formatNumber(num) {
   if (num === undefined || num === null || isNaN(num)) return "0";
   return Math.round(num).toLocaleString("en-US");
+}
+
+// Convert numbers into exact English words format e.g. (Rupees One Hundred Twenty Thousand Nine Hundred Fifty-Eight Only)
+function numberToWords(num) {
+  num = Math.round(Number(num) || 0);
+  if (num === 0) return 'Zero';
+
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function convertHundreds(n) {
+    let str = '';
+    if (n >= 100) {
+      str += ones[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n >= 20) {
+      str += tens[Math.floor(n / 10)];
+      if (n % 10 > 0) str += '-' + ones[n % 10];
+      str += ' ';
+    } else if (n > 0) {
+      str += ones[n] + ' ';
+    }
+    return str.trim();
+  }
+
+  let result = '';
+  const millions = Math.floor(num / 1000000);
+  num %= 1000000;
+  const thousands = Math.floor(num / 1000);
+  const remainder = num % 1000;
+
+  if (millions > 0) {
+    result += convertHundreds(millions) + ' Million ';
+  }
+  if (thousands > 0) {
+    result += convertHundreds(thousands) + ' Thousand ';
+  }
+  if (remainder > 0) {
+    result += convertHundreds(remainder);
+  }
+
+  return result.trim();
+}
+
+function formatAmountInWords(amount) {
+  const words = numberToWords(amount);
+  return `(Rupees ${words} Only)`;
 }
 
 // ----------------------------------------------------------
@@ -729,7 +1103,7 @@ function renderInvoiceTableCells(inv, cols) {
     } else if (col.id === 'billAmount') {
       text = `${formatNumber(inv.billAmount)}/-`;
     } else if (col.id === 'previous') {
-      text = inv.previous === 0 ? "0" : `${formatNumber(inv.previous)}/-`;
+      text = inv.previous === 0 ? "0" : `${formatNumber(inv.previous)}`;
     } else if (col.id === 'totalPayable') {
       text = `${formatNumber(inv.totalPayable)}/-`;
     } else {
@@ -754,15 +1128,22 @@ function calculateInvoices() {
   let runningPrevious = appState.openingBalance || 0;
 
   return months.map((m, index) => {
-    const yearConfig = appState.yearRates[m.year] || { rate: 1.25, gallons: 50000 };
+    const yearConfig = appState.yearRates[m.year] || { rate: 2.25, gallons: 50000 };
     
     let gallons = yearConfig.gallons || 50000;
     if (yearConfig.overrides && yearConfig.overrides[m.ym] !== undefined) {
       gallons = yearConfig.overrides[m.ym];
     }
-    let rate = yearConfig.rate || 1.25;
-    const effectiveSuffix = getEffectiveSuffix(m);
-    let invNum = `${appState.invPrefix}${appState.invStartNum + index}${effectiveSuffix}`;
+    let rate = yearConfig.rate || 2.25;
+    
+    let invNum = "";
+    if (appState.seqMode === "month_year" || appState.invPrefix === "#INV-01-") {
+      const mm = String(m.month).padStart(2, '0');
+      invNum = `${appState.invPrefix || "#INV-01-"}${mm}-${m.year}${getEffectiveSuffix(m)}`;
+    } else {
+      const effectiveSuffix = getEffectiveSuffix(m);
+      invNum = `${appState.invPrefix}${appState.invStartNum + index}${effectiveSuffix}`;
+    }
 
     let previous = 0;
     if (appState.includePrevBalance) {
@@ -808,13 +1189,12 @@ function calculateInvoices() {
       isManualBill = true;
     }
 
-    const totalPayable = billAmount + previous;
-    if (custom.totalPayable !== undefined) {
-      delete custom.totalPayable;
-    }
+    const totalPayable = (custom.totalPayable !== undefined && custom.totalPayable !== "") 
+      ? Number(custom.totalPayable) 
+      : (billAmount + previous);
 
     if (appState.includePrevBalance && appState.prevBalanceMode === "cumulative") {
-      runningPrevious += billAmount;
+      runningPrevious = totalPayable;
     }
 
     return {
@@ -898,6 +1278,11 @@ function renderInvoiceSheet(inv) {
         </tbody>
       </table>
 
+      <!-- Amount in Words (Rupees ... Only) -->
+      <div class="inv-amount-words">
+        ${formatAmountInWords(inv.totalPayable)}
+      </div>
+
       <!-- Bullet Notices -->
       <div class="inv-notices">
         <ul>
@@ -906,10 +1291,17 @@ function renderInvoiceSheet(inv) {
         </ul>
       </div>
 
-      <!-- Signoff -->
-      <div class="inv-signoff">
-        <div class="dept">Account Department</div>
-        <div class="date">Date : ${inv.issueDate}</div>
+      <!-- Signoff Row (Two columns: Account Dept on Left, Management on Right) -->
+      <div class="inv-signoff-row">
+        <div class="inv-signoff-left">
+          <div class="dept">Account Department</div>
+          <div class="date">Date : ${inv.issueDate}</div>
+        </div>
+        <div class="inv-signoff-right">
+          <div class="mgmt-title">Management</div>
+          <div class="mgmt-org">(Kampus Integrated Services)</div>
+          <div class="mgmt-mall">(The Mega Mall)</div>
+        </div>
       </div>
 
       <!-- Footer Address -->
@@ -1848,11 +2240,16 @@ function applyPreset(presetKey) {
   appState.includePrevBalance = preset.includePrevBalance;
   appState.prevBalanceMode = preset.prevBalanceMode;
   appState.yearRates = JSON.parse(JSON.stringify(preset.rates));
-  appState.manualCorrections = {};
-  if (preset.rates["2025"]?.overrides) {
-    Object.entries(preset.rates["2025"].overrides).forEach(([ym, gal]) => {
-      appState.manualCorrections[ym] = { gallons: gal };
-    });
+  appState.seqMode = preset.seqMode || "incremental";
+  if (preset.manualCorrections) {
+    appState.manualCorrections = JSON.parse(JSON.stringify(preset.manualCorrections));
+  } else {
+    appState.manualCorrections = {};
+    if (preset.rates["2025"]?.overrides) {
+      Object.entries(preset.rates["2025"].overrides).forEach(([ym, gal]) => {
+        appState.manualCorrections[ym] = { gallons: gal };
+      });
+    }
   }
 
   appState.currentPageIndex = 0;

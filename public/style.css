@@ -1242,7 +1242,76 @@ input:checked + .slider:before {
   line-height: 14.9pt;
 }
 
-/* Sign-off / Signature section */
+/* Amount in Words (Centered, Bold, Clean) */
+.inv-amount-words {
+  text-align: center;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-weight: 700;
+  font-size: 11pt;
+  color: #000000;
+  margin: 14pt 0 16pt 0;
+  line-height: 1.25;
+}
+
+/* Sign-off / Signature section (Two-Column: Left Account Dept, Right Management) */
+.inv-signoff-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 24pt;
+  margin-bottom: 0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #000000;
+}
+
+.inv-signoff-left {
+  text-align: left;
+}
+
+.inv-signoff-left .dept {
+  font-weight: 700;
+  font-size: 10.5pt;
+  margin-bottom: 3pt;
+  line-height: 1.2;
+}
+
+.inv-signoff-left .date {
+  font-weight: 700;
+  font-size: 10.5pt;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.inv-signoff-right {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 170pt;
+  margin-right: 5pt;
+}
+
+.inv-signoff-right .mgmt-title {
+  font-weight: 700;
+  font-size: 10.5pt;
+  margin-bottom: 12pt;
+  line-height: 1.2;
+}
+
+.inv-signoff-right .mgmt-org {
+  font-weight: 700;
+  font-size: 10pt;
+  line-height: 1.25;
+}
+
+.inv-signoff-right .mgmt-mall {
+  font-weight: 700;
+  font-size: 10pt;
+  line-height: 1.25;
+  margin-top: 8pt;
+}
+
+/* Fallback for classic single signoff */
 .inv-signoff {
   margin-bottom: 0;
   font-size: 10.5pt;
