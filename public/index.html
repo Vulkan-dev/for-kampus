@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#0d0f14">
   <link rel="stylesheet" href="/style.css?v=5">
   <script src="/assets/jspdf.umd.min.js"></script>
+  <script src="/assets/docx.iife.js"></script>
   <script src="/assets/html2canvas.min.js"></script>
   <script src="/assets/xlsx.full.min.js"></script>
 </head>
@@ -82,13 +83,13 @@
         <svg id="togglePreviewIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px; height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
         <span id="togglePreviewText">Hide Preview</span>
       </button>
-      <button class="btn btn-docx" id="exportDocxBtn" title="Export all invoices to editable Microsoft Word document">
+      <button class="btn btn-docx" id="exportDocxBtn" title="Export all invoices to editable Microsoft Word (.docx) document">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-        <span>Word</span>
+        <span>Word (.docx)</span>
       </button>
-      <button class="btn btn-pdf" id="exportPdfBtn" title="Download directly as PDF document">
+      <button class="btn btn-pdf" id="exportPdfBtn" title="Download directly as PDF with selectable & editable text">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-        <span>PDF</span>
+        <span>PDF (Editable)</span>
       </button>
       <button class="btn btn-print" id="printBtn" title="Open native print dialog">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
@@ -1101,7 +1102,7 @@
   <!-- Themed Toast Notifications Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js?v=5"></script>
+  <script src="/app.js?v=6"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

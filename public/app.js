@@ -1676,14 +1676,376 @@ function toggleViewAll(enable) {
 // ----------------------------------------------------------
 // Export Handlers: Word (.docx), PDF (.pdf), and Print
 // ----------------------------------------------------------
+let cachedMegaMallLogoData = null;
+let cachedKampusLogoData = null;
+
+async function loadLogoBase64(path) {
+  try {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = path;
+    });
+  }
+}
+
+async function ensureLogosLoaded() {
+  if (!cachedMegaMallLogoData) {
+    cachedMegaMallLogoData = await loadLogoBase64('assets/mega-mall-logo.png') || await loadLogoBase64('/assets/mega-mall-logo.png');
+  }
+  if (!cachedKampusLogoData) {
+    cachedKampusLogoData = await loadLogoBase64('assets/kampus-logo.png') || await loadLogoBase64('/assets/kampus-logo.png');
+  }
+  return { megaMallLogo: cachedMegaMallLogoData, kampusLogo: cachedKampusLogoData };
+}
+
 async function exportToWord() {
   const btn = document.getElementById("exportDocxBtn");
-  const originalText = btn.innerHTML;
-  btn.innerHTML = "Generating Word Doc...";
-  btn.disabled = true;
+  const originalText = btn ? btn.innerHTML : "Word (.docx)";
+  if (btn) {
+    btn.innerHTML = "Generating Word Doc...";
+    btn.disabled = true;
+  }
 
   try {
     const invoices = calculateInvoices();
+    if (!invoices.length) {
+      showToast("No invoices to export", "error");
+      return;
+    }
+
+    // Try client-side docx generation first (fully offline & instant)
+    if (window.docx) {
+      try {
+        const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, AlignmentType, PageBreak } = window.docx;
+
+        let megaMallBytes = null;
+        let kampusBytes = null;
+        try {
+          const [resM, resK] = await Promise.all([
+            fetch('assets/mega-mall-logo.png'),
+            fetch('assets/kampus-logo.png')
+          ]);
+          if (resM.ok) megaMallBytes = new Uint8Array(await resM.arrayBuffer());
+          if (resK.ok) kampusBytes = new Uint8Array(await resK.arrayBuffer());
+        } catch (e) {}
+
+        const solidBorder = { style: BorderStyle.SINGLE, size: 10, color: '000000' };
+        const cellBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
+        const emptyBorder = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+        const noBorders = { top: emptyBorder, bottom: emptyBorder, left: emptyBorder, right: emptyBorder };
+
+        const children = [];
+        const effectiveCols = getActiveColumns();
+
+        invoices.forEach((inv, index) => {
+          // 1. Header Table
+          const headerRowCells = [
+            new TableCell({
+              width: { size: 26, type: WidthType.PERCENTAGE },
+              borders: noBorders,
+              alignment: AlignmentType.CENTER,
+              children: [
+                megaMallBytes
+                  ? new Paragraph({
+                      alignment: AlignmentType.LEFT,
+                      children: [new ImageRun({ data: megaMallBytes, transformation: { width: 128, height: 106 } })]
+                    })
+                  : new Paragraph({ text: "MEGA MALL", alignment: AlignmentType.LEFT })
+              ]
+            }),
+            new TableCell({
+              width: { size: 48, type: WidthType.PERCENTAGE },
+              borders: noBorders,
+              alignment: AlignmentType.CENTER,
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  spacing: { after: 80 },
+                  children: [new TextRun({ text: "THE MEGA MALL", bold: true, size: 28, font: "Segoe UI" })]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [new TextRun({ text: "Official Billing Invoice / Reimburstment Note", bold: true, size: 24, font: "Segoe UI" })]
+                })
+              ]
+            }),
+            new TableCell({
+              width: { size: 26, type: WidthType.PERCENTAGE },
+              borders: noBorders,
+              alignment: AlignmentType.RIGHT,
+              children: [
+                kampusBytes
+                  ? new Paragraph({
+                      alignment: AlignmentType.RIGHT,
+                      children: [new ImageRun({ data: kampusBytes, transformation: { width: 70, height: 108 } })]
+                    })
+                  : new Paragraph({ text: "KAMPUS", alignment: AlignmentType.RIGHT })
+              ]
+            })
+          ];
+
+          children.push(new Table({
+            rows: [new TableRow({ children: headerRowCells })],
+            width: { size: 100, type: WidthType.PERCENTAGE }
+          }));
+          children.push(new Paragraph({ spacing: { after: 300 } }));
+
+          // 2. Customer & Metadata Table
+          const metaTable = new Table({
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 65, type: WidthType.PERCENTAGE },
+                    borders: noBorders,
+                    children: [
+                      new Paragraph({
+                        children: [new TextRun({ text: "Customer", bold: true, size: 20, font: "Segoe UI" })],
+                        spacing: { after: 180 }
+                      }),
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "Legal Occupier: ", bold: false, size: 18, font: "Segoe UI" }),
+                          new TextRun({ text: appState.occupier || "FALAKNAZ SPRINGS,", size: 18, font: "Segoe UI" })
+                        ],
+                        spacing: { after: 40 }
+                      }),
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "Location: ", bold: false, size: 18, font: "Segoe UI" }),
+                          new TextRun({ text: appState.location || "The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,", size: 18, font: "Segoe UI" })
+                        ],
+                        spacing: { after: 40 }
+                      }),
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "Billing Month: ", bold: true, size: 18, font: "Segoe UI" }),
+                          new TextRun({ text: normalizeMonthNames(inv.billingPeriod), bold: true, size: 18, font: "Segoe UI" })
+                        ]
+                      })
+                    ]
+                  }),
+                  new TableCell({
+                    width: { size: 35, type: WidthType.PERCENTAGE },
+                    borders: noBorders,
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [new TextRun({ text: "Invoice,", bold: true, size: 20, font: "Segoe UI" })],
+                        spacing: { after: 180 }
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [new TextRun({ text: inv.invoiceNumber, bold: true, size: 19, font: "Segoe UI" })],
+                        spacing: { after: 40 }
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [
+                          new TextRun({ text: "NTN: ", size: 18, font: "Segoe UI" }),
+                          new TextRun({ text: appState.ntn || "C951537", bold: true, size: 18, font: "Segoe UI" })
+                        ]
+                      })
+                    ]
+                  })
+                ]
+              })
+            ],
+            width: { size: 100, type: WidthType.PERCENTAGE }
+          });
+
+          children.push(metaTable);
+          children.push(new Paragraph({ spacing: { after: 350 } }));
+
+          // 3. Billing Table
+          const thStyle = { borders: cellBorders, alignment: AlignmentType.CENTER };
+          const headerCells = effectiveCols.map(col => new TableCell({
+            ...thStyle,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: (col.label || col.id).replace(/<br\s*\/?>/gi, ' ').replace(/\n/g, ' '),
+                    bold: true,
+                    size: 15,
+                    font: "Segoe UI",
+                    color: "5e616f"
+                  })
+                ]
+              })
+            ]
+          }));
+
+          const dataCells = effectiveCols.map(col => {
+            let displayVal = "";
+            if (col.id === 'gallons') {
+              displayVal = inv.gallons ? String(inv.gallons).replace(/,/g, '') : "0";
+            } else if (col.id === 'rate') {
+              displayVal = Number(inv.rate).toFixed(2);
+            } else if (col.id === 'billAmount') {
+              displayVal = `${formatNumber(inv.billAmount)}/-`;
+            } else if (col.id === 'previous') {
+              displayVal = inv.previous === 0 ? "0" : `${formatNumber(inv.previous)}`;
+            } else if (col.id === 'totalPayable') {
+              displayVal = `${formatNumber(inv.totalPayable)}/-`;
+            } else {
+              const rawVal = (inv.customValues && inv.customValues[col.id] !== undefined)
+                ? inv.customValues[col.id]
+                : (col.defaultValue || "");
+              if (col.type === 'currency' && rawVal !== "") {
+                displayVal = `${formatNumber(rawVal)}/-`;
+              } else if (col.type === 'number' && rawVal !== "") {
+                displayVal = String(rawVal).replace(/,/g, '');
+              } else {
+                displayVal = String(rawVal || "");
+              }
+            }
+
+            return new TableCell({
+              borders: cellBorders,
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [new TextRun({ text: displayVal, size: 18, font: "Segoe UI" })]
+                })
+              ]
+            });
+          });
+
+          children.push(new Table({
+            rows: [new TableRow({ children: headerCells }), new TableRow({ children: dataCells })],
+            width: { size: 100, type: WidthType.PERCENTAGE }
+          }));
+          children.push(new Paragraph({ spacing: { after: 180 } }));
+
+          // 4. Amount in Words
+          const words = formatAmountInWords(inv.totalPayable);
+          children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: words, bold: true, size: 21, font: "Segoe UI" })],
+            spacing: { before: 180, after: 260 }
+          }));
+
+          // 5. Bullet Notices
+          children.push(new Paragraph({
+            children: [new TextRun({ text: "• *Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No: 10380109491064 in Meezan Bank.", size: 17, font: "Segoe UI" })],
+            spacing: { after: 120 }
+          }));
+          children.push(new Paragraph({
+            children: [
+              new TextRun({ text: "• *If the payment is not received till the last payment date, ", size: 17, font: "Segoe UI" }),
+              new TextRun({ text: "\"The Mega Mall\"", bold: true, size: 17, font: "Segoe UI" }),
+              new TextRun({ text: " will hold the services of your lincensed area and will not held responsible for any losses Whats so ever there for.", size: 17, font: "Segoe UI" })
+            ],
+            spacing: { after: 380 }
+          }));
+
+          // 6. Signoff
+          children.push(new Table({
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: noBorders,
+                    children: [
+                      new Paragraph({
+                        children: [new TextRun({ text: "Account Department", bold: true, size: 18, font: "Segoe UI" })],
+                        spacing: { after: 50 }
+                      }),
+                      new Paragraph({
+                        children: [new TextRun({ text: `Date : ${normalizeMonthNames(inv.issueDate)}`, bold: true, size: 18, font: "Segoe UI" })]
+                      })
+                    ]
+                  }),
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: noBorders,
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [new TextRun({ text: "Management", bold: true, size: 18, font: "Segoe UI" })],
+                        spacing: { after: 200 }
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [new TextRun({ text: "(Kampus Integrated Services)", bold: true, size: 17, font: "Segoe UI" })],
+                        spacing: { after: 50 }
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [new TextRun({ text: "(The Mega Mall)", bold: true, size: 17, font: "Segoe UI" })]
+                      })
+                    ]
+                  })
+                ]
+              })
+            ],
+            width: { size: 100, type: WidthType.PERCENTAGE }
+          }));
+          children.push(new Paragraph({ spacing: { after: 800 } }));
+
+          // 7. Footer Address
+          children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: "4 Floor, Mega Mall, Block-18, Gulishtan-E-Jauhar, Karachi.", bold: true, size: 17, font: "Segoe UI" })]
+          }));
+
+          if (index < invoices.length - 1) {
+            children.push(new Paragraph({ children: [new PageBreak()] }));
+          }
+        });
+
+        const doc = new Document({
+          sections: [{
+            properties: { page: { margin: { top: 720, bottom: 720, left: 1080, right: 1080 } } },
+            children
+          }]
+        });
+
+        const blob = await Packer.toBlob(doc);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safeOcc = (appState.occupier || "Invoices").replace(/[^a-zA-Z0-9]/g, '_');
+        a.download = `Water_Invoices_${safeOcc}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        showToast("Word document generated and downloaded successfully", "success");
+        return;
+      } catch (clientErr) {
+        console.warn("Client-side docx generation failed, falling back to server:", clientErr);
+      }
+    }
+
+    // Server fallback
     const payload = {
       invoices,
       columns: getActiveColumns(),
@@ -1715,15 +2077,20 @@ async function exportToWord() {
   } catch (err) {
     showToast("Could not export Word document: " + err.message, "error");
   } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
+    if (btn) {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
   }
 }
 
 async function exportToPdf() {
   const btn = document.getElementById("exportPdfBtn");
-  const originalText = btn.innerHTML;
-  btn.disabled = true;
+  const originalText = btn ? btn.innerHTML : "PDF (Editable)";
+  if (btn) {
+    btn.innerHTML = "Generating PDF...";
+    btn.disabled = true;
+  }
 
   try {
     const invoices = calculateInvoices();
@@ -1737,63 +2104,238 @@ async function exportToPdf() {
       throw new Error("jsPDF library not loaded");
     }
 
+    showToast(`Generating selectable & editable PDF (${invoices.length} pages)...`, "info");
+
+    const { megaMallLogo, kampusLogo } = await ensureLogosLoaded();
+
     const pdf = new JsPdfConstructor({
-      unit: 'mm',
+      unit: 'pt',
       format: 'a4',
       orientation: 'portrait',
       compress: true
     });
 
-    // Create an isolated single-page off-screen staging container
-    const stage = document.createElement("div");
-    stage.style.position = "fixed";
-    stage.style.left = "-9999px";
-    stage.style.top = "0";
-    stage.style.width = "210mm";
-    stage.style.background = "#ffffff";
-    stage.style.color = "#000000";
-    stage.style.padding = "0";
-    stage.style.margin = "0";
-    stage.style.zIndex = "-9999";
-    document.body.appendChild(stage);
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const leftMargin = 32.5;
+    const rightMargin = 52.9;
+    const contentRight = pageWidth - rightMargin;
+    const contentWidth = contentRight - leftMargin;
 
-    showToast(`Generating PDF (${invoices.length} pages)...`, "info");
+    const cols = getActiveColumns();
+    const colWidths = (cols.length === 5 && cols[0].id === 'gallons')
+      ? [0.22, 0.18, 0.20, 0.20, 0.20].map(r => r * contentWidth)
+      : cols.map(() => contentWidth / cols.length);
 
     for (let i = 0; i < invoices.length; i++) {
-      btn.innerHTML = `PDF (${i + 1}/${invoices.length})...`;
-      const inv = invoices[i];
-      stage.innerHTML = renderInvoiceSheet(inv);
-      const sheet = stage.querySelector(".invoice-sheet");
+      if (btn) {
+        btn.innerHTML = `PDF (${i + 1}/${invoices.length})...`;
+      }
+      if (i > 0) {
+        pdf.addPage('a4', 'portrait');
+      }
 
-      // Render exactly one A4 page to canvas at 2x crisp resolution
-      const canvas = await html2canvas(sheet, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        windowWidth: 1000
+      const inv = invoices[i];
+
+      // 1. Header Logos & Title
+      if (megaMallLogo) {
+        try {
+          pdf.addImage(megaMallLogo, 'PNG', leftMargin, 41.4, 96, 79.5);
+        } catch (e) {
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(14);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('THE MEGA MALL', leftMargin, 80);
+        }
+      } else {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('THE MEGA MALL', leftMargin, 80);
+      }
+
+      if (kampusLogo) {
+        try {
+          pdf.addImage(kampusLogo, 'PNG', contentRight - 52.5, 41.4, 52.5, 81);
+        } catch (e) {
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(14);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('KAMPUS', contentRight, 80, { align: 'right' });
+        }
+      } else {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('KAMPUS', contentRight, 80, { align: 'right' });
+      }
+
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('THE MEGA MALL', pageWidth / 2, 70, { align: 'center' });
+
+      pdf.setFontSize(11.5);
+      pdf.text('Official Billing Invoice / Reimburstment Note', pageWidth / 2, 90, { align: 'center' });
+
+      // Divider Line below Header
+      pdf.setDrawColor(230, 230, 230);
+      pdf.setLineWidth(0.75);
+      pdf.line(leftMargin, 133, contentRight, 133);
+
+      // 2. Customer & Invoice Metadata
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10.5);
+      pdf.text('Customer', leftMargin, 168);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Legal Occupier: ' + (appState.occupier || 'FALAKNAZ SPRINGS,'), leftMargin, 185);
+
+      const locText = 'Location: ' + (appState.location || 'The Mega Mall, Block-18, Gulishtan-e-Jauhar, Karachi.,');
+      const locLines = pdf.splitTextToSize(locText, 310);
+      pdf.text(locLines, leftMargin, 201);
+
+      const billingY = 201 + (locLines.length * 14.5);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Billing Month: ' + normalizeMonthNames(inv.billingPeriod || ''), leftMargin, billingY);
+
+      // Right Column Invoice info
+      pdf.text('Invoice,', contentRight, 168, { align: 'right' });
+      pdf.setFontSize(12);
+      pdf.text(inv.invoiceNumber || '', contentRight, 187, { align: 'right' });
+      pdf.setFontSize(10.5);
+      pdf.setFont('helvetica', 'normal');
+      const ntnVal = String(appState.ntn || 'C951537');
+      pdf.text('NTN: ', contentRight - 48, 205, { align: 'right' });
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(ntnVal, contentRight, 205, { align: 'right' });
+
+      // 3. Billing Table (Dynamic Columns)
+      const tableTop = Math.max(242, billingY + 22);
+      const tableHeaderHeight = 45;
+      const tableDataHeight = 24;
+
+      let curX = leftMargin;
+      pdf.setDrawColor(222, 226, 230);
+      pdf.setLineWidth(0.75);
+
+      cols.forEach((col, idx) => {
+        const colW = colWidths[idx];
+
+        // Header Cell
+        pdf.setFillColor(250, 251, 252);
+        pdf.rect(curX, tableTop, colW, tableHeaderHeight, 'FD');
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(94, 97, 111);
+
+        const cleanLabel = (col.label || col.id)
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/\r/g, '');
+        const lines = cleanLabel.split('\n');
+
+        if (lines.length === 1) {
+          pdf.text(lines[0].toUpperCase(), curX + colW / 2, tableTop + 26, { align: 'center' });
+        } else if (lines.length === 2) {
+          pdf.text(lines[0].toUpperCase(), curX + colW / 2, tableTop + 20, { align: 'center' });
+          pdf.text(lines[1].toUpperCase(), curX + colW / 2, tableTop + 31, { align: 'center' });
+        } else {
+          pdf.text(lines[0].toUpperCase(), curX + colW / 2, tableTop + 16, { align: 'center' });
+          pdf.text(lines[1].toUpperCase(), curX + colW / 2, tableTop + 26, { align: 'center' });
+          pdf.text(lines[2].toUpperCase(), curX + colW / 2, tableTop + 36, { align: 'center' });
+        }
+
+        // Data Cell
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(curX, tableTop + tableHeaderHeight, colW, tableDataHeight, 'FD');
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10.5);
+        pdf.setTextColor(0, 0, 0);
+
+        let cellText = "";
+        if (col.id === 'gallons') {
+          cellText = inv.gallons ? String(inv.gallons).replace(/,/g, '') : "0";
+        } else if (col.id === 'rate') {
+          cellText = Number(inv.rate).toFixed(2);
+        } else if (col.id === 'billAmount') {
+          cellText = `${formatNumber(inv.billAmount)}/-`;
+        } else if (col.id === 'previous') {
+          cellText = inv.previous === 0 ? "0" : `${formatNumber(inv.previous)}`;
+        } else if (col.id === 'totalPayable') {
+          cellText = `${formatNumber(inv.totalPayable)}/-`;
+        } else {
+          const rawVal = (inv.customValues && inv.customValues[col.id] !== undefined)
+            ? inv.customValues[col.id]
+            : (col.defaultValue || "");
+          if (col.type === 'currency' && rawVal !== "") {
+            cellText = `${formatNumber(rawVal)}/-`;
+          } else if (col.type === 'number' && rawVal !== "") {
+            cellText = String(rawVal).replace(/,/g, '');
+          } else {
+            cellText = String(rawVal || "");
+          }
+        }
+
+        pdf.text(cellText, curX + colW / 2, tableTop + tableHeaderHeight + 16, { align: 'center' });
+        curX += colW;
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.96);
+      // 4. Amount in Words
+      const wordsY = tableTop + tableHeaderHeight + tableDataHeight + 25;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10.5);
+      pdf.setTextColor(0, 0, 0);
+      const amountWords = formatAmountInWords(inv.totalPayable);
+      pdf.text(amountWords, pageWidth / 2, wordsY, { align: 'center' });
 
-      if (i > 0) {
-        pdf.addPage("a4", "portrait");
-      }
-      pdf.addImage(imgData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
+      // 5. Bullet Notices
+      let noticeY = wordsY + 28;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('• *Please make payment in favour of Kampus Integrated Services NTN: C951537 Account No:', leftMargin + 10, noticeY);
+      noticeY += 13.5;
+      pdf.text('10380109491064 in Meezan Bank.', leftMargin + 19, noticeY);
+      noticeY += 18.5;
+      pdf.text('• *If the payment is not received till the last payment date, "The Mega Mall" will hold the services of your', leftMargin + 10, noticeY);
+      noticeY += 13.5;
+      pdf.text('lincensed area and will not held responsible for any losses Whats so ever there for.', leftMargin + 19, noticeY);
+
+      // 6. Signoff
+      const signoffY = 680;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10.5);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Account Department', leftMargin, signoffY);
+      pdf.text('Date : ' + normalizeMonthNames(inv.issueDate || ''), leftMargin, signoffY + 20);
+
+      pdf.text('Management', contentRight, signoffY, { align: 'right' });
+      pdf.setFontSize(10);
+      pdf.text('(Kampus Integrated Services)', contentRight, signoffY + 18, { align: 'right' });
+      pdf.text('(The Mega Mall)', contentRight, signoffY + 34, { align: 'right' });
+
+      // 7. Footer
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(9);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('4 Floor, Mega Mall, Block-18, Gulishtan-E-Jauhar, Karachi.', pageWidth / 2, 800, { align: 'center' });
     }
-
-    document.body.removeChild(stage);
 
     const safeOccupier = (appState.occupier || "Invoices").replace(/[^a-zA-Z0-9]/g, "_");
     const filename = `Water_Invoices_${safeOccupier}.pdf`;
     pdf.save(filename);
-    showToast(`Exported all ${invoices.length} invoices to PDF successfully!`, "success");
+    showToast(`Exported all ${invoices.length} invoices as editable PDF with selectable text!`, "success");
   } catch (err) {
     console.error("PDF export error:", err);
     showToast("Could not export PDF: " + err.message, "error");
   } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
+    if (btn) {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
   }
 }
 
