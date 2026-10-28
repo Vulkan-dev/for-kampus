@@ -6,7 +6,7 @@
   <title>The Mega Mall - Billing &amp; Reimbursement Invoices</title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0d0f14">
-  <link rel="stylesheet" href="/style.css?v=5">
+  <link rel="stylesheet" href="/style.css?v=10">
   <script src="/assets/jspdf.umd.min.js"></script>
   <script src="/assets/docx.iife.js"></script>
   <script src="/assets/html2canvas.min.js"></script>
@@ -1082,6 +1082,451 @@
     </div> <!-- Close #rentsDashboard -->
   </div> <!-- Close #rentsApp -->
 
+  <!-- Dedicated Payment Reminders Portal (/reminders & /reminder) -->
+    <!-- Dedicated Payment Reminders Portal (/reminders & /reminder) -->
+  <div id="remindersApp" class="reminders-wrapper" style="display:none;">
+    
+    <!-- State 1: Password Gateway Overlay (Set via REMINDERS_PASSWORD env) -->
+    <div id="remindersLoginGate" class="rem-login-overlay" style="display:flex;">
+      <div class="rem-login-card">
+        <div class="login-header">
+          <div class="rem-login-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="26" height="26" style="stroke-width:1.75;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+          </div>
+          <h1 class="rem-login-title">Payment Reminders Portal</h1>
+          <p class="rem-login-subtitle">The Mega Mall Corporate Notice System</p>
+        </div>
+        <form id="remindersLoginForm" onsubmit="return false;" style="margin-top:1.25rem;">
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label class="form-label" for="remindersPassInput" style="color:#d1d5db; font-size:0.78rem;">Reminders Master Password</label>
+            <div class="input-with-icon" style="position:relative;">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px; position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+              <input type="password" id="remindersPassInput" class="form-input rem-login-input" placeholder="••••••••••••" autocomplete="current-password" required autofocus style="padding-left:36px; padding-right:40px;" />
+              <button type="button" class="password-toggle-btn" id="remTogglePassVisibility" title="Toggle password visibility">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+              </button>
+            </div>
+            <p style="font-size:0.72rem; color:var(--text-dim); margin-top:0.4rem;">Configured via <code style="color:#ffffff; font-weight:600;">REMINDERS_PASSWORD</code> environment variable.</p>
+          </div>
+          <div id="remindersLoginError" class="login-error-alert" style="display:none; margin-top:0.6rem;"></div>
+          <button type="submit" id="remindersLoginSubmitBtn" class="rem-login-submit-btn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+            Unlock Reminders Portal
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- State 2: Main Workspace -->
+    <div id="remindersWorkspace" style="display:none; flex-direction:column; flex:1;">
+      <!-- Header -->
+      <header class="reminders-header no-print">
+        <div class="reminders-header-left">
+          <div class="reminders-brand-badge">
+            <img src="/assets/mega-mall-logo.png" alt="Mega Mall Logo" style="height:26px; object-fit:contain;" onerror="this.style.display='none'" />
+          </div>
+          <div>
+            <h1 class="reminders-title">The Mega Mall &bull; Payment Reminders</h1>
+            <p class="reminders-subtitle">Official Tenant Notice &amp; Dues Generator</p>
+          </div>
+        </div>
+
+        <!-- Center View Switcher: Letter Designer vs Reminders Master Table -->
+        <div class="rem-view-switcher">
+          <button type="button" class="rem-view-tab-btn active" id="remTabDesignerBtn" title="Switch to Letter Designer &amp; Document Preview">
+            📄 Letter Designer
+          </button>
+          <button type="button" class="rem-view-tab-btn" id="remTabTableBtn" title="Switch to Reminders Table Editor">
+            📊 Reminders Table (<span id="remTableBadgeCount">0</span>)
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" id="remHeaderAddBtn" title="Add a new reminder" style="border-color:#10b981; color:#10b981; font-weight:600;">
+            + Add Reminder
+          </button>
+        </div>
+
+        <!-- Minimal Header Actions Dropdown -->
+        <div class="reminders-header-actions">
+          <div class="rem-actions-dropdown-wrap">
+            <button type="button" class="btn btn-secondary btn-sm" id="remActionsDropdownBtn" style="background:#151821; border-color:#2a3040; color:#ffffff;">
+              ⚡ Actions <span style="font-size:0.68rem; margin-left:3px;">▼</span>
+            </button>
+            <div class="rem-actions-menu" id="remActionsMenu" style="display:none;">
+              <button type="button" class="rem-action-item" id="remExportPdfBtn">
+                <span>📄</span> Export PDF
+              </button>
+              <button type="button" class="rem-action-item" id="remPrintPdfBtn">
+                <span>🖨️</span> Print / Save PDF
+              </button>
+              <button type="button" class="rem-action-item" id="remExportDocxBtn">
+                <span>📥</span> Word (.docx)
+              </button>
+              <button type="button" class="rem-action-item" id="remSaveDraftBtn">
+                <span>💾</span> Save Draft
+              </button>
+              <div class="rem-action-divider"></div>
+              <button type="button" class="rem-action-item" id="remExportSessionBtn">
+                <span>📤</span> Export Session
+              </button>
+              <button type="button" class="rem-action-item" id="remImportSessionBtn">
+                <span>📥</span> Import Session
+              </button>
+              <div class="rem-action-divider"></div>
+              <button type="button" class="rem-action-item" id="remResetBtn" style="color:#fca5a5;">
+                <span>🔄</span> Reset
+              </button>
+            </div>
+          </div>
+          <input type="file" id="remImportFileInput" accept=".json,application/json" style="display:none;" />
+          <button type="button" class="btn btn-secondary btn-sm" id="remLogoutBtn" title="Sign out of Reminders Portal" style="color:#ef4444; border-color:#451a1a;">
+            🚪 Exit
+          </button>
+        </div>
+      </header>
+
+      <!-- VIEW 1: Letter Designer & Live Preview -->
+      <div id="remDesignerView" class="reminders-workspace">
+        
+        <!-- Left: Form Controls / Editor -->
+        <div class="reminders-editor-pane no-print">
+          
+          <!-- Card 1: Document Header & Title -->
+          <div class="rem-card">
+            <div class="rem-card-header">
+              <span class="rem-card-badge">1</span>
+              <span class="rem-card-title">Document Title &amp; Template</span>
+            </div>
+            <div class="rem-card-body">
+              <div class="rem-form-group" style="margin-bottom:0.75rem;">
+                <label class="rem-label" for="remTemplateSelect">Notice Template Preset</label>
+                <select id="remTemplateSelect" class="rem-input" style="font-weight:600;">
+                  <option value="3">Final Payment Reminder – 3 (Final Notice)</option>
+                  <option value="2">Payment Reminder – 2 (Urgent Settlement)</option>
+                  <option value="1">Payment Reminder – 1 (First Reminder)</option>
+                </select>
+              </div>
+              <div class="rem-form-row">
+                <div class="rem-form-col">
+                  <label class="rem-label" for="remMallNameInput">Mall / Header Name</label>
+                  <input type="text" id="remMallNameInput" class="rem-input" value="MEGA MALL" placeholder="e.g. MEGA MALL" />
+                </div>
+                <div class="rem-form-col">
+                  <label class="rem-label" for="remSubtitleInput">Reminder Title</label>
+                  <input type="text" id="remSubtitleInput" class="rem-input" value="FINAL PAYMENT REMINDER – 3" placeholder="e.g. FINAL PAYMENT REMINDER – 3" />
+                </div>
+              </div>
+              <div class="rem-form-group" style="margin-top:0.75rem;">
+                <label class="rem-label" for="remSubjectInput">Subject Line</label>
+                <input type="text" id="remSubjectInput" class="rem-input" value="Subject: Outstanding Payment" placeholder="e.g. Subject: Outstanding Payment" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Tenant & Date Details -->
+          <div class="rem-card">
+            <div class="rem-card-header">
+              <span class="rem-card-badge">2</span>
+              <span class="rem-card-title">Tenant &amp; Date Information</span>
+            </div>
+            <div class="rem-card-body">
+              <div class="rem-form-row">
+                <div class="rem-form-col">
+                  <label class="rem-label" for="remDateInput">Notice Date</label>
+                  <input type="date" id="remDateInput" class="rem-input" />
+                </div>
+                <div class="rem-form-col">
+                  <label class="rem-label" for="remTenantBrandInput">Tenant / Brand Name</label>
+                  <input type="text" id="remTenantBrandInput" class="rem-input" placeholder="e.g. Khaadi / Outfitters" />
+                </div>
+                <div class="rem-form-col">
+                  <label class="rem-label" for="remShopNoInput">Shop No.</label>
+                  <input type="text" id="remShopNoInput" class="rem-input" placeholder="e.g. Shop # 104, 1st Floor" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Salutation & Opening Paragraph -->
+          <div class="rem-card">
+            <div class="rem-card-header">
+              <span class="rem-card-badge">3</span>
+              <span class="rem-card-title">Salutation &amp; Warning Opening</span>
+            </div>
+            <div class="rem-card-body">
+              <div class="rem-form-group">
+                <label class="rem-label" for="remSalutationInput">1) Salutation</label>
+                <input type="text" id="remSalutationInput" class="rem-input" value="Dear Tenant," />
+              </div>
+              <div class="rem-form-group" style="margin-top:0.75rem;">
+                <label class="rem-label" for="remIntroTextInput">2) Reminder Notice Opening Statement</label>
+                <textarea id="remIntroTextInput" class="rem-textarea" rows="3" placeholder="Opening notice statement...">This is the final reminder regarding the outstanding amount mentioned above. You are requested to clear the dues by the payment deadline. If the amount remains unpaid, the matter will be referred to Management / Recovery Department for further action.</textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: Dues Table Editor (Dynamic Columns & Dynamic Rows) -->
+          <div class="rem-card">
+            <div class="rem-card-header" style="justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span class="rem-card-badge">4</span>
+                <span class="rem-card-title">Outstanding Particulars &amp; Dues Table</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                <button type="button" class="btn btn-secondary btn-xs" id="remAddColumnBtn" title="Add custom column">+ Add Column</button>
+                <button type="button" class="btn btn-secondary btn-xs" id="remAddRowBtn" title="Add line item" style="border-color:#10b981; color:#10b981; font-weight:600;">+ Add Item / Row</button>
+              </div>
+            </div>
+            <div class="rem-card-body">
+              <!-- Columns Management Bar -->
+              <div class="rem-columns-bar">
+                <span style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:600;">Active Columns (Min 1):</span>
+                <div id="remColumnsList" class="rem-columns-chips"></div>
+              </div>
+
+              <!-- Line Items Table Container -->
+              <div class="rem-table-wrapper">
+                <table class="rem-edit-table" id="remEditTable">
+                  <thead id="remEditTableHead"></thead>
+                  <tbody id="remEditTableBody"></tbody>
+                </table>
+              </div>
+
+              <!-- Total Outstanding and Manual Edit Controls -->
+              <div class="rem-total-box">
+                <div class="rem-total-left">
+                  <div class="rem-total-computed">
+                    <span style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Auto Calculated Total:</span>
+                    <span id="remAutoTotalDisplay" style="font-size:1.05rem; font-weight:700; color:#10b981;">PKR 0</span>
+                  </div>
+                  <label class="rem-checkbox-label">
+                    <input type="checkbox" id="remManualTotalCheckbox" />
+                    <span>Edit Total Manually Later</span>
+                  </label>
+                </div>
+                <div class="rem-total-right" id="remManualTotalContainer" style="display:none;">
+                  <label class="rem-label" for="remManualTotalInput">Manual Total Outstanding (PKR)</label>
+                  <input type="text" id="remManualTotalInput" class="rem-input" placeholder="Enter custom total..." />
+                </div>
+              </div>
+
+              <!-- Payment Deadline -->
+              <div class="rem-form-group" style="margin-top:1rem;">
+                <label class="rem-label" for="remPaymentDeadlineInput">Payment Deadline</label>
+                <input type="text" id="remPaymentDeadlineInput" class="rem-input" placeholder="e.g. 05-Nov-2026 or Immediately" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 5: Closing Notices & Sign-Off -->
+          <div class="rem-card">
+            <div class="rem-card-header">
+              <span class="rem-card-badge">5</span>
+              <span class="rem-card-title">Closing Notices &amp; Sign-off</span>
+            </div>
+            <div class="rem-card-body">
+              <div class="rem-form-group">
+                <label class="rem-label" for="remNotice1Input">3) Payment Proof Notice</label>
+                <textarea id="remNotice1Input" class="rem-textarea" rows="2">If payment has already been made, please share the payment proof with the Accounts Department.</textarea>
+              </div>
+              <div class="rem-form-group" style="margin-top:0.75rem;">
+                <label class="rem-label" for="remNotice2Input">4) Final Action &amp; Recovery Proceedings Notice</label>
+                <textarea id="remNotice2Input" class="rem-textarea" rows="3">If the dues are not cleared by the final deadline, the case will be forwarded to Management for appropriate further action and recovery proceedings, as applicable according to Procedures.</textarea>
+              </div>
+              <div class="rem-form-group" style="margin-top:0.75rem;">
+                <label class="rem-label" for="remSignOffInput">Sign-off Authority</label>
+                <input type="text" id="remSignOffInput" class="rem-input" value="For Mega Mall" />
+              </div>
+            </div>
+          </div>
+
+        </div> <!-- End of Editor Pane -->
+
+        <!-- Right: Live A4 Document Preview -->
+        <div class="reminders-preview-pane">
+          <div class="rem-preview-toolbar no-print">
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span class="rem-preview-status-dot"></span>
+              <span style="font-size:0.78rem; font-weight:600; color:var(--text-main);">Live Official A4 Preview</span>
+              <span style="font-size:0.72rem; color:var(--text-dim);">(Matches Word docx &amp; PDF format)</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <button type="button" class="btn btn-secondary btn-xs" id="remPreviewPdfBtn" style="border-color:#10b981; color:#10b981; font-weight:600;">📥 Export PDF</button>
+              <button type="button" class="btn btn-secondary btn-xs" id="remZoomOutBtn" title="Zoom Out">&minus;</button>
+              <span id="remZoomLevelText" style="font-size:0.74rem; font-weight:600; min-width:38px; text-align:center;">100%</span>
+              <button type="button" class="btn btn-secondary btn-xs" id="remZoomInBtn" title="Zoom In">&plus;</button>
+              <button type="button" class="btn btn-secondary btn-xs" id="remZoomResetBtn" title="Reset Zoom">Fit</button>
+            </div>
+          </div>
+
+          <!-- Printable Area Container -->
+          <div class="rem-sheet-viewport" id="remSheetViewport">
+            <div class="reminder-document-sheet" id="reminderPrintArea">
+              
+              <!-- Letterhead Logo & Header -->
+              <div class="rem-doc-header">
+                <div class="rem-doc-logo-wrap">
+                  <img src="/assets/mega-mall-logo.png" alt="Mega Mall Logo" class="rem-doc-logo" onerror="this.style.display='none'" />
+                </div>
+                <h1 class="rem-doc-mall-name" id="viewMallName">MEGA MALL</h1>
+                <h2 class="rem-doc-subtitle" id="viewSubtitle">FINAL PAYMENT REMINDER – 3</h2>
+              </div>
+
+              <!-- Top Meta Box Table (Date, Brand, Shop No) -->
+              <table class="rem-doc-meta-table">
+                <tbody>
+                  <tr>
+                    <td class="meta-label-cell">Date:</td>
+                    <td class="meta-value-cell" id="viewDate"></td>
+                  </tr>
+                  <tr>
+                    <td class="meta-label-cell">Tenant / Brand:</td>
+                    <td class="meta-value-cell" id="viewTenantBrand"></td>
+                  </tr>
+                  <tr>
+                    <td class="meta-label-cell">Shop No.</td>
+                    <td class="meta-value-cell" id="viewShopNo"></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Subject -->
+              <div class="rem-doc-subject" id="viewSubject">Subject: Outstanding Payment</div>
+
+              <!-- Salutation -->
+              <div class="rem-doc-salutation" id="viewSalutation">Dear Tenant,</div>
+
+              <!-- Warning Opening Statement -->
+              <div class="rem-doc-intro" id="viewIntroText">
+                This is the final reminder regarding the outstanding amount mentioned above. You are requested to clear the dues by the payment deadline. If the amount remains unpaid, the matter will be referred to Management / Recovery Department for further action.
+              </div>
+
+              <!-- Main Dues Table -->
+              <table class="rem-doc-dues-table" id="viewDuesTable">
+                <thead id="viewDuesTableHead"></thead>
+                <tbody id="viewDuesTableBody"></tbody>
+                <tfoot id="viewDuesTableFoot"></tfoot>
+              </table>
+
+              <!-- Payment Deadline -->
+              <div class="rem-doc-deadline-wrap">
+                <span class="deadline-label">Payment Deadline:</span>
+                <span class="deadline-value" id="viewPaymentDeadline"></span>
+              </div>
+
+              <!-- Proof of Payment Notice -->
+              <div class="rem-doc-notice" id="viewNotice1">
+                If payment has already been made, please share the payment proof with the Accounts Department.
+              </div>
+
+              <!-- Legal / Procedures Final Advisory Notice -->
+              <div class="rem-doc-notice rem-doc-final-notice" id="viewNotice2">
+                If the dues are not cleared by the final deadline, the case will be forwarded to Management for appropriate further action and recovery proceedings, as applicable according to Procedures.
+              </div>
+
+              <!-- Official Sign-off -->
+              <div class="rem-doc-signoff-wrap">
+                <div class="rem-doc-signoff" id="viewSignOff">For Mega Mall</div>
+              </div>
+
+            </div> <!-- End #reminderPrintArea -->
+          </div> <!-- End #remSheetViewport -->
+
+        </div> <!-- End Preview Pane -->
+
+      </div> <!-- End #remDesignerView -->
+
+      <!-- VIEW 2: Reminders Master Table Editor -->
+      <div id="remTableView" class="rem-table-view no-print" style="display:none; padding:1.5rem; max-width:1750px; margin:0 auto; width:100%; box-sizing:border-box;">
+        <div class="rem-card">
+          <div class="rem-card-header" style="justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <span class="rem-card-badge">📊</span>
+              <div>
+                <span class="rem-card-title">Tenant Reminders Master Table Editor</span>
+                <p style="font-size:0.72rem; color:var(--text-dim); margin:0.15rem 0 0 0;">Manage, add, search, and edit all issued tenant payment reminders</p>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <input type="text" id="remTableSearchInput" class="rem-input" placeholder="Search by brand or shop..." style="width:220px; font-size:0.78rem; padding:0.4rem 0.65rem;" />
+              <select id="remTableFilterSelect" class="rem-input" style="width:160px; font-size:0.78rem; padding:0.4rem 0.65rem;">
+                <option value="all">All Reminder Types</option>
+                <option value="3">Final Reminder 3</option>
+                <option value="2">Reminder 2</option>
+                <option value="1">Reminder 1</option>
+              </select>
+              <button type="button" class="btn btn-secondary btn-sm" id="remTableAddBtn" style="border-color:#10b981; color:#10b981; font-weight:600;">
+                + Add Reminder
+              </button>
+            </div>
+          </div>
+          <div class="rem-card-body" style="padding:0;">
+            <div class="rem-master-table-scroll">
+              <table class="rem-master-table" id="remindersMasterTable">
+                <thead>
+                  <tr>
+                    <th style="width:50px; text-align:center;">Sr.</th>
+                    <th style="width:95px; text-align:center;">Date</th>
+                    <th style="min-width:140px;">Tenant / Brand</th>
+                    <th style="width:90px; text-align:center;">Shop No.</th>
+                    <th style="width:140px; text-align:center;">Reminder Type</th>
+                    <th style="min-width:180px;">Particulars / Invoices</th>
+                    <th style="width:105px; text-align:center;">Deadline</th>
+                    <th style="width:125px; text-align:right;">Outstanding (PKR)</th>
+                    <th style="width:130px; text-align:center;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="remMasterTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- End #remindersWorkspace -->
+
+  </div> <!-- Close #remindersApp -->
+
+  <!-- Modal for Adding Custom Column -->
+  <div class="modal-backdrop" id="remAddColModalBackdrop" style="display:none;">
+    <div class="modal-card" style="width:380px;">
+      <div class="modal-header">
+        <div class="modal-title">Add Table Column</div>
+        <button type="button" class="btn btn-secondary btn-sm" id="remCancelAddColBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="rem-form-group">
+          <label class="rem-label" for="remNewColNameInput">Column Header Name</label>
+          <input type="text" id="remNewColNameInput" class="rem-input" placeholder="e.g. Month, Challan #, Remarks..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="remCancelAddColBtn2">Cancel</button>
+        <button type="button" class="btn btn-primary" id="remConfirmAddColBtn">Add Column</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Managing Saved Tenant Sessions in Local Storage -->
+  <div class="modal-backdrop" id="remLibraryModalBackdrop" style="display:none;">
+    <div class="modal-card" style="width:580px; max-width:92vw;">
+      <div class="modal-header">
+        <div class="modal-title">Saved Tenant Sessions (Browser Local Storage)</div>
+        <button type="button" class="btn btn-secondary btn-sm" id="remCloseLibraryModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.75rem;">
+          These reminder records are kept privately on this device's local storage only. Click <strong>Load</strong> on any record to restore its full data and continue working.
+        </p>
+        <div id="remLibraryList" style="max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;"></div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button type="button" class="btn btn-danger btn-sm" id="remClearAllLibraryBtn">Clear All Local Records</button>
+        <button type="button" class="btn btn-secondary" id="remCloseLibraryModalBtn2">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Themed Confirmation Modal -->
   <div class="modal-backdrop" id="confirmModalBackdrop">
     <div class="modal-card" style="width:420px;">
@@ -1102,7 +1547,7 @@
   <!-- Themed Toast Notifications Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js?v=6"></script>
+  <script src="/app.js?v=10"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

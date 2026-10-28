@@ -2832,3 +2832,955 @@ input:checked + .slider:before {
     background: transparent !important;
   }
 }
+
+/* ==========================================================
+   Payment Reminders Portal Styles (/reminders & /reminder)
+   Matte Obsidian & Slate Theme (Zero Blue Glow)
+   ========================================================== */
+
+.reminders-wrapper {
+  min-height: 100vh;
+  background-color: #090a0d;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Reminders Login Gate - Matte Dark Obsidian */
+.rem-login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(6, 7, 9, 0.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(12px);
+  padding: 1.5rem;
+}
+
+.rem-login-card {
+  background: #111317;
+  border: 1px solid #222632;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 92vw;
+  padding: 2.25rem 2rem;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.rem-login-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: #161922;
+  border: 1px solid #282e3c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  margin: 0 auto 0.75rem auto;
+}
+
+.rem-login-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.rem-login-subtitle {
+  font-size: 0.76rem;
+  color: #9ca3af;
+  text-align: center;
+  margin: 0.25rem 0 0 0;
+}
+
+.rem-login-input {
+  width: 100% !important;
+  background: #07080a !important;
+  border: 1px solid #262a36 !important;
+  border-radius: 6px !important;
+  color: #ffffff !important;
+  padding: 0.65rem 0.85rem !important;
+  font-size: 0.88rem !important;
+  font-family: inherit !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  transition: border-color 0.15s ease !important;
+}
+
+.rem-login-input:focus {
+  border-color: #4b5563 !important;
+  box-shadow: 0 0 0 1px #4b5563 !important;
+}
+
+.rem-login-submit-btn {
+  width: 100%;
+  background: #171a22;
+  border: 1px solid #2a3040;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: 1rem;
+}
+
+.rem-login-submit-btn:hover {
+  background: #202532;
+  border-color: #3b4356;
+  color: #ffffff;
+}
+
+/* Minimal Header */
+.reminders-header {
+  height: 60px;
+  background: #101217;
+  border-bottom: 1px solid #1c202a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  gap: 1rem;
+}
+
+.reminders-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.reminders-brand-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #161820;
+  border: 1px solid #242936;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.reminders-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.reminders-subtitle {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* Center View Switcher */
+.rem-view-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #151821;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #232734;
+}
+
+.rem-view-tab-btn {
+  background: transparent;
+  color: #9ca3af;
+  border: 1px solid transparent;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rem-view-tab-btn:hover {
+  color: #ffffff;
+  background: #1d212c;
+}
+
+.rem-view-tab-btn.active {
+  background: #202431;
+  color: #ffffff;
+  font-weight: 600;
+  border-color: #353c4e;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.reminders-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Minimal Actions Dropdown */
+.rem-actions-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.rem-actions-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #111317;
+  border: 1px solid #242936;
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
+  min-width: 200px;
+  padding: 6px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rem-action-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #e5e7eb;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  width: 100%;
+}
+
+.rem-action-item:hover {
+  background: #1c202b;
+  color: #ffffff;
+}
+
+.rem-action-divider {
+  height: 1px;
+  background: #1f232b;
+  margin: 4px 0;
+}
+
+/* Main Split Workspace */
+.reminders-workspace {
+  display: grid;
+  grid-template-columns: minmax(460px, 1.05fr) minmax(520px, 1.2fr);
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1750px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .reminders-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reminders-editor-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rem-card {
+  background: #111317;
+  border: 1px solid #1f232c;
+  border-radius: 10px;
+  padding: 1.15rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.rem-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #1c2028;
+}
+
+.rem-card-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #1c202a;
+  border: 1px solid #282e3c;
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rem-card-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+}
+
+.rem-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.rem-form-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.rem-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.rem-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #9ca3af;
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rem-input,
+.rem-textarea {
+  background: #08090c;
+  border: 1px solid #232732;
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.84rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.rem-input:focus,
+.rem-textarea:focus {
+  outline: none;
+  border-color: #4b5563;
+  box-shadow: 0 0 0 1px #4b5563;
+}
+
+.rem-textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+/* Dynamic Columns Chips */
+.rem-columns-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  background: #151821;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #212530;
+}
+
+.rem-columns-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rem-column-chip {
+  background: #1e222d;
+  border: 1px solid #2c3240;
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rem-column-chip .chip-remove-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.rem-column-chip .chip-remove-btn:hover {
+  color: #f87171;
+}
+
+/* Table Editor */
+.rem-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #1f232c;
+  border-radius: 6px;
+  background: #090a0d;
+  margin-bottom: 0.75rem;
+}
+
+.rem-edit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.rem-edit-table th {
+  background: #151821;
+  color: #9ca3af;
+  font-weight: 600;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid #222632;
+  white-space: nowrap;
+}
+
+.rem-edit-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid #181b23;
+  vertical-align: middle;
+}
+
+.rem-edit-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rem-edit-table tbody tr:hover {
+  background: #12151c;
+}
+
+.rem-table-input {
+  background: #07080b;
+  border: 1px solid #212531;
+  color: #ffffff;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.78rem;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rem-table-input:focus {
+  outline: none;
+  border-color: #4b5563;
+}
+
+.rem-row-delete-btn {
+  background: transparent;
+  border: 1px solid #2d3342;
+  color: #9ca3af;
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rem-row-delete-btn:hover:not(:disabled) {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.rem-row-delete-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Total Box */
+.rem-total-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #14161f;
+  border: 1px solid #222633;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.rem-total-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rem-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rem-total-right {
+  min-width: 200px;
+}
+
+/* Right Preview Pane */
+.reminders-preview-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: sticky;
+  top: 76px;
+}
+
+.rem-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #111317;
+  border: 1px solid #1f232c;
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+}
+
+.rem-preview-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+  display: inline-block;
+}
+
+.rem-sheet-viewport {
+  background: #181b22;
+  border: 1px solid #232732;
+  border-radius: 10px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  min-height: 820px;
+}
+
+/* Official A4 Document Sheet (Matches reference Word & PDF formats exactly) */
+.reminder-document-sheet {
+  background: #ffffff;
+  color: #000000;
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+  padding: 24mm 22mm 24mm 22mm;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  font-family: Calibri, "Segoe UI", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+  transform-origin: top center;
+  transition: transform 0.15s ease;
+}
+
+.rem-doc-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.rem-doc-logo-wrap {
+  text-align: center;
+  margin-bottom: 0.4rem;
+}
+
+.rem-doc-logo {
+  max-height: 48px;
+  object-fit: contain;
+}
+
+.rem-doc-mall-name {
+  font-size: 16pt;
+  font-weight: 700;
+  color: #000000;
+  margin: 0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rem-doc-subtitle {
+  font-size: 12.5pt;
+  font-weight: 700;
+  color: #000000;
+  margin: 0.2rem 0 0 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Top Meta Table */
+.rem-doc-meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  border: 1.5px solid #000000;
+}
+
+.rem-doc-meta-table td {
+  border: 1.5px solid #000000;
+  padding: 5px 9px;
+  font-size: 10.5pt;
+}
+
+.meta-label-cell {
+  width: 24%;
+  font-weight: 700;
+  color: #000000;
+}
+
+.meta-value-cell {
+  width: 76%;
+  color: #000000;
+  font-weight: 600;
+  text-decoration: none !important;
+}
+
+/* Subject & Salutation */
+.rem-doc-subject {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #000000;
+  margin: 0.75rem 0 0.5rem 0;
+}
+
+.rem-doc-salutation {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #000000;
+  margin: 0.4rem 0 0.4rem 0;
+}
+
+.rem-doc-intro {
+  font-size: 10.5pt;
+  line-height: 1.45;
+  color: #000000;
+  margin-bottom: 1rem;
+  text-align: justify;
+}
+
+/* Dues Table */
+.rem-doc-dues-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid #000000;
+  margin-bottom: 1rem;
+}
+
+.rem-doc-dues-table th {
+  border: 1.5px solid #000000;
+  background: #f0f0f0;
+  color: #000000;
+  font-weight: 700;
+  padding: 6px 8px;
+  font-size: 10pt;
+  text-align: center;
+}
+
+.rem-doc-dues-table td {
+  border: 1.5px solid #000000;
+  padding: 6px 8px;
+  font-size: 10pt;
+  color: #000000;
+}
+
+.rem-doc-dues-table tfoot td {
+  border: 1.5px solid #000000;
+  padding: 7px 9px;
+  font-weight: 700;
+  background: #fafafa;
+}
+
+.rem-cell-center {
+  text-align: center;
+}
+
+.rem-cell-right {
+  text-align: right;
+  font-weight: 600;
+}
+
+.rem-cell-left {
+  text-align: left;
+}
+
+/* Deadline & Notices */
+.rem-doc-deadline-wrap {
+  font-size: 10.5pt;
+  margin: 0.75rem 0;
+}
+
+.rem-doc-deadline-wrap .deadline-label {
+  font-weight: 700;
+  color: #000000;
+}
+
+.rem-doc-deadline-wrap .deadline-value {
+  font-weight: 700;
+  color: #000000;
+  border-bottom: none !important;
+  text-decoration: none !important;
+  padding-bottom: 0;
+}
+
+.rem-doc-notice {
+  font-size: 10pt;
+  line-height: 1.45;
+  color: #000000;
+  margin-bottom: 0.5rem;
+  text-align: justify;
+}
+
+.rem-doc-final-notice {
+  margin-top: 0.6rem;
+}
+
+.rem-doc-signoff-wrap {
+  margin-top: 2.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rem-doc-signoff {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #000000;
+  text-align: right;
+  min-width: 160px;
+}
+
+/* ==========================================================
+   Reminders Master Table Editor Styles
+   ========================================================== */
+.rem-master-table-scroll {
+  overflow-x: auto;
+  max-height: 70vh;
+}
+
+.rem-master-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.rem-master-table th {
+  background: #141720;
+  color: #9ca3af;
+  font-weight: 600;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  border-bottom: 1px solid #222632;
+  white-space: nowrap;
+}
+
+.rem-master-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #1a1e27;
+  vertical-align: middle;
+}
+
+.rem-master-table tbody tr:hover {
+  background: #151822;
+}
+
+/* Status Badges */
+.rem-badge-final {
+  background: #2b1216;
+  color: #f87171;
+  border: 1px solid #6b1d24;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.rem-badge-second {
+  background: #2b1f11;
+  color: #fbbf24;
+  border: 1px solid #6b4315;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.rem-badge-first {
+  background: #262812;
+  color: #fde047;
+  border: 1px solid #5a5c18;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Reminders Master Table Inline Editor Inputs */
+.rem-te-input {
+  background: #090b0f;
+  border: 1px solid #252a36;
+  border-radius: 4px;
+  color: #ffffff;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.rem-te-input:focus {
+  border-color: #4b5563;
+  background: #0f1218;
+}
+
+.rem-te-select {
+  background: #090b0f;
+  border: 1px solid #252a36;
+  border-radius: 4px;
+  color: #ffffff;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.78rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  cursor: pointer;
+}
+
+.rem-te-select:focus {
+  border-color: #4b5563;
+}
+
+.rem-te-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid #262c3a;
+  background: #141720;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.rem-te-action-btn:hover {
+  background: #1e2330;
+  border-color: #3f475c;
+}
+
+.rem-te-action-btn.btn-del:hover {
+  border-color: #ef4444;
+  color: #fca5a5;
+  background: #2b1216;
+}
+
+.rem-te-action-btn.btn-pdf:hover {
+  border-color: #10b981;
+  color: #6ee7b7;
+  background: #0d281e;
+}
+
+/* Print Styles for Payment Reminders */
+@media print {
+  body.route-reminders {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.route-reminders .reminders-header,
+  body.route-reminders .reminders-editor-pane,
+  body.route-reminders .rem-preview-toolbar,
+  body.route-reminders .rem-view-switcher,
+  body.route-reminders .rem-table-view,
+  body.route-reminders #remindersLoginGate,
+  body.route-reminders .no-print,
+  body.route-reminders .app-header,
+  body.route-reminders .app-container,
+  body.route-reminders #rentsApp,
+  body.route-reminders #kernelxApp {
+    display: none !important;
+  }
+
+  body.route-reminders .reminders-wrapper,
+  body.route-reminders .reminders-workspace,
+  body.route-reminders .reminders-preview-pane,
+  body.route-reminders .rem-sheet-viewport {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    border: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+
+  body.route-reminders .reminder-document-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 12mm 15mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    transform: none !important;
+  }
+}

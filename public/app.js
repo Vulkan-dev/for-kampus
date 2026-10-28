@@ -4273,357 +4273,1481 @@ window.deleteRentRecord = deleteRentRecord;
 // ==========================================================
 // Route Isolation & View Initialization (/rent, /rents vs /kernelx vs /)
 // ==========================================================
-function checkRouteMode() {
-  const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
-  const isRentsRoute = pathname === '/rent' || pathname === '/rents';
-  if (isRentsRoute) {
-    document.getElementById("loginScreen")?.remove();
-    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
-    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
-    const kernelxApp = document.getElementById("kernelxApp");
-    if (kernelxApp) kernelxApp.style.display = "none";
-    const rentsApp = document.getElementById("rentsApp");
-    if (rentsApp) rentsApp.style.display = "block";
-    document.title = "Allottees Rent Master Register - The Mega Mall";
-    initRentsApp();
-    return true;
+// Payment Reminders Module (/reminders & /reminder)
+// Minimal Matte Black/Slate UI + Master Table Editor + Actions Menu + Vector PDF
+// ==========================================================
+const REMINDERS_TOKEN_KEY = 'mega_mall_reminders_token';
+const REMINDERS_DRAFT_KEY = 'mega_mall_reminders_draft_v3';
+const REMINDERS_MASTER_LIST_KEY = 'mega_mall_reminders_master_list_v2';
+
+const reminderTemplates = {
+  1: {
+    subtitle: 'PAYMENT REMINDER – 1',
+    introText: 'As per our records, the following amount is outstanding against your shop. You are requested to clear the outstanding amount by the due date.',
+    notice1: 'If payment has already been made, please share the payment proof with the Accounts Department.',
+    notice2: 'Kindly treat this as a payment reminder and arrange settlement within the above deadline.'
+  },
+  2: {
+    subtitle: 'PAYMENT REMINDER – 2',
+    introText: 'This is a second reminder that the above outstanding amount is still unpaid as per our records. You are requested to clear the outstanding amount immediately to avoid further recovery action.',
+    notice1: 'If payment has already been made, please share the payment proof with the Accounts Department.',
+    notice2: 'Please treat this matter as urgent. Continued non-payment may result in escalation to the relevant Management / Recovery authority.'
+  },
+  3: {
+    subtitle: 'FINAL PAYMENT REMINDER – 3',
+    introText: 'This is the final reminder regarding the outstanding amount mentioned above. You are requested to clear the dues by the payment deadline. If the amount remains unpaid, the matter will be referred to Management / Recovery Department for further action.',
+    notice1: 'If payment has already been made, please share the payment proof with the Accounts Department.',
+    notice2: 'If the dues are not cleared by the final deadline, the case will be forwarded to Management for appropriate further action and recovery proceedings, as applicable according to Procedures.'
   }
+};
 
-  const isKernelxRoute = pathname === '/kernelx';
-  if (isKernelxRoute) {
-    // Dedicated KernelX Master Mode
-    document.getElementById("loginScreen")?.remove();
-    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
-    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
-    const rentsApp = document.getElementById("rentsApp");
-    if (rentsApp) rentsApp.style.display = "none";
-
-    const kernelxApp = document.getElementById("kernelxApp");
-    if (kernelxApp) kernelxApp.style.display = "block";
-    document.title = "KernelX - User Directory & Access Control";
-    initKernelx();
-    return true;
-  }
-
-  // Standard Root Invoice Mode - Guarantee rents portal is completely hidden
-  const rentsApp = document.getElementById("rentsApp");
-  if (rentsApp) rentsApp.style.display = "none";
-  const kernelxApp = document.getElementById("kernelxApp");
-  if (kernelxApp) kernelxApp.style.display = "none";
-
-  switchTab("preview");
-  return false;
+function getDefaultReminderState(id = 'rem_1') {
+  return {
+    id,
+    activePreset: 3,
+    mallName: 'MEGA MALL',
+    subtitle: 'FINAL PAYMENT REMINDER – 3',
+    subject: 'Subject: Outstanding Payment',
+    date: new Date().toISOString().split('T')[0],
+    tenantBrand: '',
+    shopNo: '',
+    salutation: 'Dear Tenant,',
+    introText: reminderTemplates[3].introText,
+    columns: [
+      { id: 'sr', label: 'Sr.', isSr: true, isRemovable: false },
+      { id: 'invNo', label: 'Invoice No.', isRemovable: true },
+      { id: 'particulars', label: 'Particulars', isRemovable: true },
+      { id: 'dueDate', label: 'Due Date', isRemovable: true },
+      { id: 'outstanding', label: 'Outstanding (PKR)', isAmount: true, isRemovable: true }
+    ],
+    rows: [
+      { id: 'r_1', sr: 1, invNo: 'INV-001', particulars: 'Rent / CAM / Water / Other Charges', dueDate: '15-Oct-2026', outstanding: '150000' }
+    ],
+    isManualTotal: false,
+    manualTotal: '',
+    paymentDeadline: '05-Nov-2026',
+    notice1: reminderTemplates[3].notice1,
+    notice2: reminderTemplates[3].notice2,
+    signOff: 'For Mega Mall',
+    zoom: 1
+  };
 }
 
-// Setup Event Listeners
-document.addEventListener("DOMContentLoaded", () => {
-  // Isolate execution: on /rents or /kernelx, initialize dedicated app and do not run water invoice code
-  if (checkRouteMode()) {
+let remState = getDefaultReminderState();
+let remindersMasterList = [];
+let currentRemView = 'designer'; // 'designer' | 'table'
+
+function loadRemindersDraft() {
+  try {
+    const savedDraft = localStorage.getItem(REMINDERS_DRAFT_KEY);
+    if (savedDraft) {
+      const parsed = JSON.parse(savedDraft);
+      remState = { ...getDefaultReminderState(), ...parsed };
+    }
+  } catch (e) {
+    console.warn('Failed to parse reminders draft from localStorage:', e);
+  }
+
+  try {
+    const savedList = localStorage.getItem(REMINDERS_MASTER_LIST_KEY);
+    if (savedList) {
+      remindersMasterList = JSON.parse(savedList);
+      if (!Array.isArray(remindersMasterList)) remindersMasterList = [];
+    }
+  } catch (e) {
+    console.warn('Failed to parse reminders master list:', e);
+    remindersMasterList = [];
+  }
+
+  // Seed with active draft if master list is empty
+  if (remindersMasterList.length === 0) {
+    saveCurrentDraftToMasterList(false);
+  }
+}
+
+function saveRemindersDraft(showFeedback = false) {
+  try {
+    localStorage.setItem(REMINDERS_DRAFT_KEY, JSON.stringify(remState));
+    saveCurrentDraftToMasterList(false);
+    updateRemindersBadgeCount();
+    if (showFeedback) {
+      showToast('Draft and table saved to browser storage.', 'success');
+    }
+  } catch (e) {
+    console.error('Failed to save reminders draft:', e);
+    if (showFeedback) {
+      showToast('Storage quota exceeded or error saving draft.', 'error');
+    }
+  }
+}
+
+function saveCurrentDraftToMasterList(triggerRender = true) {
+  if (!remState || !remState.id) return;
+  const existingIdx = remindersMasterList.findIndex(r => r.id === remState.id);
+  const record = {
+    id: remState.id,
+    date: remState.date || '',
+    brand: remState.tenantBrand || 'Untitled Tenant',
+    shop: remState.shopNo || '-',
+    preset: remState.activePreset || 3,
+    deadline: remState.paymentDeadline || '-',
+    particularsSummary: (remState.rows && remState.rows[0]) ? remState.rows[0].particulars || 'Dues' : 'Dues',
+    total: getFormattedTotal(),
+    state: JSON.parse(JSON.stringify(remState)),
+    updatedAt: new Date().toISOString()
+  };
+
+  if (existingIdx >= 0) {
+    remindersMasterList[existingIdx] = record;
+  } else {
+    remindersMasterList.unshift(record);
+  }
+
+  try {
+    localStorage.setItem(REMINDERS_MASTER_LIST_KEY, JSON.stringify(remindersMasterList));
+    updateRemindersBadgeCount();
+    if (triggerRender) renderRemindersMasterTable();
+  } catch (e) {
+    console.warn('Failed to save master list:', e);
+  }
+}
+
+function updateRemindersBadgeCount() {
+  const badge = document.getElementById('remTableBadgeCount');
+  if (badge) {
+    badge.textContent = remindersMasterList.length;
+  }
+}
+
+function switchRemindersView(view) {
+  currentRemView = view;
+  const designerView = document.getElementById('remDesignerView');
+  const tableView = document.getElementById('remTableView');
+  const tabDesignerBtn = document.getElementById('remTabDesignerBtn');
+  const tabTableBtn = document.getElementById('remTabTableBtn');
+
+  if (view === 'table') {
+    if (designerView) designerView.style.display = 'none';
+    if (tableView) tableView.style.display = 'block';
+    if (tabDesignerBtn) tabDesignerBtn.classList.remove('active');
+    if (tabTableBtn) tabTableBtn.classList.add('active');
+    renderRemindersMasterTable();
+  } else {
+    if (tableView) tableView.style.display = 'none';
+    if (designerView) designerView.style.display = 'flex';
+    if (tabTableBtn) tabTableBtn.classList.remove('active');
+    if (tabDesignerBtn) tabDesignerBtn.classList.add('active');
+    renderRemindersPreview();
+  }
+}
+
+function createNewReminder() {
+  const newId = 'rem_' + Date.now();
+  remState = getDefaultReminderState(newId);
+  saveRemindersDraft(false);
+  syncFormFromState();
+  renderRemindersColumnsChips();
+  renderRemindersEditTable();
+  renderRemindersPreview();
+  switchRemindersView('designer');
+  showToast('Created new blank reminder letter.', 'info');
+}
+
+function loadReminderRecordIntoDesigner(recordId) {
+  const found = remindersMasterList.find(r => r.id === recordId);
+  if (!found || !found.state) {
+    showToast('Could not load reminder record.', 'error');
+    return;
+  }
+  remState = { ...getDefaultReminderState(recordId), ...found.state };
+  localStorage.setItem(REMINDERS_DRAFT_KEY, JSON.stringify(remState));
+
+  syncFormFromState();
+  renderRemindersColumnsChips();
+  renderRemindersEditTable();
+  renderRemindersPreview();
+  switchRemindersView('designer');
+  showToast('Loaded ' + (remState.tenantBrand || 'Tenant') + ' into Designer.', 'info');
+}
+
+function deleteReminderRecord(recordId) {
+  if (confirm('Are you sure you want to delete this reminder from the table?')) {
+    remindersMasterList = remindersMasterList.filter(r => r.id !== recordId);
+    localStorage.setItem(REMINDERS_MASTER_LIST_KEY, JSON.stringify(remindersMasterList));
+    updateRemindersBadgeCount();
+    renderRemindersMasterTable();
+    showToast('Reminder deleted from table.', 'info');
+  }
+}
+
+function onMasterTableFieldChange(recordId, field, value) {
+  const record = remindersMasterList.find(r => r.id === recordId);
+  if (!record) return;
+
+  if (field === 'preset') {
+    const p = parseInt(value, 10);
+    record.preset = p;
+    if (record.state) {
+      record.state.activePreset = p;
+      if (reminderTemplates[p]) {
+        record.state.subtitle = reminderTemplates[p].subtitle;
+        record.state.introText = reminderTemplates[p].introText;
+        record.state.notice1 = reminderTemplates[p].notice1;
+        record.state.notice2 = reminderTemplates[p].notice2;
+      }
+    }
+  } else if (field === 'brand') {
+    record.brand = value;
+    if (record.state) record.state.tenantBrand = value;
+  } else if (field === 'shop') {
+    record.shop = value;
+    if (record.state) record.state.shopNo = value;
+  } else if (field === 'date') {
+    record.date = value;
+    if (record.state) record.state.date = value;
+  } else if (field === 'deadline') {
+    record.deadline = value;
+    if (record.state) record.state.paymentDeadline = value;
+  } else if (field === 'particularsSummary') {
+    record.particularsSummary = value;
+    if (record.state && record.state.rows && record.state.rows[0]) {
+      record.state.rows[0].particulars = value;
+    }
+  } else if (field === 'total') {
+    record.total = value;
+    if (record.state) {
+      record.state.isManualTotal = true;
+      record.state.manualTotal = value;
+    }
+  }
+
+  // Persist to localStorage
+  localStorage.setItem(REMINDERS_MASTER_LIST_KEY, JSON.stringify(remindersMasterList));
+
+  // If currently active in designer, sync
+  if (remState && remState.id === recordId) {
+    remState = { ...remState, ...(record.state || {}) };
+    localStorage.setItem(REMINDERS_DRAFT_KEY, JSON.stringify(remState));
+    syncFormFromState();
+    renderRemindersPreview();
+  }
+}
+
+function renderRemindersMasterTable() {
+  const tbody = document.getElementById('remMasterTableBody');
+  if (!tbody) return;
+
+  const searchVal = (document.getElementById('remTableSearchInput')?.value || '').toLowerCase().trim();
+  const filterVal = document.getElementById('remTableFilterSelect')?.value || 'all';
+
+  let filtered = remindersMasterList.slice();
+
+  if (filterVal !== 'all') {
+    const presetNum = parseInt(filterVal, 10);
+    filtered = filtered.filter(r => r.preset === presetNum);
+  }
+
+  if (searchVal) {
+    filtered = filtered.filter(r => {
+      const brand = (r.brand || '').toLowerCase();
+      const shop = (r.shop || '').toLowerCase();
+      const summary = (r.particularsSummary || '').toLowerCase();
+      return brand.includes(searchVal) || shop.includes(searchVal) || summary.includes(searchVal);
+    });
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align:center; padding:2.5rem 1rem; color:var(--text-muted); font-size:0.84rem;">
+          No matching reminders found.<br>
+          <button type="button" class="btn btn-secondary btn-sm" id="remEmptyAddBtn" style="margin-top:0.75rem; border-color:#10b981; color:#10b981;">
+            + Add New Reminder
+          </button>
+        </td>
+      </tr>
+    `;
+    document.getElementById('remEmptyAddBtn')?.addEventListener('click', createNewReminder);
     return;
   }
 
-  document.getElementById("preset-falaknaz")?.addEventListener("click", () => applyPreset("falaknaz"));
-  document.getElementById("preset-mega")?.addEventListener("click", () => applyPreset("mega"));
+  let html = '';
+  filtered.forEach((r, idx) => {
+    html += `
+      <tr data-record-id="${r.id}">
+        <td style="text-align:center; font-weight:600; color:var(--text-dim); width:40px;">${idx + 1}</td>
+        <td style="width:115px;">
+          <input type="date" class="rem-te-input rem-te-date" data-id="${r.id}" data-field="date" value="${r.date || ''}" title="Notice Date" />
+        </td>
+        <td style="min-width:140px;">
+          <input type="text" class="rem-te-input rem-te-brand" data-id="${r.id}" data-field="brand" value="${escapeHtml(r.brand || '')}" placeholder="Tenant / Brand" style="font-weight:600;" />
+        </td>
+        <td style="width:85px;">
+          <input type="text" class="rem-te-input rem-te-shop" data-id="${r.id}" data-field="shop" value="${escapeHtml(r.shop || '')}" placeholder="Shop #" style="text-align:center;" />
+        </td>
+        <td style="width:125px;">
+          <select class="rem-te-select rem-te-preset" data-id="${r.id}" data-field="preset" style="font-weight:600; color:${r.preset === 3 ? '#f87171' : (r.preset === 2 ? '#fbbf24' : '#fde047')};">
+            <option value="3" ${r.preset === 3 ? 'selected' : ''} style="color:#f87171;">Final 3</option>
+            <option value="2" ${r.preset === 2 ? 'selected' : ''} style="color:#fbbf24;">Reminder 2</option>
+            <option value="1" ${r.preset === 1 ? 'selected' : ''} style="color:#fde047;">Reminder 1</option>
+          </select>
+        </td>
+        <td style="min-width:160px;">
+          <input type="text" class="rem-te-input rem-te-particulars" data-id="${r.id}" data-field="particularsSummary" value="${escapeHtml(r.particularsSummary || '')}" placeholder="Particulars summary" />
+        </td>
+        <td style="width:110px;">
+          <input type="text" class="rem-te-input rem-te-deadline" data-id="${r.id}" data-field="deadline" value="${escapeHtml(r.deadline || '')}" placeholder="Deadline" style="text-align:center; color:#fbbf24; font-weight:600;" />
+        </td>
+        <td style="width:115px;">
+          <input type="text" class="rem-te-input rem-te-total" data-id="${r.id}" data-field="total" value="${escapeHtml(r.total || '0')}" placeholder="0" style="text-align:right; font-weight:700; color:#10b981;" />
+        </td>
+        <td style="text-align:center; white-space:nowrap; width:130px;">
+          <div style="display:inline-flex; gap:0.25rem;">
+            <button type="button" class="btn btn-secondary btn-xs rem-table-edit-btn" data-id="${r.id}" title="Open in Letter Designer" style="padding:3px 7px;">📄 Letter</button>
+            <button type="button" class="btn btn-secondary btn-xs rem-table-pdf-btn" data-id="${r.id}" title="Export PDF" style="padding:3px 7px; border-color:#10b981; color:#10b981;">📥 PDF</button>
+            <button type="button" class="btn btn-secondary btn-xs rem-table-docx-btn" data-id="${r.id}" title="Export Word .docx" style="padding:3px 7px;">Word</button>
+            <button type="button" class="btn btn-danger btn-xs rem-table-del-btn" data-id="${r.id}" title="Delete" style="padding:3px 6px;">&times;</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
 
-  document.getElementById("occupierInput").addEventListener("input", (e) => {
-    appState.occupier = e.target.value;
-    renderPreview();
-    debouncedSaveProjectState();
-  });
-  document.getElementById("locationInput").addEventListener("input", (e) => {
-    appState.location = e.target.value;
-    renderPreview();
-    debouncedSaveProjectState();
-  });
-  document.getElementById("ntnInput").addEventListener("input", (e) => {
-    appState.ntn = e.target.value;
-    renderPreview();
-    debouncedSaveProjectState();
+  tbody.innerHTML = html;
+
+  // Bind change events for inline table inputs
+  tbody.querySelectorAll('.rem-te-input, .rem-te-select').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const recordId = e.target.getAttribute('data-id');
+      const field = e.target.getAttribute('data-field');
+      const val = e.target.value;
+      onMasterTableFieldChange(recordId, field, val);
+    });
   });
 
-  document.getElementById("startMonthInput").addEventListener("change", (e) => {
-    updateBillingDate("start", e.target.value);
-  });
-  document.getElementById("endMonthInput").addEventListener("change", (e) => {
-    updateBillingDate("end", e.target.value);
+  // Action buttons
+  tbody.querySelectorAll('.rem-table-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      loadReminderRecordIntoDesigner(id);
+    });
   });
 
-  const handleSeqModeChange = (newMode) => {
-    appState.seqMode = newMode;
-    if (newMode === "month_year") {
-      if (!appState.invPrefix || appState.invPrefix === "#INV-" || appState.invPrefix === "#INV") {
-        appState.invPrefix = "#INV-01-";
+  tbody.querySelectorAll('.rem-table-pdf-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      exportReminderToPdf(id);
+    });
+  });
+
+  tbody.querySelectorAll('.rem-table-docx-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      const found = remindersMasterList.find(r => r.id === id);
+      if (found && found.state) {
+        exportReminderStateToWord(found.state);
       }
-    }
-    syncInputsWithState();
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-    showToast(newMode === "month_year" ? "Switched to Monthly sequence (#INV-01-MM-YYYY)" : "Switched to Sequential numbering", "info");
+    });
+  });
+
+  tbody.querySelectorAll('.rem-table-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      deleteReminderRecord(id);
+    });
+  });
+}
+
+function syncFormFromState() {
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val != null ? val : '';
   };
 
-  document.getElementById("seqModeSelect")?.addEventListener("change", (e) => {
-    handleSeqModeChange(e.target.value);
-  });
-  document.getElementById("editorSeqMode")?.addEventListener("change", (e) => {
-    handleSeqModeChange(e.target.value);
-  });
+  setVal('remMallNameInput', remState.mallName);
+  setVal('remSubtitleInput', remState.subtitle);
+  setVal('remSubjectInput', remState.subject);
+  setVal('remDateInput', remState.date);
+  setVal('remTenantBrandInput', remState.tenantBrand);
+  setVal('remShopNoInput', remState.shopNo);
+  setVal('remSalutationInput', remState.salutation);
+  setVal('remIntroTextInput', remState.introText);
+  setVal('remPaymentDeadlineInput', remState.paymentDeadline);
+  setVal('remNotice1Input', remState.notice1);
+  setVal('remNotice2Input', remState.notice2);
+  setVal('remSignOffInput', remState.signOff);
 
-  const handlePrefixInput = (val) => {
-    appState.invPrefix = val;
-    const sbInput = document.getElementById("invPrefixInput");
-    const edInput = document.getElementById("editorSeqPrefix");
-    if (sbInput && sbInput.value !== val) sbInput.value = val;
-    if (edInput && edInput.value !== val) edInput.value = val;
+  const tplSelect = document.getElementById('remTemplateSelect');
+  if (tplSelect) tplSelect.value = String(remState.activePreset || 3);
 
-    const previewText = document.getElementById("monthlySeqPreviewText");
-    if (previewText) {
-      let p = (val || "#INV-01-").trim();
-      if (/#INV-\d+-\d{2}-\d{4}/i.test(p)) {
-        const pm = p.match(/^([#A-Za-z0-9]+-\d+-)/);
-        if (pm) p = pm[1];
-      }
-      if (p === "#INV-" || p === "#INV" || p === "INV-" || p === "INV") p = "#INV-01-";
-      if (!p.endsWith("-")) p += "-";
-      previewText.textContent = `${p}01-2024`;
-    }
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  };
+  const manualTotalBox = document.getElementById('remManualTotalCheckbox');
+  const manualContainer = document.getElementById('remManualTotalContainer');
+  if (manualTotalBox) {
+    manualTotalBox.checked = !!remState.isManualTotal;
+  }
+  if (manualContainer) {
+    manualContainer.style.display = remState.isManualTotal ? 'block' : 'none';
+  }
+  setVal('remManualTotalInput', remState.manualTotal);
+}
 
-  document.getElementById("invPrefixInput")?.addEventListener("input", (e) => {
-    handlePrefixInput(e.target.value);
-  });
-  document.getElementById("editorSeqPrefix")?.addEventListener("input", (e) => {
-    handlePrefixInput(e.target.value);
-  });
+function renderRemindersColumnsChips() {
+  const container = document.getElementById('remColumnsList');
+  if (!container) return;
+  container.innerHTML = '';
 
-  document.getElementById("invStartNumInput")?.addEventListener("input", (e) => {
-    appState.invStartNum = parseInt(e.target.value, 10) || 1;
-    const edInput = document.getElementById("editorSeqStartNum");
-    if (edInput) edInput.value = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
-  document.getElementById("editorSeqStartNum")?.addEventListener("input", (e) => {
-    appState.invStartNum = parseInt(e.target.value, 10) || 1;
-    const sbInput = document.getElementById("invStartNumInput");
-    if (sbInput) sbInput.value = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
+  (remState.columns || []).forEach((col) => {
+    const chip = document.createElement('div');
+    chip.className = 'rem-column-chip';
+    chip.innerHTML = `
+      <span>${escapeHtml(col.label)}</span>
+      ${col.isRemovable !== false && remState.columns.length > 1 ? `<button type="button" class="chip-remove-btn" data-col-id="${col.id}" title="Remove Column">&times;</button>` : ''}
+    `;
+    container.appendChild(chip);
   });
 
-  document.getElementById("invSuffixInput")?.addEventListener("input", (e) => {
-    appState.invSuffix = e.target.value;
-    const edInput = document.getElementById("editorSeqSuffix");
-    if (edInput) edInput.value = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
+  container.querySelectorAll('.chip-remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const colId = btn.getAttribute('data-col-id');
+      removeReminderColumn(colId);
+    });
   });
-  document.getElementById("editorSeqSuffix")?.addEventListener("input", (e) => {
-    appState.invSuffix = e.target.value;
-    const sbInput = document.getElementById("invSuffixInput");
-    if (sbInput) sbInput.value = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
+}
 
-  document.getElementById("autoSuffixYearToggle")?.addEventListener("change", (e) => {
-    appState.autoSuffixYear = e.target.checked;
-    const edToggle = document.getElementById("editorSeqAutoYear");
-    if (edToggle) edToggle.checked = e.target.checked;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-    if (e.target.checked) {
-      showToast("Year-based suffix changer activated (e.g. -051026 -> -051027)", "info");
-    } else {
-      showToast("Static suffix sequence restored", "info");
-    }
-  });
+function removeReminderColumn(colId) {
+  if (remState.columns.length <= 1) {
+    showToast('Cannot remove column. Minimum 1 column is required!', 'warning');
+    return;
+  }
+  remState.columns = remState.columns.filter(c => c.id !== colId);
+  renderRemindersColumnsChips();
+  renderRemindersEditTable();
+  renderRemindersPreview();
+  saveRemindersDraft(false);
+}
 
-  document.getElementById("editorSeqAutoYear")?.addEventListener("change", (e) => {
-    appState.autoSuffixYear = e.target.checked;
-    const sbToggle = document.getElementById("autoSuffixYearToggle");
-    if (sbToggle) sbToggle.checked = e.target.checked;
-    renderPreview();
-    renderDataEditor();
-  });
-  document.getElementById("editorManualBillGlobalToggle")?.addEventListener("change", (e) => {
-    toggleGlobalManualBill(e.target.checked);
-  });
-  document.getElementById("editorApplySeqBtn")?.addEventListener("click", applyEditorSequence);
+function openAddColumnModal() {
+  const modal = document.getElementById('remAddColModalBackdrop');
+  const input = document.getElementById('remNewColNameInput');
+  if (input) input.value = '';
+  if (modal) modal.style.display = 'flex';
+  setTimeout(() => input && input.focus(), 50);
+}
 
-  // Custom Table Boxes (Columns) Modal Actions
-  document.getElementById("openColumnsModalBtn")?.addEventListener("click", openColumnsModal);
-  document.getElementById("closeColumnsModalBtn")?.addEventListener("click", closeColumnsModal);
-  document.getElementById("doneColumnsModalBtn")?.addEventListener("click", closeColumnsModal);
-  document.getElementById("addNewColumnBtn")?.addEventListener("click", addNewCustomColumn);
-  document.getElementById("resetColumnsBtn")?.addEventListener("click", resetDefaultColumns);
+function closeAddColumnModal() {
+  const modal = document.getElementById('remAddColModalBackdrop');
+  if (modal) modal.style.display = 'none';
+}
 
-  // Manual DB Save Button
-  document.getElementById("manualSaveDbBtn")?.addEventListener("click", () => saveProjectStateToDatabase(true));
-
-  const prevToggle = document.getElementById("prevBalanceToggle");
-  prevToggle.addEventListener("change", (e) => {
-    appState.includePrevBalance = e.target.checked;
-    const prevOptions = document.getElementById("prevBalanceOptions");
-    if (prevOptions) prevOptions.style.display = e.target.checked ? "flex" : "none";
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
-
-  document.getElementById("openingBalanceInput").addEventListener("input", (e) => {
-    appState.openingBalance = parseFloat(e.target.value) || 0;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
-
-  document.getElementById("prevBalanceModeSelect").addEventListener("change", (e) => {
-    appState.prevBalanceMode = e.target.value;
-    renderPreview();
-    renderDataEditor();
-    debouncedSaveProjectState();
-  });
-
-  document.getElementById("tabInvoicePreview").addEventListener("click", () => switchTab("preview"));
-  document.getElementById("tabDataEditor").addEventListener("click", () => switchTab("editor"));
-
-  document.getElementById("prevPageBtn").addEventListener("click", prevPage);
-  document.getElementById("nextPageBtn").addEventListener("click", nextPage);
-  document.getElementById("jumpMonthSelect").addEventListener("change", (e) => jumpToPage(e.target.value));
-
-  document.getElementById("viewSingleBtn").addEventListener("click", () => toggleViewAll(false));
-  document.getElementById("viewAllBtn").addEventListener("click", () => toggleViewAll(true));
-
-  document.getElementById("exportDocxBtn").addEventListener("click", exportToWord);
-  document.getElementById("exportPdfBtn").addEventListener("click", exportToPdf);
-  document.getElementById("printBtn").addEventListener("click", triggerPrint);
-
-  document.getElementById("openImportModalBtn").addEventListener("click", openImportModal);
-  document.getElementById("closeImportModalBtn").addEventListener("click", closeImportModal);
-  document.getElementById("cancelImportBtn").addEventListener("click", closeImportModal);
-  document.getElementById("confirmImportBtn").addEventListener("click", processImport);
-  document.getElementById("exportCsvBtn").addEventListener("click", exportToCsv);
-  document.getElementById("resetEditorBtn").addEventListener("click", resetManualCorrections);
-
-  // Authentication form & logout handlers
-  document.getElementById("loginForm")?.addEventListener("submit", handleLoginSubmit);
-  document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
-  document.getElementById("togglePasswordBtn")?.addEventListener("click", () => {
-    const input = document.getElementById("loginPassword");
-    const icon = document.getElementById("eyeIcon");
-    if (!input || !icon) return;
-    if (input.type === "password") {
-      input.type = "text";
-      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />`;
-    } else {
-      input.type = "password";
-      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
-    }
-  });
-
-  // File drag & drop handling with stopPropagation to prevent double-click lock
-  const dropzone = document.getElementById("fileDropzone");
-  const fileInput = document.getElementById("fileInput");
-
-  dropzone?.addEventListener("click", () => fileInput?.click());
-  fileInput?.addEventListener("click", (e) => e.stopPropagation());
-  fileInput?.addEventListener("change", (e) => {
-    if (e.target.files.length > 0) handleFileSelection(e.target.files[0]);
-  });
-
-  dropzone?.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.classList.add("dragover");
-  });
-  dropzone?.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
-  dropzone?.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("dragover");
-    if (e.dataTransfer.files.length > 0) {
-      handleFileSelection(e.dataTransfer.files[0]);
-    }
-  });
-
-  // Confirm modal event handlers
-  document.getElementById("confirmModalOkBtn")?.addEventListener("click", () => {
-    if (confirmCallback) confirmCallback();
-    closeConfirmModal();
-  });
-  document.getElementById("confirmModalCancelBtn")?.addEventListener("click", closeConfirmModal);
-  document.getElementById("confirmModalCloseBtn")?.addEventListener("click", closeConfirmModal);
-
-  document.getElementById("togglePreviewBtn")?.addEventListener("click", togglePreview);
-  initSplitPaneResizer();
-
-  initCalendarPopovers();
-  syncInputsWithState();
-  updateYearConfigsUI();
-  renderPreview();
-  renderDataEditor();
-
-  const savedActiveTab = localStorage.getItem('mega_mall_active_tab') || appState.activeTab;
-  if (savedActiveTab) {
-    switchTab(savedActiveTab);
+function confirmAddColumn() {
+  const input = document.getElementById('remNewColNameInput');
+  const name = (input ? input.value : '').trim();
+  if (!name) {
+    showToast('Please enter a column header name.', 'warning');
+    return;
   }
 
-  // Register beforeunload handler to immediately persist state to localStorage on refresh/exit
-  window.addEventListener("beforeunload", () => {
+  const newColId = 'col_' + Date.now();
+  remState.columns.push({
+    id: newColId,
+    label: name,
+    isRemovable: true
+  });
+
+  closeAddColumnModal();
+  renderRemindersColumnsChips();
+  renderRemindersEditTable();
+  renderRemindersPreview();
+  saveRemindersDraft(false);
+  showToast('Added column "' + name + '".', 'success');
+}
+
+function renderRemindersEditTable() {
+  const head = document.getElementById('remEditTableHead');
+  const body = document.getElementById('remEditTableBody');
+  if (!head || !body) return;
+
+  // Header row
+  let headHtml = '<tr>';
+  (remState.columns || []).forEach(col => {
+    headHtml += '<th>' + escapeHtml(col.label) + '</th>';
+  });
+  headHtml += '<th style="width:40px; text-align:center;">Action</th></tr>';
+  head.innerHTML = headHtml;
+
+  // Body rows
+  body.innerHTML = '';
+  (remState.rows || []).forEach((row, rowIdx) => {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-row-id', row.id || ('r_' + rowIdx));
+
+    let rowHtml = '';
+    (remState.columns || []).forEach(col => {
+      if (col.id === 'sr' || col.isSr) {
+        rowHtml += '<td style="text-align:center; font-weight:700; width:45px; color:#ffffff;">' + (rowIdx + 1) + '</td>';
+      } else if (col.id === 'particulars') {
+        rowHtml += `
+          <td>
+            <input type="text" class="rem-table-input rem-cell-input" data-row-idx="${rowIdx}" data-col-id="${col.id}" value="${escapeHtml(row[col.id] || '')}" placeholder="Rent / CAM / Electricity / etc." />
+          </td>
+        `;
+      } else if (col.id === 'outstanding' || col.isAmount) {
+        rowHtml += `
+          <td style="width:130px;">
+            <input type="text" class="rem-table-input rem-cell-input rem-amount-input" data-row-idx="${rowIdx}" data-col-id="${col.id}" value="${escapeHtml(row[col.id] != null ? String(row[col.id]) : '')}" placeholder="0" style="text-align:right;" />
+          </td>
+        `;
+      } else if (col.id === 'dueDate') {
+        rowHtml += `
+          <td style="width:110px;">
+            <input type="text" class="rem-table-input rem-cell-input" data-row-idx="${rowIdx}" data-col-id="${col.id}" value="${escapeHtml(row[col.id] || '')}" placeholder="DD-Mon-YYYY" style="text-align:center;" />
+          </td>
+        `;
+      } else if (col.id === 'invNo') {
+        rowHtml += `
+          <td style="width:110px;">
+            <input type="text" class="rem-table-input rem-cell-input" data-row-idx="${rowIdx}" data-col-id="${col.id}" value="${escapeHtml(row[col.id] || '')}" placeholder="INV-001" />
+          </td>
+        `;
+      } else {
+        rowHtml += `
+          <td>
+            <input type="text" class="rem-table-input rem-cell-input" data-row-idx="${rowIdx}" data-col-id="${col.id}" value="${escapeHtml(row[col.id] || '')}" />
+          </td>
+        `;
+      }
+    });
+
+    const isDeleteDisabled = (remState.rows || []).length <= 1;
+    rowHtml += `
+      <td style="text-align:center;">
+        <button type="button" class="rem-delete-row-btn" data-row-idx="${rowIdx}" title="Delete Row" ${isDeleteDisabled ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''}>&times;</button>
+      </td>
+    `;
+
+    tr.innerHTML = rowHtml;
+    body.appendChild(tr);
+  });
+
+  // Attach input events
+  body.querySelectorAll('.rem-cell-input').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const rIdx = parseInt(e.target.getAttribute('data-row-idx'), 10);
+      const cId = e.target.getAttribute('data-col-id');
+      if (remState.rows[rIdx]) {
+        remState.rows[rIdx][cId] = e.target.value;
+        updateCalculatedTotalDisplay();
+        renderRemindersPreview();
+        saveRemindersDraft(false);
+      }
+    });
+  });
+
+  // Attach row delete buttons
+  body.querySelectorAll('.rem-delete-row-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rIdx = parseInt(btn.getAttribute('data-row-idx'), 10);
+      removeReminderRow(rIdx);
+    });
+  });
+
+  updateCalculatedTotalDisplay();
+}
+
+function addReminderRow() {
+  const newRow = { id: 'r_' + Date.now() };
+  (remState.columns || []).forEach(col => {
+    if (col.id === 'sr' || col.isSr) {
+      newRow[col.id] = remState.rows.length + 1;
+    } else if (col.id === 'particulars') {
+      newRow[col.id] = '';
+    } else {
+      newRow[col.id] = '';
+    }
+  });
+
+  remState.rows.push(newRow);
+  renderRemindersEditTable();
+  renderRemindersPreview();
+  saveRemindersDraft(false);
+}
+
+function removeReminderRow(rIdx) {
+  if (remState.rows.length <= 1) {
+    showToast('Minimum 1 line item row is required!', 'warning');
+    return;
+  }
+  remState.rows.splice(rIdx, 1);
+  renderRemindersEditTable();
+  renderRemindersPreview();
+  saveRemindersDraft(false);
+}
+
+function calculateRawTotal() {
+  let sum = 0;
+  (remState.rows || []).forEach(row => {
+    const rawVal = row.outstanding != null ? String(row.outstanding).replace(/,/g, '').trim() : '0';
+    const num = parseFloat(rawVal);
+    if (!isNaN(num)) sum += num;
+  });
+  return sum;
+}
+
+function getFormattedTotal() {
+  if (remState.isManualTotal && remState.manualTotal != null && remState.manualTotal !== '') {
+    return remState.manualTotal;
+  }
+  const total = calculateRawTotal();
+  return total.toLocaleString('en-US');
+}
+
+function updateCalculatedTotalDisplay() {
+  const el = document.getElementById('remAutoTotalDisplay');
+  if (el) {
+    const sum = calculateRawTotal();
+    el.textContent = 'PKR ' + sum.toLocaleString('en-US');
+  }
+}
+
+function applyReminderTemplate(presetNum) {
+  const num = parseInt(presetNum, 10);
+  const tpl = reminderTemplates[num];
+  if (!tpl) return;
+
+  remState.activePreset = num;
+  remState.subtitle = tpl.subtitle;
+  remState.introText = tpl.introText;
+  remState.notice1 = tpl.notice1;
+  remState.notice2 = tpl.notice2;
+
+  syncFormFromState();
+  renderRemindersPreview();
+  saveRemindersDraft(false);
+  showToast('Applied ' + tpl.subtitle + ' preset.', 'info');
+}
+
+function renderRemindersPreview() {
+  const viewMall = document.getElementById('viewMallName');
+  if (viewMall) viewMall.textContent = remState.mallName || 'MEGA MALL';
+  const viewSub = document.getElementById('viewSubtitle');
+  if (viewSub) viewSub.textContent = remState.subtitle || 'FINAL PAYMENT REMINDER – 3';
+
+  // No underscores, clean text
+  const viewDate = document.getElementById('viewDate');
+  if (viewDate) {
+    viewDate.textContent = remState.date ? formatDateStandard(remState.date) : '';
+  }
+  const viewBrand = document.getElementById('viewTenantBrand');
+  if (viewBrand) viewBrand.textContent = remState.tenantBrand || '';
+  const viewShop = document.getElementById('viewShopNo');
+  if (viewShop) viewShop.textContent = remState.shopNo || '';
+
+  const viewSubj = document.getElementById('viewSubject');
+  if (viewSubj) viewSubj.textContent = remState.subject || 'Subject: Outstanding Payment';
+  const viewSal = document.getElementById('viewSalutation');
+  if (viewSal) viewSal.textContent = remState.salutation || 'Dear Tenant,';
+  const viewIntro = document.getElementById('viewIntroText');
+  if (viewIntro) viewIntro.textContent = remState.introText || '';
+
+  const tableHead = document.getElementById('viewDuesTableHead');
+  const tableBody = document.getElementById('viewDuesTableBody');
+  const tableFoot = document.getElementById('viewDuesTableFoot');
+
+  if (tableHead && tableBody && tableFoot) {
+    let headHtml = '<tr>';
+    (remState.columns || []).forEach(col => {
+      headHtml += '<th>' + escapeHtml(col.label) + '</th>';
+    });
+    headHtml += '</tr>';
+    tableHead.innerHTML = headHtml;
+
+    let bodyHtml = '';
+    (remState.rows || []).forEach((row, rowIdx) => {
+      bodyHtml += '<tr>';
+      (remState.columns || []).forEach(col => {
+        let val = '';
+        if (col.id === 'sr' || col.isSr) {
+          val = String(rowIdx + 1);
+        } else {
+          val = row[col.id] != null ? String(row[col.id]) : '';
+        }
+
+        const isAmountCol = col.id === 'outstanding' || col.isAmount;
+        let cellClass = 'rem-cell-left';
+        if (col.id === 'sr' || col.isSr || col.id === 'dueDate') cellClass = 'rem-cell-center';
+        else if (isAmountCol) cellClass = 'rem-cell-right';
+
+        let displayVal = val;
+        if (isAmountCol && val) {
+          const num = parseFloat(String(val).replace(/,/g, ''));
+          if (!isNaN(num)) displayVal = num.toLocaleString('en-US');
+        }
+
+        bodyHtml += '<td class="' + cellClass + '">' + escapeHtml(displayVal) + '</td>';
+      });
+      bodyHtml += '</tr>';
+    });
+    tableBody.innerHTML = bodyHtml;
+
+    const totalCols = remState.columns.length;
+    const labelSpan = Math.max(1, totalCols - 1);
+    const formattedTotal = getFormattedTotal();
+
+    tableFoot.innerHTML = `
+      <tr>
+        <td colspan="${labelSpan}" style="text-align:right; font-weight:700;">Total Outstanding PKR</td>
+        <td style="text-align:right; font-weight:700;">${escapeHtml(formattedTotal)}</td>
+      </tr>
+    `;
+  }
+
+  // Payment deadline with NO underline
+  const viewDl = document.getElementById('viewPaymentDeadline');
+  if (viewDl) viewDl.textContent = remState.paymentDeadline || '';
+
+  const viewN1 = document.getElementById('viewNotice1');
+  if (viewN1) viewN1.textContent = remState.notice1 || '';
+
+  const viewN2 = document.getElementById('viewNotice2');
+  if (viewN2) viewN2.textContent = remState.notice2 || '';
+
+  const viewSign = document.getElementById('viewSignOff');
+  if (viewSign) viewSign.textContent = remState.signOff || 'For Mega Mall';
+}
+
+function formatDateStandard(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mIdx = parseInt(parts[1], 10) - 1;
+      const day = parts[2];
+      if (mIdx >= 0 && mIdx < 12) {
+        return day + '-' + monthNames[mIdx] + '-' + year;
+      }
+    }
+    return dateStr;
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+// ==========================================================
+// Native Vector PDF Generation (jsPDF)
+// High Precision, Selectable Text & Razor Sharp
+// ==========================================================
+async function exportReminderToPdf(recordId = null) {
+  let targetState = remState;
+  if (recordId) {
+    const found = remindersMasterList.find(r => r.id === recordId);
+    if (found && found.state) {
+      targetState = found.state;
+    }
+  }
+
+  const JsPdfConstructor = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+  if (!JsPdfConstructor) {
+    showToast('jsPDF library not loaded.', 'error');
+    return;
+  }
+
+  try {
+    showToast('Generating PDF...', 'info');
+
+    const pdf = new JsPdfConstructor({
+      unit: 'pt',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: true
+    });
+
+    const pageWidth = 595.28;
+    const leftMargin = 36;
+    const rightMargin = 36;
+    const contentWidth = pageWidth - leftMargin - rightMargin;
+    let y = 36;
+
+    // 1. Logo
     try {
-      localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
-    } catch (e) {}
-  });
-
-  // Offline Support Status Indicator Manager
-  function updateOfflineSupportUI() {
-    const badge = document.getElementById("offlineSupportBadge");
-    const textEl = document.getElementById("offlineSupportText");
-    if (!badge) return;
-
-    if (navigator.onLine) {
-      badge.classList.remove("offline-now");
-      if (textEl) textEl.textContent = "Offline Ready";
-      badge.title = "Offline Support Active: All app assets, formulas, and local data are saved to your device. You can use the site without internet.";
-    } else {
-      badge.classList.add("offline-now");
-      if (textEl) textEl.textContent = "Offline Mode Active";
-      badge.title = "Currently Offline: Full calculation engine, editing, and exports remain 100% functional locally.";
+      const logos = await ensureLogosLoaded();
+      if (logos && logos.megaMallLogo) {
+        pdf.addImage(logos.megaMallLogo, 'PNG', pageWidth / 2 - 38, y, 76, 48);
+        y += 54;
+      }
+    } catch (e) {
+      // fallback
     }
+
+    // 2. Mall Name & Title
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(targetState.mallName || 'MEGA MALL', pageWidth / 2, y, { align: 'center' });
+    y += 18;
+
+    pdf.setFontSize(12);
+    pdf.text(targetState.subtitle || 'FINAL PAYMENT REMINDER – 3', pageWidth / 2, y, { align: 'center' });
+    y += 20;
+
+    // 3. Meta Table Box (Date, Tenant/Brand, Shop No)
+    const metaBoxX = leftMargin;
+    const metaBoxW = contentWidth;
+    const metaRowH = 20;
+    const labelW = 120;
+
+    const metaItems = [
+      { label: 'Date:', val: targetState.date ? formatDateStandard(targetState.date) : '' },
+      { label: 'Tenant / Brand:', val: targetState.tenantBrand || '' },
+      { label: 'Shop No.', val: targetState.shopNo || '' }
+    ];
+
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(1.2);
+    pdf.rect(metaBoxX, y, metaBoxW, metaRowH * metaItems.length);
+
+    pdf.setLineWidth(0.8);
+    metaItems.forEach((item, idx) => {
+      const rowY = y + idx * metaRowH;
+      if (idx > 0) {
+        pdf.line(metaBoxX, rowY, metaBoxX + metaBoxW, rowY);
+      }
+      pdf.line(metaBoxX + labelW, rowY, metaBoxX + labelW, rowY + metaRowH);
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.text(item.label, metaBoxX + 8, rowY + 14);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      if (item.val) {
+        pdf.text(String(item.val), metaBoxX + labelW + 8, rowY + 14);
+      }
+    });
+
+    y += metaRowH * metaItems.length + 18;
+
+    // 4. Subject Line
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10.5);
+    pdf.text(targetState.subject || 'Subject: Outstanding Payment', leftMargin, y);
+    y += 18;
+
+    // 5. Salutation
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.text(targetState.salutation || 'Dear Tenant,', leftMargin, y);
+    y += 16;
+
+    // 6. Intro statement
+    if (targetState.introText) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9.5);
+      const introLines = pdf.splitTextToSize(targetState.introText, contentWidth);
+      pdf.text(introLines, leftMargin, y);
+      y += introLines.length * 13 + 12;
+    }
+
+    // 7. Dues Table
+    const cols = (targetState.columns && targetState.columns.length > 0) ? targetState.columns : [
+      { id: 'sr', label: 'Sr.' },
+      { id: 'invNo', label: 'Invoice No.' },
+      { id: 'particulars', label: 'Particulars' },
+      { id: 'dueDate', label: 'Due Date' },
+      { id: 'outstanding', label: 'Outstanding (PKR)' }
+    ];
+
+    const colCount = cols.length;
+    let colWidths = [];
+    if (cols.some(c => c.id === 'sr') && cols.some(c => c.id === 'invNo') && cols.some(c => c.id === 'particulars') && cols.some(c => c.id === 'outstanding')) {
+      colWidths = cols.map(c => {
+        if (c.id === 'sr' || c.isSr) return 35;
+        if (c.id === 'invNo') return 95;
+        if (c.id === 'dueDate') return 80;
+        if (c.id === 'outstanding' || c.isAmount) return 110;
+        return 0;
+      });
+      const fixedTotal = colWidths.reduce((a, b) => a + b, 0);
+      const flexCount = colWidths.filter(w => w === 0).length || 1;
+      const flexWidth = Math.max(120, (contentWidth - fixedTotal) / flexCount);
+      colWidths = colWidths.map(w => w === 0 ? flexWidth : w);
+    } else {
+      const w = contentWidth / colCount;
+      colWidths = cols.map(() => w);
+    }
+
+    // Table Header
+    const thHeight = 20;
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(1.2);
+    pdf.rect(leftMargin, y, contentWidth, thHeight);
+
+    let currX = leftMargin;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    cols.forEach((col, cIdx) => {
+      const cW = colWidths[cIdx];
+      if (cIdx > 0) {
+        pdf.line(currX, y, currX, y + thHeight);
+      }
+      const align = (col.id === 'sr' || col.isSr || col.id === 'dueDate') ? 'center' : ((col.id === 'outstanding' || col.isAmount) ? 'right' : 'left');
+      const textX = align === 'center' ? (currX + cW / 2) : (align === 'right' ? (currX + cW - 6) : (currX + 6));
+      pdf.text(col.label, textX, y + 13.5, { align });
+      currX += cW;
+    });
+    y += thHeight;
+
+    // Table Rows
+    const rows = (targetState.rows && targetState.rows.length > 0) ? targetState.rows : [
+      { sr: 1, invNo: '', particulars: 'Rent / CAM / Electricity / Water / Other', dueDate: '', outstanding: '' }
+    ];
+
+    const rowH = 18;
+    pdf.setLineWidth(0.8);
+    rows.forEach((row, rIdx) => {
+      pdf.rect(leftMargin, y, contentWidth, rowH);
+      let rX = leftMargin;
+      cols.forEach((col, cIdx) => {
+        const cW = colWidths[cIdx];
+        if (cIdx > 0) {
+          pdf.line(rX, y, rX, y + rowH);
+        }
+
+        let val = '';
+        if (col.id === 'sr' || col.isSr) {
+          val = String(rIdx + 1);
+        } else {
+          val = row[col.id] != null ? String(row[col.id]) : '';
+        }
+
+        const isAmountCol = col.id === 'outstanding' || col.isAmount;
+        let displayVal = val;
+        if (isAmountCol && val) {
+          const num = parseFloat(String(val).replace(/,/g, ''));
+          if (!isNaN(num)) displayVal = num.toLocaleString('en-US');
+        }
+
+        const align = (col.id === 'sr' || col.isSr || col.id === 'dueDate') ? 'center' : (isAmountCol ? 'right' : 'left');
+        const textX = align === 'center' ? (rX + cW / 2) : (align === 'right' ? (rX + cW - 6) : (rX + 6));
+
+        pdf.setFont('helvetica', (col.id === 'sr' || col.isSr) ? 'bold' : 'normal');
+        pdf.setFontSize(8.5);
+        if (displayVal) {
+          pdf.text(String(displayVal), textX, y + 12.5, { align });
+        }
+        rX += cW;
+      });
+      y += rowH;
+    });
+
+    // Total Row
+    pdf.setLineWidth(1.2);
+    pdf.rect(leftMargin, y, contentWidth, rowH);
+    const lastColW = colWidths[colWidths.length - 1];
+    const totalLabelW = contentWidth - lastColW;
+    pdf.line(leftMargin + totalLabelW, y, leftMargin + totalLabelW, y + rowH);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.text('Total Outstanding PKR', leftMargin + totalLabelW - 8, y + 12.5, { align: 'right' });
+
+    let finalTotal = '';
+    if (targetState.isManualTotal && targetState.manualTotal != null && targetState.manualTotal !== '') {
+      finalTotal = targetState.manualTotal;
+    } else {
+      let sum = 0;
+      rows.forEach(r => {
+        const amt = parseFloat(String(r.outstanding || '').replace(/,/g, '')) || 0;
+        sum += amt;
+      });
+      finalTotal = sum.toLocaleString('en-US');
+    }
+    pdf.text(finalTotal, leftMargin + contentWidth - 6, y + 12.5, { align: 'right' });
+    y += rowH + 18;
+
+    // 8. Payment Deadline (NO underline)
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.text('Payment Deadline: ', leftMargin, y);
+    const dlWidth = pdf.getTextWidth('Payment Deadline: ');
+    if (targetState.paymentDeadline) {
+      pdf.text(String(targetState.paymentDeadline), leftMargin + dlWidth, y);
+    }
+    y += 18;
+
+    // 9. Proof Notice
+    if (targetState.notice1) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9.5);
+      const n1Lines = pdf.splitTextToSize(targetState.notice1, contentWidth);
+      pdf.text(n1Lines, leftMargin, y);
+      y += n1Lines.length * 13 + 10;
+    }
+
+    // 10. Recovery Notice
+    if (targetState.notice2) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9.5);
+      const n2Lines = pdf.splitTextToSize(targetState.notice2, contentWidth);
+      pdf.text(n2Lines, leftMargin, y);
+      y += n2Lines.length * 13 + 18;
+    }
+
+    // 11. Official Sign-off
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10.5);
+    pdf.text(targetState.signOff || 'For Mega Mall', leftMargin, y);
+
+    // Save File
+    const cleanBrand = (targetState.tenantBrand || 'Tenant').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanShop = (targetState.shopNo || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `Mega_Mall_Reminder_${cleanBrand}_${cleanShop || 'Notice'}.pdf`;
+    pdf.save(fileName);
+    showToast('PDF downloaded: ' + fileName, 'success');
+  } catch (err) {
+    console.error('PDF export error:', err);
+    showToast('Failed to generate PDF: ' + err.message, 'error');
+  }
+}
+
+// ==========================================================
+// Word .docx Generation
+// ==========================================================
+async function exportReminderToWord() {
+  exportReminderStateToWord(remState);
+}
+
+async function exportReminderStateToWord(stateToExport) {
+  const token = localStorage.getItem(REMINDERS_TOKEN_KEY);
+  if (!token) {
+    showToast('Please sign in to export Word document.', 'error');
+    return;
   }
 
-  updateOfflineSupportUI();
+  const payload = {
+    mallName: stateToExport.mallName || 'MEGA MALL',
+    reminderSubtitle: stateToExport.subtitle || 'FINAL PAYMENT REMINDER – 3',
+    date: stateToExport.date ? formatDateStandard(stateToExport.date) : '',
+    tenantBrand: stateToExport.tenantBrand || '',
+    shopNo: stateToExport.shopNo || '',
+    subject: stateToExport.subject || 'Subject: Outstanding Payment',
+    salutation: stateToExport.salutation || 'Dear Tenant,',
+    introText: stateToExport.introText || '',
+    columns: stateToExport.columns || [],
+    rows: stateToExport.rows || [],
+    totalOutstanding: (stateToExport.isManualTotal && stateToExport.manualTotal) ? stateToExport.manualTotal : getFormattedTotal(),
+    paymentDeadline: stateToExport.paymentDeadline || '',
+    notice1: stateToExport.notice1 || '',
+    notice2: stateToExport.notice2 || '',
+    signOff: stateToExport.signOff || 'For Mega Mall'
+  };
 
-  document.getElementById("offlineSupportBadge")?.addEventListener("click", () => {
-    if (navigator.onLine) {
-      showToast("Offline Support Active: All formulas and app assets are cached. You can disconnect internet anytime and continue working.", "info");
+  try {
+    showToast('Generating Word document...', 'info');
+    const res = await fetch('/api/reminders/export-docx', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || ('Server returned ' + res.status));
+    }
+
+    const blob = await res.blob();
+    const cleanBrand = (stateToExport.tenantBrand || 'Tenant').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanShop = (stateToExport.shopNo || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `Mega_Mall_Reminder_${cleanBrand}_${cleanShop || 'Notice'}.docx`;
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+
+    showToast('Downloaded ' + fileName, 'success');
+  } catch (err) {
+    console.error('Word export error:', err);
+    showToast('Failed to export Word doc: ' + err.message, 'error');
+  }
+}
+
+function exportRemindersSession() {
+  try {
+    const sessionData = {
+      version: '2.0',
+      exportedAt: new Date().toISOString(),
+      currentDraft: remState,
+      masterList: remindersMasterList
+    };
+    const jsonStr = JSON.stringify(sessionData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const fileName = 'Mega_Mall_Reminders_Session_' + (new Date().toISOString().split('T')[0]) + '.json';
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Exported session data file.', 'success');
+  } catch (err) {
+    showToast('Failed to export session: ' + err.message, 'error');
+  }
+}
+
+function importRemindersSession(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (parsed.masterList && Array.isArray(parsed.masterList)) {
+        remindersMasterList = parsed.masterList;
+        localStorage.setItem(REMINDERS_MASTER_LIST_KEY, JSON.stringify(remindersMasterList));
+      }
+      if (parsed.currentDraft) {
+        remState = { ...getDefaultReminderState(), ...parsed.currentDraft };
+        localStorage.setItem(REMINDERS_DRAFT_KEY, JSON.stringify(remState));
+      }
+      syncFormFromState();
+      renderRemindersColumnsChips();
+      renderRemindersEditTable();
+      renderRemindersPreview();
+      updateRemindersBadgeCount();
+      renderRemindersMasterTable();
+      showToast('Session loaded successfully!', 'success');
+    } catch (err) {
+      showToast('Invalid session JSON file: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetReminderDraft() {
+  if (confirm('Reset the current form to blank template? Unsaved changes in this letter will be cleared.')) {
+    remState = getDefaultReminderState('rem_' + Date.now());
+    saveRemindersDraft(false);
+    syncFormFromState();
+    renderRemindersColumnsChips();
+    renderRemindersEditTable();
+    renderRemindersPreview();
+    showToast('Form reset to default template.', 'info');
+  }
+}
+
+async function checkRemindersAuthSession() {
+  const token = localStorage.getItem(REMINDERS_TOKEN_KEY);
+  const gate = document.getElementById('remindersLoginGate');
+  const workspace = document.getElementById('remindersWorkspace');
+
+  if (!token) {
+    if (gate) gate.style.display = 'flex';
+    if (workspace) workspace.style.display = 'none';
+    return false;
+  }
+
+  try {
+    const res = await fetch('/api/reminders/verify', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.valid) {
+      if (gate) gate.style.display = 'none';
+      if (workspace) workspace.style.display = 'flex';
+      syncFormFromState();
+      renderRemindersColumnsChips();
+      renderRemindersEditTable();
+      renderRemindersPreview();
+      updateRemindersBadgeCount();
+      return true;
     } else {
-      showToast("Offline Mode Active: Calculations and exports running locally in your browser. Changes are saved to your device.", "info");
+      localStorage.removeItem(REMINDERS_TOKEN_KEY);
+      if (gate) gate.style.display = 'flex';
+      if (workspace) workspace.style.display = 'none';
+      return false;
+    }
+  } catch (err) {
+    // offline fallback
+    if (gate) gate.style.display = 'none';
+    if (workspace) workspace.style.display = 'flex';
+    syncFormFromState();
+    renderRemindersColumnsChips();
+    renderRemindersEditTable();
+    renderRemindersPreview();
+    updateRemindersBadgeCount();
+    return true;
+  }
+}
+
+async function loginRemindersPortal(password) {
+  const errorEl = document.getElementById('remindersLoginError');
+  const submitBtn = document.getElementById('remindersLoginSubmitBtn');
+  if (errorEl) errorEl.style.display = 'none';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Verifying...';
+  }
+
+  try {
+    const res = await fetch('/api/reminders/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.success && data.token) {
+      localStorage.setItem(REMINDERS_TOKEN_KEY, data.token);
+      const gate = document.getElementById('remindersLoginGate');
+      const workspace = document.getElementById('remindersWorkspace');
+      if (gate) gate.style.display = 'none';
+      if (workspace) workspace.style.display = 'flex';
+      syncFormFromState();
+      renderRemindersColumnsChips();
+      renderRemindersEditTable();
+      renderRemindersPreview();
+      updateRemindersBadgeCount();
+      showToast('Welcome to Reminders Portal.', 'success');
+    } else {
+      if (errorEl) {
+        errorEl.textContent = data.message || 'Incorrect password. Check REMINDERS_PASSWORD env.';
+        errorEl.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    if (errorEl) {
+      errorEl.textContent = 'Server connection error: ' + err.message;
+      errorEl.style.display = 'block';
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg> Unlock Reminders Portal';
+    }
+  }
+}
+
+function logoutRemindersPortal() {
+  localStorage.removeItem(REMINDERS_TOKEN_KEY);
+  const gate = document.getElementById('remindersLoginGate');
+  const workspace = document.getElementById('remindersWorkspace');
+  if (gate) gate.style.display = 'flex';
+  if (workspace) workspace.style.display = 'none';
+  showToast('Logged out of Reminders Portal.', 'info');
+}
+
+function setupRemindersEventListeners() {
+  // Login form
+  const loginForm = document.getElementById('remindersLoginForm');
+  const passInput = document.getElementById('remindersPassInput');
+  if (loginForm && passInput) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      loginRemindersPortal(passInput.value.trim());
+    });
+  }
+
+  // Toggle password visibility
+  document.getElementById('remTogglePassVisibility')?.addEventListener('click', () => {
+    if (passInput) {
+      passInput.type = passInput.type === 'password' ? 'text' : 'password';
     }
   });
 
-  // Offline / Online network event listeners
-  window.addEventListener('online', () => {
-    updateOfflineSupportUI();
-    showToast("Internet connection restored. Back online.", "success");
-    saveProjectStateToDatabase(false);
-  });
-  window.addEventListener('offline', () => {
-    updateOfflineSupportUI();
-    showToast("Offline Mode Active — calculations, preview, and exports work 100% locally.", "info");
+  // Logout button
+  document.getElementById('remLogoutBtn')?.addEventListener('click', logoutRemindersPortal);
+
+  // View Switchers
+  document.getElementById('remTabDesignerBtn')?.addEventListener('click', () => switchRemindersView('designer'));
+  document.getElementById('remTabTableBtn')?.addEventListener('click', () => switchRemindersView('table'));
+  document.getElementById('remHeaderAddBtn')?.addEventListener('click', createNewReminder);
+  document.getElementById('remTableAddBtn')?.addEventListener('click', createNewReminder);
+
+  // Template Preset Dropdown inside Card 1
+  document.getElementById('remTemplateSelect')?.addEventListener('change', (e) => {
+    applyReminderTemplate(e.target.value);
   });
 
-  // Initialize Session Authentication for standard application
-  checkAuthSession().then(async (isAuth) => {
-    if (isAuth) {
-      await loadProjectStateFromDatabase();
+  // Form Field Live Sync
+  const bindField = (id, prop) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      remState[prop] = el.value;
+      renderRemindersPreview();
+      saveRemindersDraft(false);
+    });
+  };
+
+  bindField('remMallNameInput', 'mallName');
+  bindField('remSubtitleInput', 'subtitle');
+  bindField('remSubjectInput', 'subject');
+  bindField('remDateInput', 'date');
+  bindField('remTenantBrandInput', 'tenantBrand');
+  bindField('remShopNoInput', 'shopNo');
+  bindField('remSalutationInput', 'salutation');
+  bindField('remIntroTextInput', 'introText');
+  bindField('remPaymentDeadlineInput', 'paymentDeadline');
+  bindField('remNotice1Input', 'notice1');
+  bindField('remNotice2Input', 'notice2');
+  bindField('remSignOffInput', 'signOff');
+
+  // Manual Total Toggle
+  const manualCheckbox = document.getElementById('remManualTotalCheckbox');
+  const manualContainer = document.getElementById('remManualTotalContainer');
+  const manualInput = document.getElementById('remManualTotalInput');
+  if (manualCheckbox) {
+    manualCheckbox.addEventListener('change', () => {
+      remState.isManualTotal = manualCheckbox.checked;
+      if (manualContainer) {
+        manualContainer.style.display = remState.isManualTotal ? 'block' : 'none';
+      }
+      if (remState.isManualTotal && manualInput && !manualInput.value) {
+        manualInput.value = calculateRawTotal().toLocaleString('en-US');
+        remState.manualTotal = manualInput.value;
+      }
+      renderRemindersPreview();
+      saveRemindersDraft(false);
+    });
+  }
+
+  if (manualInput) {
+    manualInput.addEventListener('input', () => {
+      remState.manualTotal = manualInput.value;
+      renderRemindersPreview();
+      saveRemindersDraft(false);
+    });
+  }
+
+  // Row and Column Action Buttons
+  document.getElementById('remAddRowBtn')?.addEventListener('click', addReminderRow);
+  document.getElementById('remAddColumnBtn')?.addEventListener('click', openAddColumnModal);
+  document.getElementById('remCancelAddColBtn')?.addEventListener('click', closeAddColumnModal);
+  document.getElementById('remCancelAddColBtn2')?.addEventListener('click', closeAddColumnModal);
+  document.getElementById('remConfirmAddColBtn')?.addEventListener('click', confirmAddColumn);
+
+  // Actions Dropdown Toggle
+  const actionsBtn = document.getElementById('remActionsDropdownBtn');
+  const actionsMenu = document.getElementById('remActionsMenu');
+  if (actionsBtn && actionsMenu) {
+    actionsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      actionsMenu.style.display = actionsMenu.style.display === 'none' ? 'block' : 'none';
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (actionsMenu && !e.target.closest('.rem-actions-dropdown-wrap')) {
+      actionsMenu.style.display = 'none';
     }
   });
-});
+
+  // Action Menu Items
+  document.getElementById('remExportPdfBtn')?.addEventListener('click', () => {
+    if (actionsMenu) actionsMenu.style.display = 'none';
+    exportReminderToPdf();
+  });
+
+  document.getElementById('remPreviewPdfBtn')?.addEventListener('click', () => {
+    exportReminderToPdf();
+  });
+
+  document.getElementById('remPrintPdfBtn')?.addEventListener('click', () => {
+    if (actionsMenu) actionsMenu.style.display = 'none';
+    if (currentRemView !== 'designer') switchRemindersView('designer');
+    setTimeout(() => window.print(), 150);
+  });
+
+  document.getElementById('remExportDocxBtn')?.addEventListener('click', () => {
+    if (actionsMenu) actionsMenu.style.display = 'none';
+    exportReminderToWord();
+  });
+
+  document.getElementById('remSaveDraftBtn')?.addEventListener('click', () => {
+    if (actionsMenu) actionsMenu.style.display = 'none';
+    saveRemindersDraft(true);
+  });
+
+  document.getElementById('remExportSessionBtn')?.addEventListener('click', () => {
+    if (actionsMenu) actionsMenu.style.display = 'none';
+    exportRemindersSession();
+  });
+
+  const importFileInput = document.getElementById('remImportFileInput');
+  document.getElementById('remImportSessionBtn')?.addEventListener('click', () => {
+    if (actionsMenu) actionsMenu.style.display = 'none';
+    if (importFileInput) importFileInput.click();
+  });
+
+  if (importFileInput) {
+    importFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        importRemindersSession(e.target.files[0]);
+        importFileInput.value = '';
+      }
+    });
+  }
+
+  document.getElementById('remResetBtn')?.addEventListener('click', () => {
+    if (actionsMenu) actionsMenu.style.display = 'none';
+    resetReminderDraft();
+  });
+
+  // Search & Filter in Master Table
+  document.getElementById('remTableSearchInput')?.addEventListener('input', renderRemindersMasterTable);
+  document.getElementById('remTableFilterSelect')?.addEventListener('change', renderRemindersMasterTable);
+
+  // Zoom Controls
+  const sheet = document.getElementById('reminderPrintArea');
+  const zoomText = document.getElementById('remZoomLevelText');
+  const updateZoom = () => {
+    if (sheet) {
+      sheet.style.transform = 'scale(' + remState.zoom + ')';
+      sheet.style.transformOrigin = 'top center';
+    }
+    if (zoomText) {
+      zoomText.textContent = Math.round(remState.zoom * 100) + '%';
+    }
+  };
+
+  document.getElementById('remZoomInBtn')?.addEventListener('click', () => {
+    if (remState.zoom < 1.6) {
+      remState.zoom = Math.round((remState.zoom + 0.1) * 10) / 10;
+      updateZoom();
+    }
+  });
+
+  document.getElementById('remZoomOutBtn')?.addEventListener('click', () => {
+    if (remState.zoom > 0.5) {
+      remState.zoom = Math.round((remState.zoom - 0.1) * 10) / 10;
+      updateZoom();
+    }
+  });
+
+  document.getElementById('remZoomResetBtn')?.addEventListener('click', () => {
+    remState.zoom = 1;
+    updateZoom();
+  });
+}
+
+async function initRemindersApp() {
+  loadRemindersDraft();
+  setupRemindersEventListeners();
+  updateRemindersBadgeCount();
+  await checkRemindersAuthSession();
+}
+

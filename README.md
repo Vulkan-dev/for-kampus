@@ -17,6 +17,15 @@ Automated monthly water billing invoice generator for **The Mega Mall** and **Ka
 - **Yearly & Period Rate Configuration**: Configure different rates and monthly consumption for each year (2024, 2025, 2026, etc.) with specific month overrides.
 - **1-Click Presets**: Pre-configured defaults for **Falaknaz Springs** and **Mega Residency**.
 - **A4 Multi-Page Print & Export Engine**: Uses native `@media print` with exact A4 dimensions (`210mm x 297mm`) and clean page breaks for standard print or "Save as PDF".
+- **Dedicated Payment Reminders Portal (`/reminders`)**:
+  - Isolated password-protected section configured via `REMINDERS_PASSWORD` env variable.
+  - Generates official tenant payment reminder letters (Reminder 1, Reminder 2, Final Reminder 3).
+  - **Reminders Master Table Editor**: Interactive spreadsheet table allowing inline cell editing of date, tenant/brand, shop number, reminder type, particulars, deadline, and total dues with instant auto-save.
+  - **Dynamic Line Items & Columns**: Add or remove columns and line items (minimum 1) with auto-calculated totals and manual edit override.
+  - **Fully Editable Document Sections**: Document title, salutation (`Dear Tenant,`), warning statement, payment deadline, payment proof notice, legal recovery notice, and sign-off authority (`For Mega Mall`).
+  - **Vector PDF & Word (.docx) Exports**: Direct high-precision PDF download and official Word (.docx) export with clean text formatting and zero fill underlines.
+  - **100% Client-Side Privacy (Zero Server Database)**: All tenant details, dues, and customized notices reside exclusively in browser `localStorage`.
+  - **Session Export & Import**: Export any active reminder session to an offline `.json` file and import it anytime on another machine or browser to seamlessly resume work without sending confidential financial records to any cloud/server database.
 
 ---
 
@@ -36,6 +45,23 @@ Automated monthly water billing invoice generator for **The Mega Mall** and **Ka
    ```
    http://localhost:3000
    ```
+   Or access the Reminders Portal at:
+   ```
+   http://localhost:3000/reminders
+   ```
+
+---
+
+## Environment Variables
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `REMINDERS_PASSWORD` | Password for the `/reminders` portal | `MegaMall@Reminder2026!` |
+| `ADMIN_PASSWORD` | Master administrator password | `MegaMall@Kampus2026!` |
+| `RENTS_PASSWORD` | Password for `/rents` register | `MegaMall@Rent2026!` |
+| `PORT` | HTTP port | `3000` |
+
+You can set these in your hosting environment (Railway, Docker, system environment) or in a `.env` file in the project root.
 
 ---
 

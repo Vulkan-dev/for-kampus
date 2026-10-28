@@ -20,6 +20,31 @@ const {
 const { PDFParse } = require('pdf-parse');
 const AdmZip = require('adm-zip');
 
+// Optional zero-dependency .env loader
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  try {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    envContent.split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const key = trimmed.substring(0, eqIdx).trim();
+        let val = trimmed.substring(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('Could not parse .env file:', e);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -29,6 +54,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MegaMall@Kampus2026!';
 const KERNEL_ADMIN_USER = process.env.KERNEL_ADMIN_USER || 'Admin@kernel';
 const KERNEL_ADMIN_PASS = process.env.KERNEL_ADMIN_PASS || 'kernelx2026@1';
 const RENTS_PASSWORD = process.env.RENTS_PASSWORD || 'MegaMall@Rent2026!';
+const REMINDERS_PASSWORD = process.env.REMINDERS_PASSWORD || 'MegaMall@Reminder2026!';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'MegaMall_SuperSecret_Cryptographic_Key_2026_Corporate#991!';
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_JSON_PATH = path.join(DATA_DIR, 'users.json');
@@ -413,6 +439,31 @@ function requireRentsAuth(req, res, next) {
   }
 
   req.rentsUser = verified;
+  next();
+}
+
+// ==========================================================
+// Reminders Portal Authentication Middleware
+// ==========================================================
+function requireRemindersAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  let token = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access Denied: Reminders authentication token required.' });
+  }
+
+  const verified = verifyToken(token);
+  if (!verified || (!verified.isRemindersAdmin && !verified.isKernelAdmin && verified.role !== 'Administrator')) {
+    return res.status(401).json({ error: 'Session Expired or Unauthorized: Please log into the Reminders portal again.' });
+  }
+
+  req.remindersUser = verified;
   next();
 }
 
@@ -1468,6 +1519,342 @@ app.get('/api/rents/download/master-csv', requireRentsAuth, (req, res) => {
 // Dedicated route for KernelX Admin Console
 app.get(['/kernelx', '/kernelx/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ==========================================================
+// Payment Reminders API & Dedicated Route (/reminders & /reminder)
+// ==========================================================
+app.get(['/reminders', '/reminders/', '/reminder', '/reminder/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// POST /api/reminders/login - Password Authentication (Set via REMINDERS_PASSWORD env)
+app.post('/api/reminders/login', loginRateLimiter, (req, res) => {
+  const { password } = req.body || {};
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required to access Payment Reminders' });
+  }
+
+  const isMasterPass = password === KERNEL_ADMIN_PASS || password === ADMIN_PASSWORD;
+  const isRemindersPass = password === REMINDERS_PASSWORD;
+
+  if (!isMasterPass && !isRemindersPass) {
+    if (req.loginRateRecord) req.loginRateRecord.count++;
+    return res.status(401).json({ error: 'Invalid password for Payment Reminders. Access denied.' });
+  }
+
+  if (req.loginRateRecord) req.loginRateRecord.count = 0;
+
+  const token = generateToken({
+    isRemindersAdmin: true,
+    role: 'RemindersAdministrator',
+    exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours validity
+  });
+
+  res.json({
+    success: true,
+    token,
+    expiresIn: 86400
+  });
+});
+
+// GET /api/reminders/verify - Verify token
+app.get('/api/reminders/verify', requireRemindersAuth, (req, res) => {
+  res.json({ valid: true, user: req.remindersUser });
+});
+
+// POST /api/reminders/export-docx - Generate Word document
+app.post('/api/reminders/export-docx', requireRemindersAuth, async (req, res) => {
+  try {
+    const data = req.body || {};
+    const mallName = (data.mallName || 'MEGA MALL').trim();
+    const reminderSubtitle = (data.reminderSubtitle || 'FINAL PAYMENT REMINDER – 3').trim();
+    const dateStr = (data.date || '').trim();
+    const tenantBrand = (data.tenantBrand || '').trim();
+    const shopNo = (data.shopNo || '').trim();
+    const subject = (data.subject || 'Subject: Outstanding Payment').trim();
+    const salutation = (data.salutation || 'Dear Tenant,').trim();
+    const introText = (data.introText || '').trim();
+    const columns = Array.isArray(data.columns) && data.columns.length > 0 ? data.columns : [
+      { id: 'sr', label: 'Sr.' },
+      { id: 'invNo', label: 'Invoice No.' },
+      { id: 'particulars', label: 'Particulars' },
+      { id: 'dueDate', label: 'Due Date' },
+      { id: 'outstanding', label: 'Outstanding (PKR)' }
+    ];
+    const rows = Array.isArray(data.rows) && data.rows.length > 0 ? data.rows : [
+      { sr: 1, invNo: '', particulars: 'Rent / CAM / Electricity / Water / Other', dueDate: '', outstanding: '' }
+    ];
+    const totalOutstanding = data.totalOutstanding != null ? String(data.totalOutstanding).trim() : '0';
+    const paymentDeadline = (data.paymentDeadline || '').trim();
+    const notice1 = (data.notice1 || '').trim();
+    const notice2 = (data.notice2 || '').trim();
+    const signOff = (data.signOff || 'For Mega Mall').trim();
+
+    const solidBorder = { style: BorderStyle.SINGLE, size: 8, color: '333333' };
+    const cellBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
+    const metaBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
+
+    const children = [];
+
+    // Title Section
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 100, after: 60 },
+        children: [
+          new TextRun({ text: mallName, bold: true, size: 30, font: 'Calibri' })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 0, after: 240 },
+        children: [
+          new TextRun({ text: reminderSubtitle, bold: true, size: 24, font: 'Calibri' })
+        ]
+      })
+    );
+
+    // Meta Box (Date, Tenant/Brand, Shop No.)
+    const metaTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 25, type: WidthType.PERCENTAGE },
+              borders: metaBorders,
+              children: [new Paragraph({ children: [new TextRun({ text: 'Date:', bold: true, size: 21, font: 'Calibri' })] })]
+            }),
+            new TableCell({
+              width: { size: 75, type: WidthType.PERCENTAGE },
+              borders: metaBorders,
+              children: [new Paragraph({ children: [new TextRun({ text: dateStr || '', size: 21, font: 'Calibri' })] })]
+            })
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: metaBorders,
+              children: [new Paragraph({ children: [new TextRun({ text: 'Tenant / Brand:', bold: true, size: 21, font: 'Calibri' })] })]
+            }),
+            new TableCell({
+              borders: metaBorders,
+              children: [new Paragraph({ children: [new TextRun({ text: tenantBrand || '', size: 21, font: 'Calibri' })] })]
+            })
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: metaBorders,
+              children: [new Paragraph({ children: [new TextRun({ text: 'Shop No.', bold: true, size: 21, font: 'Calibri' })] })]
+            }),
+            new TableCell({
+              borders: metaBorders,
+              children: [new Paragraph({ children: [new TextRun({ text: shopNo || '', size: 21, font: 'Calibri' })] })]
+            })
+          ]
+        })
+      ]
+    });
+    children.push(metaTable);
+
+    // Spacing
+    children.push(new Paragraph({ spacing: { before: 180, after: 80 } }));
+
+    // Subject
+    children.push(
+      new Paragraph({
+        spacing: { before: 60, after: 120 },
+        children: [
+          new TextRun({ text: subject, bold: true, size: 22, font: 'Calibri' })
+        ]
+      })
+    );
+
+    // Salutation
+    children.push(
+      new Paragraph({
+        spacing: { before: 60, after: 100 },
+        children: [
+          new TextRun({ text: salutation, bold: true, size: 22, font: 'Calibri' })
+        ]
+      })
+    );
+
+    // Warning / Intro text
+    if (introText) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 40, after: 200 },
+          children: [
+            new TextRun({ text: introText, size: 21, font: 'Calibri' })
+          ]
+        })
+      );
+    }
+
+    // Main Table
+    const headerRowCells = columns.map((col, idx) => {
+      return new TableCell({
+        borders: cellBorders,
+        shading: { fill: 'EFEFEF' },
+        alignment: AlignmentType.CENTER,
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({ text: col.label || `Col ${idx + 1}`, bold: true, size: 20, font: 'Calibri' })
+            ]
+          })
+        ]
+      });
+    });
+
+    const tableRows = [new TableRow({ children: headerRowCells })];
+
+    rows.forEach((r, rowIdx) => {
+      const rowCells = columns.map((col) => {
+        let cellVal = '';
+        if (col.id === 'sr' || col.isSr) {
+          cellVal = String(rowIdx + 1);
+        } else {
+          cellVal = r[col.id] != null ? String(r[col.id]) : '';
+        }
+
+        const isAmountCol = col.id === 'outstanding' || col.isAmount;
+        const align = (col.id === 'sr' || col.isSr) ? AlignmentType.CENTER : (isAmountCol ? AlignmentType.RIGHT : AlignmentType.LEFT);
+
+        return new TableCell({
+          borders: cellBorders,
+          alignment: align,
+          children: [
+            new Paragraph({
+              alignment: align,
+              children: [
+                new TextRun({ text: cellVal, size: 20, font: 'Calibri' })
+              ]
+            })
+          ]
+        });
+      });
+      tableRows.push(new TableRow({ children: rowCells }));
+    });
+
+    // Total Row
+    const totalRowCells = [
+      new TableCell({
+        borders: cellBorders,
+        shading: { fill: 'F9F9F9' },
+        columnSpan: Math.max(1, columns.length - 1),
+        alignment: AlignmentType.RIGHT,
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [
+              new TextRun({ text: 'Total Outstanding PKR', bold: true, size: 21, font: 'Calibri' })
+            ]
+          })
+        ]
+      }),
+      new TableCell({
+        borders: cellBorders,
+        shading: { fill: 'F9F9F9' },
+        alignment: AlignmentType.RIGHT,
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [
+              new TextRun({ text: totalOutstanding, bold: true, size: 21, font: 'Calibri' })
+            ]
+          })
+        ]
+      })
+    ];
+    tableRows.push(new TableRow({ children: totalRowCells }));
+
+    const mainTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows
+    });
+    children.push(mainTable);
+
+    // Payment Deadline
+    children.push(
+      new Paragraph({
+        spacing: { before: 180, after: 120 },
+        children: [
+          new TextRun({ text: 'Payment Deadline: ', bold: true, size: 21, font: 'Calibri' }),
+          new TextRun({ text: paymentDeadline || '', bold: true, size: 21, font: 'Calibri' })
+        ]
+      })
+    );
+
+    // Notice 1
+    if (notice1) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 60, after: 100 },
+          children: [
+            new TextRun({ text: notice1, size: 20, font: 'Calibri' })
+          ]
+        })
+      );
+    }
+
+    // Notice 2
+    if (notice2) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 60, after: 200 },
+          children: [
+            new TextRun({ text: notice2, size: 20, font: 'Calibri' })
+          ]
+        })
+      );
+    }
+
+    // Sign-off
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        spacing: { before: 180, after: 60 },
+        children: [
+          new TextRun({ text: signOff, bold: true, size: 22, font: 'Calibri' })
+        ]
+      })
+    );
+
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: {
+              top: 1000,
+              right: 1200,
+              bottom: 1000,
+              left: 1200
+            }
+          }
+        },
+        children
+      }]
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    const safeTenant = (tenantBrand || 'Tenant').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeShop = (shopNo || 'Shop').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Payment_Reminder_${safeTenant}_${safeShop}.docx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error('Error generating reminder docx:', err);
+    res.status(500).json({ error: 'Failed to generate Word document: ' + err.message });
+  }
 });
 
 // Fallback to index.html
