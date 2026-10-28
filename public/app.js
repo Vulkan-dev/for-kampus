@@ -4271,7 +4271,391 @@ window.openRentsEditModal = openRentsEditModal;
 window.deleteRentRecord = deleteRentRecord;
 
 // ==========================================================
-// Route Isolation & View Initialization (/rent, /rents vs /kernelx vs /)
+// Route Isolation & View Initialization (/rent, /rents vs /kernelx vs /reminders vs /)
+// ==========================================================
+function checkRouteMode() {
+  const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+
+  const isRemindersRoute = pathname === '/reminders' || pathname === '/reminder';
+  if (isRemindersRoute) {
+    document.getElementById("loginScreen")?.remove();
+    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
+    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
+    const rentsApp = document.getElementById("rentsApp");
+    if (rentsApp) rentsApp.style.display = "none";
+    const kernelxApp = document.getElementById("kernelxApp");
+    if (kernelxApp) kernelxApp.style.display = "none";
+
+    const remindersApp = document.getElementById("remindersApp");
+    if (remindersApp) remindersApp.style.display = "flex";
+    document.body.classList.add("route-reminders");
+    document.documentElement.classList.add("route-reminders");
+    document.title = "Payment Reminders - The Mega Mall";
+    if (typeof initRemindersApp === 'function') {
+      initRemindersApp();
+    }
+    return true;
+  }
+
+  const isRentsRoute = pathname === '/rent' || pathname === '/rents';
+  if (isRentsRoute) {
+    document.getElementById("loginScreen")?.remove();
+    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
+    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
+    const kernelxApp = document.getElementById("kernelxApp");
+    if (kernelxApp) kernelxApp.style.display = "none";
+    const remindersApp = document.getElementById("remindersApp");
+    if (remindersApp) remindersApp.style.display = "none";
+    const rentsApp = document.getElementById("rentsApp");
+    if (rentsApp) rentsApp.style.display = "block";
+    document.title = "Allottees Rent Master Register - The Mega Mall";
+    initRentsApp();
+    return true;
+  }
+
+  const isKernelxRoute = pathname === '/kernelx';
+  if (isKernelxRoute) {
+    // Dedicated KernelX Master Mode
+    document.getElementById("loginScreen")?.remove();
+    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
+    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
+    const rentsApp = document.getElementById("rentsApp");
+    if (rentsApp) rentsApp.style.display = "none";
+    const remindersApp = document.getElementById("remindersApp");
+    if (remindersApp) remindersApp.style.display = "none";
+
+    const kernelxApp = document.getElementById("kernelxApp");
+    if (kernelxApp) kernelxApp.style.display = "block";
+    document.title = "KernelX - User Directory & Access Control";
+    initKernelx();
+    return true;
+  }
+
+  // Standard Root Invoice Mode - Guarantee rents and reminders portals are completely hidden
+  const rentsApp = document.getElementById("rentsApp");
+  if (rentsApp) rentsApp.style.display = "none";
+  const kernelxApp = document.getElementById("kernelxApp");
+  if (kernelxApp) kernelxApp.style.display = "none";
+  const remindersApp = document.getElementById("remindersApp");
+  if (remindersApp) remindersApp.style.display = "none";
+
+  switchTab("preview");
+  return false;
+}
+
+// Setup Event Listeners
+document.addEventListener("DOMContentLoaded", () => {
+  // Isolate execution: on /rents or /kernelx, initialize dedicated app and do not run water invoice code
+  if (checkRouteMode()) {
+    return;
+  }
+
+  document.getElementById("preset-falaknaz")?.addEventListener("click", () => applyPreset("falaknaz"));
+  document.getElementById("preset-mega")?.addEventListener("click", () => applyPreset("mega"));
+
+  document.getElementById("occupierInput").addEventListener("input", (e) => {
+    appState.occupier = e.target.value;
+    renderPreview();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("locationInput").addEventListener("input", (e) => {
+    appState.location = e.target.value;
+    renderPreview();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("ntnInput").addEventListener("input", (e) => {
+    appState.ntn = e.target.value;
+    renderPreview();
+    debouncedSaveProjectState();
+  });
+
+  document.getElementById("startMonthInput").addEventListener("change", (e) => {
+    updateBillingDate("start", e.target.value);
+  });
+  document.getElementById("endMonthInput").addEventListener("change", (e) => {
+    updateBillingDate("end", e.target.value);
+  });
+
+  const handleSeqModeChange = (newMode) => {
+    appState.seqMode = newMode;
+    if (newMode === "month_year") {
+      if (!appState.invPrefix || appState.invPrefix === "#INV-" || appState.invPrefix === "#INV") {
+        appState.invPrefix = "#INV-01-";
+      }
+    }
+    syncInputsWithState();
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+    showToast(newMode === "month_year" ? "Switched to Monthly sequence (#INV-01-MM-YYYY)" : "Switched to Sequential numbering", "info");
+  };
+
+  document.getElementById("seqModeSelect")?.addEventListener("change", (e) => {
+    handleSeqModeChange(e.target.value);
+  });
+  document.getElementById("editorSeqMode")?.addEventListener("change", (e) => {
+    handleSeqModeChange(e.target.value);
+  });
+
+  const handlePrefixInput = (val) => {
+    appState.invPrefix = val;
+    const sbInput = document.getElementById("invPrefixInput");
+    const edInput = document.getElementById("editorSeqPrefix");
+    if (sbInput && sbInput.value !== val) sbInput.value = val;
+    if (edInput && edInput.value !== val) edInput.value = val;
+
+    const previewText = document.getElementById("monthlySeqPreviewText");
+    if (previewText) {
+      let p = (val || "#INV-01-").trim();
+      if (/#INV-\d+-\d{2}-\d{4}/i.test(p)) {
+        const pm = p.match(/^([#A-Za-z0-9]+-\d+-)/);
+        if (pm) p = pm[1];
+      }
+      if (p === "#INV-" || p === "#INV" || p === "INV-" || p === "INV") p = "#INV-01-";
+      if (!p.endsWith("-")) p += "-";
+      previewText.textContent = `${p}01-2024`;
+    }
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  };
+
+  document.getElementById("invPrefixInput")?.addEventListener("input", (e) => {
+    handlePrefixInput(e.target.value);
+  });
+  document.getElementById("editorSeqPrefix")?.addEventListener("input", (e) => {
+    handlePrefixInput(e.target.value);
+  });
+
+  document.getElementById("invStartNumInput")?.addEventListener("input", (e) => {
+    appState.invStartNum = parseInt(e.target.value, 10) || 1;
+    const edInput = document.getElementById("editorSeqStartNum");
+    if (edInput) edInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("editorSeqStartNum")?.addEventListener("input", (e) => {
+    appState.invStartNum = parseInt(e.target.value, 10) || 1;
+    const sbInput = document.getElementById("invStartNumInput");
+    if (sbInput) sbInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+
+  document.getElementById("invSuffixInput")?.addEventListener("input", (e) => {
+    appState.invSuffix = e.target.value;
+    const edInput = document.getElementById("editorSeqSuffix");
+    if (edInput) edInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+  document.getElementById("editorSeqSuffix")?.addEventListener("input", (e) => {
+    appState.invSuffix = e.target.value;
+    const sbInput = document.getElementById("invSuffixInput");
+    if (sbInput) sbInput.value = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+
+  document.getElementById("autoSuffixYearToggle")?.addEventListener("change", (e) => {
+    appState.autoSuffixYear = e.target.checked;
+    const edToggle = document.getElementById("editorSeqAutoYear");
+    if (edToggle) edToggle.checked = e.target.checked;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+    if (e.target.checked) {
+      showToast("Year-based suffix changer activated (e.g. -051026 -> -051027)", "info");
+    } else {
+      showToast("Static suffix sequence restored", "info");
+    }
+  });
+
+  document.getElementById("editorSeqAutoYear")?.addEventListener("change", (e) => {
+    appState.autoSuffixYear = e.target.checked;
+    const sbToggle = document.getElementById("autoSuffixYearToggle");
+    if (sbToggle) sbToggle.checked = e.target.checked;
+    renderPreview();
+    renderDataEditor();
+  });
+  document.getElementById("editorManualBillGlobalToggle")?.addEventListener("change", (e) => {
+    toggleGlobalManualBill(e.target.checked);
+  });
+  document.getElementById("editorApplySeqBtn")?.addEventListener("click", applyEditorSequence);
+
+  // Custom Table Boxes (Columns) Modal Actions
+  document.getElementById("openColumnsModalBtn")?.addEventListener("click", openColumnsModal);
+  document.getElementById("closeColumnsModalBtn")?.addEventListener("click", closeColumnsModal);
+  document.getElementById("doneColumnsModalBtn")?.addEventListener("click", closeColumnsModal);
+  document.getElementById("addNewColumnBtn")?.addEventListener("click", addNewCustomColumn);
+  document.getElementById("resetColumnsBtn")?.addEventListener("click", resetDefaultColumns);
+
+  // Manual DB Save Button
+  document.getElementById("manualSaveDbBtn")?.addEventListener("click", () => saveProjectStateToDatabase(true));
+
+  const prevToggle = document.getElementById("prevBalanceToggle");
+  prevToggle.addEventListener("change", (e) => {
+    appState.includePrevBalance = e.target.checked;
+    const prevOptions = document.getElementById("prevBalanceOptions");
+    if (prevOptions) prevOptions.style.display = e.target.checked ? "flex" : "none";
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+
+  document.getElementById("openingBalanceInput").addEventListener("input", (e) => {
+    appState.openingBalance = parseFloat(e.target.value) || 0;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+
+  document.getElementById("prevBalanceModeSelect").addEventListener("change", (e) => {
+    appState.prevBalanceMode = e.target.value;
+    renderPreview();
+    renderDataEditor();
+    debouncedSaveProjectState();
+  });
+
+  document.getElementById("tabInvoicePreview").addEventListener("click", () => switchTab("preview"));
+  document.getElementById("tabDataEditor").addEventListener("click", () => switchTab("editor"));
+
+  document.getElementById("prevPageBtn").addEventListener("click", prevPage);
+  document.getElementById("nextPageBtn").addEventListener("click", nextPage);
+  document.getElementById("jumpMonthSelect").addEventListener("change", (e) => jumpToPage(e.target.value));
+
+  document.getElementById("viewSingleBtn").addEventListener("click", () => toggleViewAll(false));
+  document.getElementById("viewAllBtn").addEventListener("click", () => toggleViewAll(true));
+
+  document.getElementById("exportDocxBtn").addEventListener("click", exportToWord);
+  document.getElementById("exportPdfBtn").addEventListener("click", exportToPdf);
+  document.getElementById("printBtn").addEventListener("click", triggerPrint);
+
+  document.getElementById("openImportModalBtn").addEventListener("click", openImportModal);
+  document.getElementById("closeImportModalBtn").addEventListener("click", closeImportModal);
+  document.getElementById("cancelImportBtn").addEventListener("click", closeImportModal);
+  document.getElementById("confirmImportBtn").addEventListener("click", processImport);
+  document.getElementById("exportCsvBtn").addEventListener("click", exportToCsv);
+  document.getElementById("resetEditorBtn").addEventListener("click", resetManualCorrections);
+
+  // Authentication form & logout handlers
+  document.getElementById("loginForm")?.addEventListener("submit", handleLoginSubmit);
+  document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
+  document.getElementById("togglePasswordBtn")?.addEventListener("click", () => {
+    const input = document.getElementById("loginPassword");
+    const icon = document.getElementById("eyeIcon");
+    if (!input || !icon) return;
+    if (input.type === "password") {
+      input.type = "text";
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />`;
+    } else {
+      input.type = "password";
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
+    }
+  });
+
+  // File drag & drop handling with stopPropagation to prevent double-click lock
+  const dropzone = document.getElementById("fileDropzone");
+  const fileInput = document.getElementById("fileInput");
+
+  dropzone?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("click", (e) => e.stopPropagation());
+  fileInput?.addEventListener("change", (e) => {
+    if (e.target.files.length > 0) handleFileSelection(e.target.files[0]);
+  });
+
+  dropzone?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  });
+  dropzone?.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0) {
+      handleFileSelection(e.dataTransfer.files[0]);
+    }
+  });
+
+  // Confirm modal event handlers
+  document.getElementById("confirmModalOkBtn")?.addEventListener("click", () => {
+    if (confirmCallback) confirmCallback();
+    closeConfirmModal();
+  });
+  document.getElementById("confirmModalCancelBtn")?.addEventListener("click", closeConfirmModal);
+  document.getElementById("confirmModalCloseBtn")?.addEventListener("click", closeConfirmModal);
+
+  document.getElementById("togglePreviewBtn")?.addEventListener("click", togglePreview);
+  initSplitPaneResizer();
+
+  initCalendarPopovers();
+  syncInputsWithState();
+  updateYearConfigsUI();
+  renderPreview();
+  renderDataEditor();
+
+  const savedActiveTab = localStorage.getItem('mega_mall_active_tab') || appState.activeTab;
+  if (savedActiveTab) {
+    switchTab(savedActiveTab);
+  }
+
+  // Register beforeunload handler to immediately persist state to localStorage on refresh/exit
+  window.addEventListener("beforeunload", () => {
+    try {
+      localStorage.setItem('mega_mall_project_state', JSON.stringify(appState));
+    } catch (e) {}
+  });
+
+  // Offline Support Status Indicator Manager
+  function updateOfflineSupportUI() {
+    const badge = document.getElementById("offlineSupportBadge");
+    const textEl = document.getElementById("offlineSupportText");
+    if (!badge) return;
+
+    if (navigator.onLine) {
+      badge.classList.remove("offline-now");
+      if (textEl) textEl.textContent = "Offline Ready";
+      badge.title = "Offline Support Active: All app assets, formulas, and local data are saved to your device. You can use the site without internet.";
+    } else {
+      badge.classList.add("offline-now");
+      if (textEl) textEl.textContent = "Offline Mode Active";
+      badge.title = "Currently Offline: Full calculation engine, editing, and exports remain 100% functional locally.";
+    }
+  }
+
+  updateOfflineSupportUI();
+
+  document.getElementById("offlineSupportBadge")?.addEventListener("click", () => {
+    if (navigator.onLine) {
+      showToast("Offline Support Active: All formulas and app assets are cached. You can disconnect internet anytime and continue working.", "info");
+    } else {
+      showToast("Offline Mode Active: Calculations and exports running locally in your browser. Changes are saved to your device.", "info");
+    }
+  });
+
+  // Offline / Online network event listeners
+  window.addEventListener('online', () => {
+    updateOfflineSupportUI();
+    showToast("Internet connection restored. Back online.", "success");
+    saveProjectStateToDatabase(false);
+  });
+  window.addEventListener('offline', () => {
+    updateOfflineSupportUI();
+    showToast("Offline Mode Active — calculations, preview, and exports work 100% locally.", "info");
+  });
+
+  // Initialize Session Authentication for standard application
+  checkAuthSession().then(async (isAuth) => {
+    if (isAuth) {
+      await loadProjectStateFromDatabase();
+    }
+  });
+});
+
 // ==========================================================
 // Payment Reminders Module (/reminders & /reminder)
 // Minimal Matte Black/Slate UI + Master Table Editor + Actions Menu + Vector PDF
@@ -5749,5 +6133,10 @@ async function initRemindersApp() {
   setupRemindersEventListeners();
   updateRemindersBadgeCount();
   await checkRemindersAuthSession();
+}
+
+// Auto-initialize route if DOM already ready
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  checkRouteMode();
 }
 

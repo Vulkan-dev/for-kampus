@@ -6,7 +6,17 @@
   <title>The Mega Mall - Billing &amp; Reimbursement Invoices</title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0d0f14">
-  <link rel="stylesheet" href="/style.css?v=10">
+  <link rel="stylesheet" href="/style.css?v=11">
+  <script>
+    (function() {
+      var p = window.location.pathname.toLowerCase();
+      if (p.startsWith('/reminders') || p.startsWith('/reminder')) {
+        document.documentElement.classList.add('route-reminders');
+      } else if (p.startsWith('/rent')) {
+        document.documentElement.classList.add('route-rents');
+      }
+    })();
+  </script>
   <script src="/assets/jspdf.umd.min.js"></script>
   <script src="/assets/docx.iife.js"></script>
   <script src="/assets/html2canvas.min.js"></script>
@@ -1547,7 +1557,7 @@
   <!-- Themed Toast Notifications Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js?v=10"></script>
+  <script src="/app.js?v=11"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

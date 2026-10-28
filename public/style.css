@@ -2838,6 +2838,30 @@ input:checked + .slider:before {
    Matte Obsidian & Slate Theme (Zero Blue Glow)
    ========================================================== */
 
+/* Route Isolation: Force hide main water invoice login screen and layouts on /reminders */
+html.route-reminders #loginScreen,
+body.route-reminders #loginScreen,
+.route-reminders #loginScreen,
+html.route-reminders .app-header,
+body.route-reminders .app-header,
+html.route-reminders .app-container,
+body.route-reminders .app-container,
+html.route-reminders #rentsApp,
+body.route-reminders #rentsApp,
+html.route-reminders #kernelxApp,
+body.route-reminders #kernelxApp {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
+}
+
+html.route-reminders #remindersApp,
+body.route-reminders #remindersApp {
+  display: flex !important;
+}
+
 .reminders-wrapper {
   min-height: 100vh;
   background-color: #090a0d;
