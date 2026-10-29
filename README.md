@@ -15,7 +15,6 @@ Automated monthly water billing invoice generator for **The Mega Mall** and **Ka
   - When ON: Supports initial opening balance and cumulative rollover.
 - **Sequential Invoice Numbering**: Configurable prefix (`#INV-`), start number (`3001`), and suffix (`-051026`).
 - **Yearly & Period Rate Configuration**: Configure different rates and monthly consumption for each year (2024, 2025, 2026, etc.) with specific month overrides.
-- **1-Click Presets**: Pre-configured defaults for **Falaknaz Springs** and **Mega Residency**.
 - **A4 Multi-Page Print & Export Engine**: Uses native `@media print` with exact A4 dimensions (`210mm x 297mm`) and clean page breaks for standard print or "Save as PDF".
 - **Dedicated Payment Reminders Portal (`/reminders`)**:
   - Isolated password-protected section configured via `REMINDERS_PASSWORD` env variable.

@@ -2712,14 +2712,6 @@ function syncInputsWithState() {
   const [eY] = (appState.endMonth || "2026-07").split("-").map(Number);
   startCalYear = sY;
   endCalYear = eY;
-
-  // Active preset highlight
-  document.querySelectorAll(".preset-pill-btn").forEach(btn => btn.classList.remove("active"));
-  if (appState.occupier && appState.occupier.toUpperCase().includes("FALAKNAZ")) {
-    document.getElementById("preset-falaknaz")?.classList.add("active");
-  } else if (appState.occupier && appState.occupier.toUpperCase().includes("MEGA")) {
-    document.getElementById("preset-mega")?.classList.add("active");
-  }
 }
 
 // ----------------------------------------------------------
@@ -4349,9 +4341,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (checkRouteMode()) {
     return;
   }
-
-  document.getElementById("preset-falaknaz")?.addEventListener("click", () => applyPreset("falaknaz"));
-  document.getElementById("preset-mega")?.addEventListener("click", () => applyPreset("mega"));
 
   document.getElementById("occupierInput").addEventListener("input", (e) => {
     appState.occupier = e.target.value;
