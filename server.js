@@ -15,7 +15,8 @@ const {
   AlignmentType,
   BorderStyle,
   ImageRun,
-  PageBreak
+  PageBreak,
+  UnderlineType
 } = require('docx');
 const { PDFParse } = require('pdf-parse');
 const AdmZip = require('adm-zip');
@@ -1593,7 +1594,10 @@ app.post('/api/reminders/export-docx', requireRemindersAuth, async (req, res) =>
 
     const solidBorder = { style: BorderStyle.SINGLE, size: 8, color: '333333' };
     const cellBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
-    const metaBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
+    const noBorder = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+    const lineBottomBorder = { style: BorderStyle.SINGLE, size: 8, color: '000000' };
+    const labelBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+    const lineBorders = { top: noBorder, bottom: lineBottomBorder, left: noBorder, right: noBorder };
 
     const children = [];
 
@@ -1615,45 +1619,46 @@ app.post('/api/reminders/export-docx', requireRemindersAuth, async (req, res) =>
       })
     );
 
-    // Meta Box (Date, Tenant/Brand, Shop No.)
+    // Meta Lines (Date, Tenant/Brand, Shop No. - Underlined Lines, No Outer Box)
     const metaTable = new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
       rows: [
         new TableRow({
           children: [
             new TableCell({
-              width: { size: 25, type: WidthType.PERCENTAGE },
-              borders: metaBorders,
-              children: [new Paragraph({ children: [new TextRun({ text: 'Date:', bold: true, size: 21, font: 'Calibri' })] })]
+              width: { size: 22, type: WidthType.PERCENTAGE },
+              borders: labelBorders,
+              children: [new Paragraph({ spacing: { before: 40, after: 40 }, children: [new TextRun({ text: 'Date:', bold: true, size: 21, font: 'Calibri' })] })]
             }),
             new TableCell({
-              width: { size: 75, type: WidthType.PERCENTAGE },
-              borders: metaBorders,
-              children: [new Paragraph({ children: [new TextRun({ text: dateStr || '', size: 21, font: 'Calibri' })] })]
+              width: { size: 78, type: WidthType.PERCENTAGE },
+              borders: lineBorders,
+              children: [new Paragraph({ spacing: { before: 40, after: 40 }, children: [new TextRun({ text: dateStr || '', bold: true, size: 21, font: 'Calibri' })] })]
             })
           ]
         }),
         new TableRow({
           children: [
             new TableCell({
-              borders: metaBorders,
-              children: [new Paragraph({ children: [new TextRun({ text: 'Tenant / Brand:', bold: true, size: 21, font: 'Calibri' })] })]
+              borders: labelBorders,
+              children: [new Paragraph({ spacing: { before: 60, after: 40 }, children: [new TextRun({ text: 'Tenant / Brand:', bold: true, size: 21, font: 'Calibri' })] })]
             }),
             new TableCell({
-              borders: metaBorders,
-              children: [new Paragraph({ children: [new TextRun({ text: tenantBrand || '', size: 21, font: 'Calibri' })] })]
+              borders: lineBorders,
+              children: [new Paragraph({ spacing: { before: 60, after: 40 }, children: [new TextRun({ text: tenantBrand || '', bold: true, size: 21, font: 'Calibri' })] })]
             })
           ]
         }),
         new TableRow({
           children: [
             new TableCell({
-              borders: metaBorders,
-              children: [new Paragraph({ children: [new TextRun({ text: 'Shop No.', bold: true, size: 21, font: 'Calibri' })] })]
+              borders: labelBorders,
+              children: [new Paragraph({ spacing: { before: 60, after: 40 }, children: [new TextRun({ text: 'Shop No.', bold: true, size: 21, font: 'Calibri' })] })]
             }),
             new TableCell({
-              borders: metaBorders,
-              children: [new Paragraph({ children: [new TextRun({ text: shopNo || '', size: 21, font: 'Calibri' })] })]
+              borders: lineBorders,
+              children: [new Paragraph({ spacing: { before: 60, after: 40 }, children: [new TextRun({ text: shopNo || '', bold: true, size: 21, font: 'Calibri' })] })]
             })
           ]
         })
@@ -1787,7 +1792,7 @@ app.post('/api/reminders/export-docx', requireRemindersAuth, async (req, res) =>
         spacing: { before: 180, after: 120 },
         children: [
           new TextRun({ text: 'Payment Deadline: ', bold: true, size: 21, font: 'Calibri' }),
-          new TextRun({ text: paymentDeadline || '', bold: true, size: 21, font: 'Calibri' })
+          new TextRun({ text: paymentDeadline || '', bold: true, underline: { type: UnderlineType.SINGLE }, size: 21, font: 'Calibri' })
         ]
       })
     );

@@ -6,7 +6,7 @@
   <title>The Mega Mall - Billing &amp; Reimbursement Invoices</title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0d0f14">
-  <link rel="stylesheet" href="/style.css?v=11">
+  <link rel="stylesheet" href="/style.css?v=12">
   <script>
     (function() {
       var p = window.location.pathname.toLowerCase();
@@ -1382,23 +1382,21 @@
                 <h2 class="rem-doc-subtitle" id="viewSubtitle">FINAL PAYMENT REMINDER – 3</h2>
               </div>
 
-              <!-- Top Meta Box Table (Date, Brand, Shop No) -->
-              <table class="rem-doc-meta-table">
-                <tbody>
-                  <tr>
-                    <td class="meta-label-cell">Date:</td>
-                    <td class="meta-value-cell" id="viewDate"></td>
-                  </tr>
-                  <tr>
-                    <td class="meta-label-cell">Tenant / Brand:</td>
-                    <td class="meta-value-cell" id="viewTenantBrand"></td>
-                  </tr>
-                  <tr>
-                    <td class="meta-label-cell">Shop No.</td>
-                    <td class="meta-value-cell" id="viewShopNo"></td>
-                  </tr>
-                </tbody>
-              </table>
+              <!-- Top Meta Lines (Date, Brand, Shop No) -->
+              <div class="rem-doc-meta-lines">
+                <div class="rem-meta-line">
+                  <span class="rem-meta-label">Date:</span>
+                  <span class="rem-meta-value" id="viewDate"></span>
+                </div>
+                <div class="rem-meta-line">
+                  <span class="rem-meta-label">Tenant / Brand:</span>
+                  <span class="rem-meta-value" id="viewTenantBrand"></span>
+                </div>
+                <div class="rem-meta-line">
+                  <span class="rem-meta-label">Shop No.</span>
+                  <span class="rem-meta-value" id="viewShopNo"></span>
+                </div>
+              </div>
 
               <!-- Subject -->
               <div class="rem-doc-subject" id="viewSubject">Subject: Outstanding Payment</div>
@@ -1557,7 +1555,7 @@
   <!-- Themed Toast Notifications Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js?v=11"></script>
+  <script src="/app.js?v=12"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

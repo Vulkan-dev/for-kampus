@@ -5476,42 +5476,34 @@ async function exportReminderToPdf(recordId = null) {
     pdf.text(targetState.subtitle || 'FINAL PAYMENT REMINDER – 3', pageWidth / 2, y, { align: 'center' });
     y += 20;
 
-    // 3. Meta Table Box (Date, Tenant/Brand, Shop No)
-    const metaBoxX = leftMargin;
-    const metaBoxW = contentWidth;
-    const metaRowH = 20;
-    const labelW = 120;
-
+    // 3. Meta Lines (Date, Tenant/Brand, Shop No. - Underlined Lines, NO BOX / NO CELLS)
+    const labelW = 105;
     const metaItems = [
       { label: 'Date:', val: targetState.date ? formatDateStandard(targetState.date) : '' },
       { label: 'Tenant / Brand:', val: targetState.tenantBrand || '' },
       { label: 'Shop No.', val: targetState.shopNo || '' }
     ];
 
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setLineWidth(1.2);
-    pdf.rect(metaBoxX, y, metaBoxW, metaRowH * metaItems.length);
-
-    pdf.setLineWidth(0.8);
-    metaItems.forEach((item, idx) => {
-      const rowY = y + idx * metaRowH;
-      if (idx > 0) {
-        pdf.line(metaBoxX, rowY, metaBoxX + metaBoxW, rowY);
-      }
-      pdf.line(metaBoxX + labelW, rowY, metaBoxX + labelW, rowY + metaRowH);
-
+    metaItems.forEach((item) => {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10);
-      pdf.text(item.label, metaBoxX + 8, rowY + 14);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(item.label, leftMargin, y + 10);
 
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
+      // Underline line across the row
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(0.8);
+      pdf.line(leftMargin + labelW, y + 12, leftMargin + contentWidth, y + 12);
+
       if (item.val) {
-        pdf.text(String(item.val), metaBoxX + labelW + 8, rowY + 14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10);
+        pdf.text(String(item.val), leftMargin + labelW + 4, y + 9);
       }
+      y += 18;
     });
 
-    y += metaRowH * metaItems.length + 18;
+    y += 8;
 
     // 4. Subject Line
     pdf.setFont('helvetica', 'bold');
@@ -5651,13 +5643,16 @@ async function exportReminderToPdf(recordId = null) {
     pdf.text(finalTotal, leftMargin + contentWidth - 6, y + 12.5, { align: 'right' });
     y += rowH + 18;
 
-    // 8. Payment Deadline (NO underline)
+    // 8. Payment Deadline (Underlined line)
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
     pdf.text('Payment Deadline: ', leftMargin, y);
-    const dlWidth = pdf.getTextWidth('Payment Deadline: ');
+    const dlWidth = pdf.getTextWidth('Payment Deadline: ') + 4;
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.8);
+    pdf.line(leftMargin + dlWidth, y + 2, leftMargin + contentWidth, y + 2);
     if (targetState.paymentDeadline) {
-      pdf.text(String(targetState.paymentDeadline), leftMargin + dlWidth, y);
+      pdf.text(String(targetState.paymentDeadline), leftMargin + dlWidth + 4, y);
     }
     y += 18;
 
