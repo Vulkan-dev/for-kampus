@@ -5477,7 +5477,7 @@ async function exportReminderToPdf(recordId = null) {
     y += 20;
 
     // 3. Meta Lines (Date, Tenant/Brand, Shop No. - Underlined Lines, NO BOX / NO CELLS)
-    const labelW = 105;
+    const labelW = 115;
     const metaItems = [
       { label: 'Date:', val: targetState.date ? formatDateStandard(targetState.date) : '' },
       { label: 'Tenant / Brand:', val: targetState.tenantBrand || '' },
@@ -5486,24 +5486,24 @@ async function exportReminderToPdf(recordId = null) {
 
     metaItems.forEach((item) => {
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
+      pdf.setFontSize(10.5);
       pdf.setTextColor(0, 0, 0);
       pdf.text(item.label, leftMargin, y + 10);
 
       // Underline line across the row
       pdf.setDrawColor(0, 0, 0);
-      pdf.setLineWidth(0.8);
+      pdf.setLineWidth(1.0);
       pdf.line(leftMargin + labelW, y + 12, leftMargin + contentWidth, y + 12);
 
       if (item.val) {
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
+        pdf.setFontSize(10.5);
         pdf.text(String(item.val), leftMargin + labelW + 4, y + 9);
       }
-      y += 18;
+      y += 20;
     });
 
-    y += 8;
+    y += 6;
 
     // 4. Subject Line
     pdf.setFont('helvetica', 'bold');

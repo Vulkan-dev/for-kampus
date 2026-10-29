@@ -1,12 +1,12 @@
-const CACHE_NAME = 'mega-mall-v8';
+const CACHE_NAME = 'mega-mall-v9';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/style.css?v=12',
+  '/style.css?v=13',
   '/style.css',
   '/app.js',
-  '/app.js?v=12',
+  '/app.js?v=13',
   '/assets/jspdf.umd.min.js',
   '/assets/docx.iife.js',
   '/assets/html2canvas.min.js',

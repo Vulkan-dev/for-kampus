@@ -1595,7 +1595,7 @@ app.post('/api/reminders/export-docx', requireRemindersAuth, async (req, res) =>
     const solidBorder = { style: BorderStyle.SINGLE, size: 8, color: '333333' };
     const cellBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
     const noBorder = { style: BorderStyle.NONE, size: 0, color: 'auto' };
-    const lineBottomBorder = { style: BorderStyle.SINGLE, size: 8, color: '000000' };
+    const lineBottomBorder = { style: BorderStyle.SINGLE, size: 10, color: '000000' };
     const labelBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
     const lineBorders = { top: noBorder, bottom: lineBottomBorder, left: noBorder, right: noBorder };
 
