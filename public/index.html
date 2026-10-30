@@ -6,7 +6,7 @@
   <title>The Mega Mall - Billing &amp; Reimbursement Invoices</title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0d0f14">
-  <link rel="stylesheet" href="/style.css?v=14">
+  <link rel="stylesheet" href="/style.css?v=15">
   <script>
     (function() {
       var p = window.location.pathname.toLowerCase();
@@ -14,6 +14,8 @@
         document.documentElement.classList.add('route-reminders');
       } else if (p.startsWith('/rent')) {
         document.documentElement.classList.add('route-rents');
+      } else if (p.startsWith('/convert')) {
+        document.documentElement.classList.add('route-convert');
       }
     })();
   </script>
@@ -1475,6 +1477,258 @@
 
   </div> <!-- Close #remindersApp -->
 
+  <!-- Dedicated Excel Billing Data Converter Portal (/convert & /converter) -->
+  <div id="converterApp" class="converter-wrapper" style="display:none;">
+    
+    <!-- Converter Header -->
+    <header class="converter-header no-print">
+      <div class="converter-header-left">
+        <div class="converter-brand-badge">
+          <img src="/assets/mega-mall-logo.png" alt="Mega Mall Logo" style="height:26px; object-fit:contain;" onerror="this.style.display='none'" />
+        </div>
+        <div>
+          <h1 class="converter-title">The Mega Mall &bull; Billing Excel Rearranger</h1>
+          <p class="converter-subtitle">Match Working Readings &amp; Format into Template (Image 1)</p>
+        </div>
+      </div>
+
+      <!-- Center Step Navigation -->
+      <div class="converter-view-switcher">
+        <button type="button" class="conv-tab-btn active" id="convTabUploadBtn" title="Upload Template &amp; Working Excel Files">
+          📁 1. Files &amp; Sheets
+        </button>
+        <button type="button" class="conv-tab-btn" id="convTabMismatchBtn" title="Resolve Unmatched Customer Names">
+          ⚠️ 2. Mismatches (<span id="convMismatchBadge">0</span>)
+        </button>
+        <button type="button" class="conv-tab-btn" id="convTabPreviewBtn" title="Review Converted Output Table">
+          📊 3. Output Table (<span id="convTotalRowsBadge">0</span>)
+        </button>
+      </div>
+
+      <!-- Actions -->
+      <div class="converter-header-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="convLoadDemoBtn" title="Load sample data from screenshot to test immediately" style="border-color:#3b82f6; color:#93c5fd; font-weight:600;">
+          ✨ Demo Data
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="convDownloadXlsxBtn" title="Download converted Excel matching Image 1" style="border-color:#10b981; color:#10b981; font-weight:700;">
+          📥 Download Excel (.xlsx)
+        </button>
+        <div class="rem-actions-dropdown-wrap">
+          <button type="button" class="btn btn-secondary btn-sm" id="convActionsDropdownBtn" style="background:#151821; border-color:#2a3040; color:#ffffff;">
+            ⚡ More <span style="font-size:0.68rem; margin-left:3px;">▼</span>
+          </button>
+          <div class="rem-actions-menu" id="convActionsMenu" style="display:none;">
+            <button type="button" class="rem-action-item" id="convDownloadCsvBtn">
+              <span>📄</span> Download CSV
+            </button>
+            <div class="rem-action-divider"></div>
+            <button type="button" class="rem-action-item" id="convClearAllBtn" style="color:#fca5a5;">
+              <span>🔄</span> Clear All &amp; Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="converter-workspace">
+      
+      <!-- STEP 1: Upload Files & Select Sheets -->
+      <section id="convSectionUpload" class="conv-section" style="display:block;">
+        <div class="conv-grid-2">
+          
+          <!-- Card 1: Template File -->
+          <div class="conv-card">
+            <div class="conv-card-header">
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span class="conv-card-badge">1</span>
+                <div>
+                  <h3 class="conv-card-title">Template File (Target Format - Image 1)</h3>
+                  <p class="conv-card-desc">The format you want the final Excel file rewritten to</p>
+                </div>
+              </div>
+              <span id="convTemplateFileStatus" class="conv-status-pill conv-pill-waiting">Waiting for file</span>
+            </div>
+            <div class="conv-card-body">
+              <div class="conv-dropzone" id="convTemplateDropzone">
+                <input type="file" id="convTemplateFileInput" accept=".xlsx,.xls,.csv" style="display:none;" />
+                <div class="conv-dropzone-content">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="36" height="36" style="color:#9ca3af; margin-bottom:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  <p style="font-weight:600; color:#ffffff; margin:0 0 0.25rem 0;">Click or Drag &amp; Drop Template Excel File</p>
+                  <p style="font-size:0.75rem; color:#9ca3af; margin:0;">Supports .xlsx, .xls, .csv</p>
+                </div>
+              </div>
+              <div id="convTemplateDetails" style="display:none; margin-top:1rem;">
+                <div class="conv-file-meta">
+                  <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span style="font-size:1.1rem;">📄</span>
+                    <div>
+                      <div id="convTemplateFileName" style="font-weight:600; color:#ffffff; font-size:0.85rem;"></div>
+                      <div id="convTemplateFileInfo" style="font-size:0.72rem; color:#9ca3af;"></div>
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-xs" id="convTemplateChangeBtn" style="color:#ef4444; border-color:#451a1a;">Replace</button>
+                </div>
+
+                <div class="conv-form-group" style="margin-top:0.75rem;">
+                  <label class="conv-label" for="convTemplateSheetSelect">1st Sheet Name (Select Sheet in Template):</label>
+                  <select id="convTemplateSheetSelect" class="conv-select"></select>
+                </div>
+
+                <!-- Detected Template Columns Summary -->
+                <div class="conv-col-tags-box" style="margin-top:0.75rem;">
+                  <span style="font-size:0.7rem; color:#9ca3af; text-transform:uppercase; font-weight:700;">Template Columns Detected:</span>
+                  <div id="convTemplateColsList" class="conv-chips-row"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Working File -->
+          <div class="conv-card">
+            <div class="conv-card-header">
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span class="conv-card-badge">2</span>
+                <div>
+                  <h3 class="conv-card-title">Working File (Source Readings - Image 2)</h3>
+                  <p class="conv-card-desc">The file containing current meter readings, previous readings &amp; amounts</p>
+                </div>
+              </div>
+              <span id="convWorkingFileStatus" class="conv-status-pill conv-pill-waiting">Waiting for file</span>
+            </div>
+            <div class="conv-card-body">
+              <div class="conv-dropzone" id="convWorkingDropzone">
+                <input type="file" id="convWorkingFileInput" accept=".xlsx,.xls,.csv" style="display:none;" />
+                <div class="conv-dropzone-content">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="36" height="36" style="color:#9ca3af; margin-bottom:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  <p style="font-weight:600; color:#ffffff; margin:0 0 0.25rem 0;">Click or Drag &amp; Drop Working Excel File</p>
+                  <p style="font-size:0.75rem; color:#9ca3af; margin:0;">Supports .xlsx, .xls, .csv</p>
+                </div>
+              </div>
+              <div id="convWorkingDetails" style="display:none; margin-top:1rem;">
+                <div class="conv-file-meta">
+                  <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span style="font-size:1.1rem;">📊</span>
+                    <div>
+                      <div id="convWorkingFileName" style="font-weight:600; color:#ffffff; font-size:0.85rem;"></div>
+                      <div id="convWorkingFileInfo" style="font-size:0.72rem; color:#9ca3af;"></div>
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-xs" id="convWorkingChangeBtn" style="color:#ef4444; border-color:#451a1a;">Replace</button>
+                </div>
+
+                <div class="conv-form-group" style="margin-top:0.75rem;">
+                  <label class="conv-label" for="convWorkingSheetSelect">Second Sheet Name (Select Sheet in Working File):</label>
+                  <select id="convWorkingSheetSelect" class="conv-select"></select>
+                </div>
+
+                <!-- Detected Working Columns Summary -->
+                <div class="conv-col-tags-box" style="margin-top:0.75rem;">
+                  <span style="font-size:0.7rem; color:#9ca3af; text-transform:uppercase; font-weight:700;">Working Columns Detected:</span>
+                  <div id="convWorkingColsList" class="conv-chips-row"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div> <!-- End conv-grid-2 -->
+
+        <!-- Process / Rearrange Button -->
+        <div style="text-align:center; margin-top:1.5rem;">
+          <button type="button" class="btn btn-primary btn-lg" id="convProcessBtn" style="padding:0.75rem 2.2rem; font-size:0.95rem; font-weight:700; background:#10b981; border-color:#059669; color:#ffffff;" disabled>
+            ⚡ Match Names &amp; Rearrange into Template Format
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 2: Name Mismatch & Manual Approval Card -->
+      <section id="convSectionMismatch" class="conv-section" style="display:none;">
+        <div class="conv-card">
+          <div class="conv-card-header" style="justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <span class="conv-card-badge" style="background:#2b1f11; color:#fbbf24; border-color:#6b4315;">⚠️</span>
+              <div>
+                <h3 class="conv-card-title">Name Mismatches &amp; Manual Approvals</h3>
+                <p class="conv-card-desc">Only customer names with differences or missing matches are shown below. Names include previous amounts &amp; readings for easy recognition.</p>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <button type="button" class="btn btn-secondary btn-sm" id="convAutoAcceptSuggestionsBtn" style="border-color:#10b981; color:#10b981; font-weight:600;">
+                ✓ Accept All High-Confidence Suggestions
+              </button>
+            </div>
+          </div>
+
+          <div class="conv-card-body">
+            <!-- Mismatch Items Container -->
+            <div id="convMismatchContainer" style="display:flex; flex-direction:column; gap:0.85rem;"></div>
+
+            <!-- Empty State when 0 mismatches -->
+            <div id="convNoMismatchNotice" style="display:none; text-align:center; padding:2rem 1rem;">
+              <div style="font-size:2rem; margin-bottom:0.5rem;">✅</div>
+              <h4 style="font-size:1rem; font-weight:700; color:#10b981; margin:0 0 0.25rem 0;">All Customer Names Matched!</h4>
+              <p style="font-size:0.8rem; color:#9ca3af; margin:0 0 1rem 0;">Every row from the working file was matched to the template format without any conflicts.</p>
+              <button type="button" class="btn btn-secondary btn-sm" id="convViewOutputBtn" style="border-color:#10b981; color:#10b981; font-weight:600;">
+                Go to Converted Output Table &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 3: Converted Output Preview & Direct Table Editor -->
+      <section id="convSectionPreview" class="conv-section" style="display:none;">
+        <div class="conv-card">
+          <div class="conv-card-header" style="justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <span class="conv-card-badge" style="background:#0d281e; color:#10b981; border-color:#10b981;">📊</span>
+              <div>
+                <h3 class="conv-card-title">Converted Excel Data (Image 1 Format)</h3>
+                <p class="conv-card-desc">Rows rearranged strictly to match the Template. Directly edit any cell before downloading.</p>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+              <input type="text" id="convSearchInput" class="rem-input" placeholder="Search customer..." style="width:200px; font-size:0.78rem; padding:0.4rem 0.65rem;" />
+              <select id="convFilterStatus" class="rem-input" style="width:160px; font-size:0.78rem; padding:0.4rem 0.65rem;">
+                <option value="all">All Rows</option>
+                <option value="matched">Matched Readings</option>
+                <option value="manual">Manually Approved</option>
+                <option value="empty">Empty / Missing</option>
+              </select>
+              <button type="button" class="btn btn-primary btn-sm" id="convDownloadXlsxBtn2" style="background:#10b981; border-color:#059669; font-weight:700;">
+                📥 Download Excel (.xlsx)
+              </button>
+            </div>
+          </div>
+
+          <div class="conv-card-body" style="padding:0;">
+            <div class="rem-master-table-scroll" style="max-height:680px; overflow:auto;">
+              <table class="rem-master-table" id="convOutputTable">
+                <thead>
+                  <tr>
+                    <th style="width:45px; text-align:center;">Sr.</th>
+                    <th style="min-width:180px;">Customer Name</th>
+                    <th style="width:115px; text-align:center;">Last Bill Date</th>
+                    <th style="width:125px; text-align:right;">Start Reading</th>
+                    <th style="width:130px; text-align:right;">Current Reading</th>
+                    <th style="width:90px; text-align:right;">Rate</th>
+                    <th style="width:135px; text-align:right;">Adjustment Surcharge</th>
+                    <th style="width:95px; text-align:center;">Tax / Duty</th>
+                    <th style="min-width:140px;">Remarks</th>
+                    <th style="width:120px; text-align:center;">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="convOutputTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div> <!-- End converter-workspace -->
+
+  </div> <!-- Close #converterApp -->
+
   <!-- Modal for Adding Custom Column -->
   <div class="modal-backdrop" id="remAddColModalBackdrop" style="display:none;">
     <div class="modal-card" style="width:380px;">
@@ -1535,7 +1789,7 @@
   <!-- Themed Toast Notifications Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js?v=14"></script>
+  <script src="/app.js?v=15"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

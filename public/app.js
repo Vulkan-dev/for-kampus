@@ -4268,6 +4268,29 @@ window.deleteRentRecord = deleteRentRecord;
 function checkRouteMode() {
   const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
 
+  const isConvertRoute = pathname === '/convert' || pathname === '/converter';
+  if (isConvertRoute) {
+    document.getElementById("loginScreen")?.remove();
+    document.querySelector(".app-header")?.style.setProperty("display", "none", "important");
+    document.querySelector(".app-container")?.style.setProperty("display", "none", "important");
+    const rentsApp = document.getElementById("rentsApp");
+    if (rentsApp) rentsApp.style.display = "none";
+    const kernelxApp = document.getElementById("kernelxApp");
+    if (kernelxApp) kernelxApp.style.display = "none";
+    const remindersApp = document.getElementById("remindersApp");
+    if (remindersApp) remindersApp.style.display = "none";
+
+    const converterApp = document.getElementById("converterApp");
+    if (converterApp) converterApp.style.display = "flex";
+    document.body.classList.add("route-convert");
+    document.documentElement.classList.add("route-convert");
+    document.title = "Billing Excel Rearranger & Converter - The Mega Mall";
+    if (typeof initConverterApp === 'function') {
+      initConverterApp();
+    }
+    return true;
+  }
+
   const isRemindersRoute = pathname === '/reminders' || pathname === '/reminder';
   if (isRemindersRoute) {
     document.getElementById("loginScreen")?.remove();
@@ -4330,6 +4353,8 @@ function checkRouteMode() {
   if (kernelxApp) kernelxApp.style.display = "none";
   const remindersApp = document.getElementById("remindersApp");
   if (remindersApp) remindersApp.style.display = "none";
+  const converterApp = document.getElementById("converterApp");
+  if (converterApp) converterApp.style.display = "none";
 
   switchTab("preview");
   return false;
@@ -6122,5 +6147,976 @@ async function initRemindersApp() {
 // Auto-initialize route if DOM already ready
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   checkRouteMode();
+}
+
+// ==========================================================
+// Excel Billing Data Converter Module (/convert)
+// Multi-sheet matching, mismatch dropdown approval & Image 1 export
+// ==========================================================
+
+let convState = {
+  activeTab: 'upload', // 'upload' | 'mismatch' | 'preview'
+  templateFile: null,
+  templateWorkbook: null,
+  templateSheetName: '',
+  templateRawRows: [],
+  templateCols: [],
+  
+  workingFile: null,
+  workingWorkbook: null,
+  workingSheetName: '',
+  workingRawRows: [],
+  workingCols: [],
+
+  // Processed records
+  templateRecords: [], // { id, name, cleanName, lastBillDate, startReading, rate, adjustment, tax, remarks }
+  workingRecords: [],  // { id, name, cleanName, currentReading, previousReading, amount, originalName }
+  
+  // Mapping state
+  autoMatches: [], // [ { templateId, workingId } ]
+  manualMappings: {}, // templateId -> workingId (or 'skip')
+  
+  // Final combined rows matching Image 1 format
+  compiledOutput: []
+};
+
+// String normalization helper
+function cleanCustomerName(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/^[*#\s_\-]+/, '')
+    .replace(/[*#\s_\-]+$/, '')
+    .replace(/\(tabinda\)?/gi, '')
+    .replace(/meter\s*\d+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// Levenshtein similarity
+function calculateStringSimilarity(s1, s2) {
+  if (!s1 || !s2) return 0;
+  if (s1 === s2) return 1.0;
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+  const longerLength = longer.length;
+  if (longerLength === 0) return 1.0;
+  
+  // Check substring containment
+  if (longer.includes(shorter) && shorter.length >= 3) {
+    return Math.max(0.85, shorter.length / longerLength);
+  }
+
+  const costs = [];
+  for (let i = 0; i <= s1.length; i++) {
+    let lastValue = i;
+    for (let j = 0; j <= s2.length; j++) {
+      if (i === 0) costs[j] = j;
+      else {
+        if (j > 0) {
+          let newValue = costs[j - 1];
+          if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+          }
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+    }
+    if (i > 0) costs[s2.length] = lastValue;
+  }
+  return (longerLength - costs[s2.length]) / longerLength;
+}
+
+function switchConverterTab(tab) {
+  convState.activeTab = tab;
+  
+  document.getElementById('convTabUploadBtn')?.classList.toggle('active', tab === 'upload');
+  document.getElementById('convTabMismatchBtn')?.classList.toggle('active', tab === 'mismatch');
+  document.getElementById('convTabPreviewBtn')?.classList.toggle('active', tab === 'preview');
+
+  const secUpload = document.getElementById('convSectionUpload');
+  const secMismatch = document.getElementById('convSectionMismatch');
+  const secPreview = document.getElementById('convSectionPreview');
+
+  if (secUpload) secUpload.style.display = tab === 'upload' ? 'block' : 'none';
+  if (secMismatch) secMismatch.style.display = tab === 'mismatch' ? 'block' : 'none';
+  if (secPreview) secPreview.style.display = tab === 'preview' ? 'block' : 'none';
+
+  if (tab === 'mismatch') {
+    renderConverterMismatches();
+  } else if (tab === 'preview') {
+    compileConvertedOutput();
+    renderConverterOutputTable();
+  }
+}
+
+// ----------------------------------------------------------
+// File Ingestion & Sheet Extraction
+// ----------------------------------------------------------
+function setupConverterUploads() {
+  // Template File Input & Dropzone
+  const tDrop = document.getElementById('convTemplateDropzone');
+  const tInput = document.getElementById('convTemplateFileInput');
+  tDrop?.addEventListener('click', () => tInput?.click());
+  tDrop?.addEventListener('dragover', (e) => { e.preventDefault(); tDrop.classList.add('dragover'); });
+  tDrop?.addEventListener('dragleave', () => tDrop.classList.remove('dragover'));
+  tDrop?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    tDrop.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleTemplateUploadedFile(e.dataTransfer.files[0]);
+  });
+  tInput?.addEventListener('change', (e) => {
+    if (e.target.files.length) handleTemplateUploadedFile(e.target.files[0]);
+  });
+
+  // Working File Input & Dropzone
+  const wDrop = document.getElementById('convWorkingDropzone');
+  const wInput = document.getElementById('convWorkingFileInput');
+  wDrop?.addEventListener('click', () => wInput?.click());
+  wDrop?.addEventListener('dragover', (e) => { e.preventDefault(); wDrop.classList.add('dragover'); });
+  wDrop?.addEventListener('dragleave', () => wDrop.classList.remove('dragover'));
+  wDrop?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    wDrop.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleWorkingUploadedFile(e.dataTransfer.files[0]);
+  });
+  wInput?.addEventListener('change', (e) => {
+    if (e.target.files.length) handleWorkingUploadedFile(e.target.files[0]);
+  });
+
+  // Sheet Selectors
+  document.getElementById('convTemplateSheetSelect')?.addEventListener('change', (e) => {
+    convState.templateSheetName = e.target.value;
+    parseTemplateSheetData();
+  });
+  document.getElementById('convWorkingSheetSelect')?.addEventListener('change', (e) => {
+    convState.workingSheetName = e.target.value;
+    parseWorkingSheetData();
+  });
+
+  // Replace Buttons
+  document.getElementById('convTemplateChangeBtn')?.addEventListener('click', () => tInput?.click());
+  document.getElementById('convWorkingChangeBtn')?.addEventListener('click', () => wInput?.click());
+
+  // Navigation & Actions
+  document.getElementById('convTabUploadBtn')?.addEventListener('click', () => switchConverterTab('upload'));
+  document.getElementById('convTabMismatchBtn')?.addEventListener('click', () => switchConverterTab('mismatch'));
+  document.getElementById('convTabPreviewBtn')?.addEventListener('click', () => switchConverterTab('preview'));
+  document.getElementById('convViewOutputBtn')?.addEventListener('click', () => switchConverterTab('preview'));
+
+  document.getElementById('convProcessBtn')?.addEventListener('click', runConverterMatching);
+  document.getElementById('convLoadDemoBtn')?.addEventListener('click', loadConverterDemoData);
+  document.getElementById('convAutoAcceptSuggestionsBtn')?.addEventListener('click', acceptAllSuggestions);
+
+  document.getElementById('convDownloadXlsxBtn')?.addEventListener('click', downloadConvertedExcel);
+  document.getElementById('convDownloadXlsxBtn2')?.addEventListener('click', downloadConvertedExcel);
+  document.getElementById('convDownloadCsvBtn')?.addEventListener('click', downloadConvertedCsv);
+  document.getElementById('convClearAllBtn')?.addEventListener('click', clearAllConverterData);
+
+  // Actions Dropdown Toggle
+  const actionsBtn = document.getElementById('convActionsDropdownBtn');
+  const actionsMenu = document.getElementById('convActionsMenu');
+  if (actionsBtn && actionsMenu) {
+    actionsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      actionsMenu.style.display = actionsMenu.style.display === 'none' ? 'block' : 'none';
+    });
+  }
+  document.addEventListener('click', (e) => {
+    if (actionsMenu && !e.target.closest('.rem-actions-dropdown-wrap')) {
+      actionsMenu.style.display = 'none';
+    }
+  });
+
+  // Table Filters
+  document.getElementById('convSearchInput')?.addEventListener('input', renderConverterOutputTable);
+  document.getElementById('convFilterStatus')?.addEventListener('change', renderConverterOutputTable);
+}
+
+function handleTemplateUploadedFile(file) {
+  if (!file) return;
+  convState.templateFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      convState.templateWorkbook = workbook;
+      convState.templateSheetName = workbook.SheetNames[0] || '';
+      
+      const statusPill = document.getElementById('convTemplateFileStatus');
+      if (statusPill) {
+        statusPill.textContent = 'File Loaded';
+        statusPill.className = 'conv-status-pill conv-pill-ready';
+      }
+
+      document.getElementById('convTemplateDropzone').style.display = 'none';
+      document.getElementById('convTemplateDetails').style.display = 'block';
+      document.getElementById('convTemplateFileName').textContent = file.name;
+      document.getElementById('convTemplateFileInfo').textContent = (file.size / 1024).toFixed(1) + ' KB - ' + workbook.SheetNames.length + ' sheet(s)';
+
+      const sheetSelect = document.getElementById('convTemplateSheetSelect');
+      if (sheetSelect) {
+        sheetSelect.innerHTML = workbook.SheetNames.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
+      }
+
+      parseTemplateSheetData();
+      checkEnableProcessButton();
+      showToast('Template file loaded.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to parse template Excel file: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function handleWorkingUploadedFile(file) {
+  if (!file) return;
+  convState.workingFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      convState.workingWorkbook = workbook;
+      convState.workingSheetName = workbook.SheetNames[0] || '';
+      
+      const statusPill = document.getElementById('convWorkingFileStatus');
+      if (statusPill) {
+        statusPill.textContent = 'File Loaded';
+        statusPill.className = 'conv-status-pill conv-pill-ready';
+      }
+
+      document.getElementById('convWorkingDropzone').style.display = 'none';
+      document.getElementById('convWorkingDetails').style.display = 'block';
+      document.getElementById('convWorkingFileName').textContent = file.name;
+      document.getElementById('convWorkingFileInfo').textContent = (file.size / 1024).toFixed(1) + ' KB - ' + workbook.SheetNames.length + ' sheet(s)';
+
+      const sheetSelect = document.getElementById('convWorkingSheetSelect');
+      if (sheetSelect) {
+        sheetSelect.innerHTML = workbook.SheetNames.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
+      }
+
+      parseWorkingSheetData();
+      checkEnableProcessButton();
+      showToast('Working file loaded.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to parse working Excel file: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function checkEnableProcessButton() {
+  const btn = document.getElementById('convProcessBtn');
+  if (btn) {
+    const ready = convState.templateRecords.length > 0 && convState.workingRecords.length > 0;
+    btn.disabled = !ready;
+  }
+}
+
+// ----------------------------------------------------------
+// Sheet Parsing & Column Detection
+// ----------------------------------------------------------
+function parseTemplateSheetData() {
+  if (!convState.templateWorkbook || !convState.templateSheetName) return;
+  const sheet = convState.templateWorkbook.Sheets[convState.templateSheetName];
+  if (!sheet) return;
+
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  if (!rawRows || !rawRows.length) return;
+
+  // Find header row (row containing "Customer" or "Name" or max strings)
+  let headerRowIdx = 0;
+  for (let i = 0; i < Math.min(10, rawRows.length); i++) {
+    const row = rawRows[i];
+    if (row.some(cell => /customer|name|tenant/i.test(String(cell)))) {
+      headerRowIdx = i;
+      break;
+    }
+  }
+
+  const headers = rawRows[headerRowIdx].map(h => String(h || '').trim());
+  convState.templateCols = headers;
+
+  // Detect column indexes
+  let colNameIdx = headers.findIndex(h => /customer.*name|name|tenant/i.test(h));
+  if (colNameIdx === -1) colNameIdx = 0;
+  let colDateIdx = headers.findIndex(h => /last.*bill|bill.*date|date/i.test(h));
+  let colStartIdx = headers.findIndex(h => /start.*read|prev.*read|opening/i.test(h));
+  let colCurrIdx = headers.findIndex(h => /current.*read|present|closing/i.test(h));
+  let colRateIdx = headers.findIndex(h => /rate|tariff/i.test(h));
+  let colAdjIdx = headers.findIndex(h => /adjust|surcharge/i.test(h));
+  let colTaxIdx = headers.findIndex(h => /tax|duty|gst/i.test(h));
+  let colRemIdx = headers.findIndex(h => /remark|note/i.test(h));
+
+  // Render detected chips
+  const chipsContainer = document.getElementById('convTemplateColsList');
+  if (chipsContainer) {
+    chipsContainer.innerHTML = headers.filter(h => h).map(h => '<span class="conv-chip">' + escapeHtml(h) + '</span>').join('');
+  }
+
+  // Extract records
+  convState.templateRecords = [];
+  for (let i = headerRowIdx + 1; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    const nameVal = String(row[colNameIdx] || '').trim();
+    if (!nameVal || /^(total|grands*total)$/i.test(nameVal)) continue;
+
+    let dateVal = colDateIdx !== -1 ? String(row[colDateIdx] || '').trim() : '';
+    // Format date string if excel date object
+    if (row[colDateIdx] instanceof Date) {
+      dateVal = row[colDateIdx].toISOString().split('T')[0];
+    }
+
+    const startVal = colStartIdx !== -1 ? String(row[colStartIdx] || '').trim() : '';
+    const currVal = colCurrIdx !== -1 ? String(row[colCurrIdx] || '').trim() : '';
+    const rateVal = colRateIdx !== -1 ? String(row[colRateIdx] || '').trim() : '';
+    const adjVal = colAdjIdx !== -1 ? String(row[colAdjIdx] || '').trim() : '';
+    const taxVal = colTaxIdx !== -1 ? String(row[colTaxIdx] || '0').trim() : '0';
+    const remVal = colRemIdx !== -1 ? String(row[colRemIdx] || '0').trim() : '0';
+
+    convState.templateRecords.push({
+      id: 'tmpl_' + i,
+      rawIndex: i,
+      name: nameVal,
+      cleanName: cleanCustomerName(nameVal),
+      lastBillDate: dateVal,
+      startReading: startVal,
+      currentReading: currVal,
+      rate: rateVal,
+      adjustment: adjVal,
+      tax: taxVal || '0',
+      remarks: remVal || '0'
+    });
+  }
+}
+
+function parseWorkingSheetData() {
+  if (!convState.workingWorkbook || !convState.workingSheetName) return;
+  const sheet = convState.workingWorkbook.Sheets[convState.workingSheetName];
+  if (!sheet) return;
+
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  if (!rawRows || !rawRows.length) return;
+
+  // Find header row (row containing Previous Reading or Current Reading)
+  let headerRowIdx = 0;
+  for (let i = 0; i < Math.min(10, rawRows.length); i++) {
+    const row = rawRows[i];
+    if (row.some(cell => /previous.*read|current.*read|units.*consumed|amount/i.test(String(cell)))) {
+      headerRowIdx = i;
+      break;
+    }
+  }
+
+  const headers = rawRows[headerRowIdx].map(h => String(h || '').trim());
+  convState.workingCols = headers;
+
+  let colNameIdx = headers.findIndex(h => /customer|name|tenant|shop|mall/i.test(h));
+  if (colNameIdx === -1) colNameIdx = 0;
+  let colPrevIdx = headers.findIndex(h => /previous.*read|prev/i.test(h));
+  let colCurrIdx = headers.findIndex(h => /current.*read|curr/i.test(h));
+  let colAmtIdx = headers.findIndex(h => /amount|bill|total.*pkr/i.test(h));
+
+  // Render detected chips
+  const chipsContainer = document.getElementById('convWorkingColsList');
+  if (chipsContainer) {
+    chipsContainer.innerHTML = headers.filter(h => h).map(h => '<span class="conv-chip">' + escapeHtml(h) + '</span>').join('');
+  }
+
+  convState.workingRecords = [];
+  for (let i = headerRowIdx + 1; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    const nameVal = String(row[colNameIdx] || '').trim();
+    if (!nameVal || /^(mall|total|grands*total|summary|subtotal)$/i.test(nameVal)) continue;
+
+    const prevVal = colPrevIdx !== -1 ? String(row[colPrevIdx] || '').trim() : '';
+    const currVal = colCurrIdx !== -1 ? String(row[colCurrIdx] || '').trim() : '';
+    const amtVal = colAmtIdx !== -1 ? String(row[colAmtIdx] || '').trim() : '';
+
+    convState.workingRecords.push({
+      id: 'work_' + i,
+      rawIndex: i,
+      originalName: nameVal,
+      name: nameVal,
+      cleanName: cleanCustomerName(nameVal),
+      previousReading: prevVal,
+      currentReading: currVal,
+      amount: amtVal
+    });
+  }
+}
+
+// ----------------------------------------------------------
+// Intelligent Matching Engine
+// ----------------------------------------------------------
+function runConverterMatching() {
+  if (!convState.templateRecords.length || !convState.workingRecords.length) {
+    showToast('Please upload both Template and Working files first.', 'warning');
+    return;
+  }
+
+  convState.autoMatches = [];
+  convState.manualMappings = {};
+
+  const matchedWorkingIds = new Set();
+  const matchedTemplateIds = new Set();
+
+  // Pass 1: Exact Clean Name Match
+  convState.templateRecords.forEach(tmpl => {
+    const match = convState.workingRecords.find(work => !matchedWorkingIds.has(work.id) && work.cleanName === tmpl.cleanName);
+    if (match) {
+      convState.autoMatches.push({
+        templateId: tmpl.id,
+        workingId: match.id,
+        confidence: 1.0,
+        isAuto: true
+      });
+      matchedWorkingIds.add(match.id);
+      matchedTemplateIds.add(tmpl.id);
+    }
+  });
+
+  // Pass 2: High Confidence Substring / Similarity Match (> 0.88)
+  convState.templateRecords.forEach(tmpl => {
+    if (matchedTemplateIds.has(tmpl.id)) return;
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    convState.workingRecords.forEach(work => {
+      if (matchedWorkingIds.has(work.id)) return;
+      const score = calculateStringSimilarity(tmpl.cleanName, work.cleanName);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = work;
+      }
+    });
+
+    if (bestMatch && bestScore >= 0.88) {
+      convState.autoMatches.push({
+        templateId: tmpl.id,
+        workingId: bestMatch.id,
+        confidence: bestScore,
+        isAuto: true
+      });
+      matchedWorkingIds.add(bestMatch.id);
+      matchedTemplateIds.add(tmpl.id);
+    }
+  });
+
+  // Remaining are mismatches
+  const unmatchedTmpl = convState.templateRecords.filter(t => !matchedTemplateIds.has(t.id));
+  const mismatchCount = unmatchedTmpl.length;
+
+  const mismatchBadge = document.getElementById('convMismatchBadge');
+  if (mismatchBadge) mismatchBadge.textContent = mismatchCount;
+
+  if (mismatchCount > 0) {
+    switchConverterTab('mismatch');
+    showToast('Found ' + mismatchCount + ' customer name(s) requiring verification.', 'info');
+  } else {
+    switchConverterTab('preview');
+    showToast('All customer names matched automatically! Output table generated.', 'success');
+  }
+}
+
+// ----------------------------------------------------------
+// Mismatch Resolution UI (Only Problem Names in Dropdowns with Previous Amounts)
+// ----------------------------------------------------------
+function renderConverterMismatches() {
+  const container = document.getElementById('convMismatchContainer');
+  const emptyNotice = document.getElementById('convNoMismatchNotice');
+  if (!container) return;
+
+  const resolvedTemplateIds = new Set([
+    ...convState.autoMatches.map(m => m.templateId),
+    ...Object.keys(convState.manualMappings)
+  ]);
+
+  const usedWorkingIds = new Set([
+    ...convState.autoMatches.map(m => m.workingId),
+    ...Object.values(convState.manualMappings).filter(id => id && id !== 'skip')
+  ]);
+
+  // Only unmatched / problem template customers
+  const problemTemplates = convState.templateRecords.filter(t => !resolvedTemplateIds.has(t.id));
+  // Only unmatched / problem working customers
+  const problemWorkings = convState.workingRecords.filter(w => !usedWorkingIds.has(w.id));
+
+  const mismatchBadge = document.getElementById('convMismatchBadge');
+  if (mismatchBadge) mismatchBadge.textContent = problemTemplates.length;
+
+  if (problemTemplates.length === 0) {
+    container.innerHTML = '';
+    if (emptyNotice) emptyNotice.style.display = 'block';
+    return;
+  }
+
+  if (emptyNotice) emptyNotice.style.display = 'none';
+
+  let html = '';
+  problemTemplates.forEach((tmpl, pIdx) => {
+    // Find best candidate suggestion among problem workings
+    let suggestedWorkId = '';
+    let highestSim = 0;
+    problemWorkings.forEach(work => {
+      const sim = calculateStringSimilarity(tmpl.cleanName, work.cleanName);
+      if (sim > highestSim) {
+        highestSim = sim;
+        suggestedWorkId = work.id;
+      }
+    });
+
+    // Format previous amount / reading for template
+    const tmplPrev = tmpl.startReading ? ('Prev: ' + tmpl.startReading) : 'No prev reading';
+
+    html += `
+      <div class="conv-mismatch-row" data-template-id="${tmpl.id}">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="conv-card-badge" style="background:#2b1216; color:#f87171; border-color:#6b1d24;">!${pIdx + 1}</span>
+            <span style="font-weight:700; color:#ffffff; font-size:0.92rem;">${escapeHtml(tmpl.name)}</span>
+            <span style="font-size:0.75rem; color:#9ca3af;">(${tmplPrev})</span>
+          </div>
+          ${highestSim > 0.4 ? `<span class="conv-badge-tag conv-badge-manual">Suggested Match: ${Math.round(highestSim * 100)}%</span>` : ''}
+        </div>
+
+        <div class="conv-mismatch-grid">
+          <!-- 1st Dropdown: Template Names (Only Problem Names) -->
+          <div>
+            <label class="conv-label">1) Template Customer (Target Image 1)</label>
+            <select class="conv-select conv-tmpl-select" data-template-id="${tmpl.id}">
+              <option value="${tmpl.id}">${escapeHtml(tmpl.name)} (${tmplPrev})</option>
+            </select>
+          </div>
+
+          <!-- 2nd Dropdown: Working File Names (Only Problem Names with Previous Amount) -->
+          <div>
+            <label class="conv-label">2) Working File Customer (Showing with Previous Amount / Reading)</label>
+            <select class="conv-select conv-work-select" data-template-id="${tmpl.id}">
+              <option value="">-- Select Matching Customer in Working File --</option>
+              ${problemWorkings.map(work => {
+                const workInfo = [
+                  work.previousReading ? ('Prev: ' + work.previousReading) : '',
+                  work.currentReading ? ('Curr: ' + work.currentReading) : '',
+                  work.amount ? ('Amt: ' + work.amount) : ''
+                ].filter(Boolean).join(' | ');
+
+                const isSelected = (work.id === suggestedWorkId && highestSim > 0.5) ? 'selected' : '';
+                return '<option value="' + work.id + '" ' + isSelected + '>' + escapeHtml(work.originalName) + ' (' + escapeHtml(workInfo || 'No readings') + ')</option>';
+              }).join('')}
+            </select>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="display:flex; gap:0.4rem; white-space:nowrap;">
+            <button type="button" class="btn btn-secondary btn-sm conv-match-btn" data-template-id="${tmpl.id}" style="border-color:#10b981; color:#10b981; font-weight:700;">
+              ✓ Match
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm conv-skip-btn" data-template-id="${tmpl.id}" style="color:#9ca3af;">
+              Skip (Leave Empty)
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  // Bind Match Buttons
+  container.querySelectorAll('.conv-match-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tmplId = btn.getAttribute('data-template-id');
+      const rowEl = container.querySelector('.conv-mismatch-row[data-template-id="' + tmplId + '"]');
+      const workSelect = rowEl?.querySelector('.conv-work-select');
+      const selectedWorkId = workSelect?.value;
+
+      if (!selectedWorkId) {
+        showToast('Please select a customer from the working file dropdown first.', 'warning');
+        return;
+      }
+
+      convState.manualMappings[tmplId] = selectedWorkId;
+      showToast('Customer matched successfully!', 'success');
+      renderConverterMismatches();
+    });
+  });
+
+  // Bind Skip Buttons
+  container.querySelectorAll('.conv-skip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tmplId = btn.getAttribute('data-template-id');
+      convState.manualMappings[tmplId] = 'skip';
+      showToast('Marked as skipped (current reading will remain blank).', 'info');
+      renderConverterMismatches();
+    });
+  });
+}
+
+function acceptAllSuggestions() {
+  const container = document.getElementById('convMismatchContainer');
+  if (!container) return;
+
+  let approvedCount = 0;
+  container.querySelectorAll('.conv-mismatch-row').forEach(rowEl => {
+    const tmplId = rowEl.getAttribute('data-template-id');
+    const workSelect = rowEl.querySelector('.conv-work-select');
+    if (tmplId && workSelect && workSelect.value) {
+      convState.manualMappings[tmplId] = workSelect.value;
+      approvedCount++;
+    }
+  });
+
+  if (approvedCount > 0) {
+    showToast('Accepted ' + approvedCount + ' customer suggestions.', 'success');
+    renderConverterMismatches();
+  } else {
+    showToast('No auto-suggestions available to approve.', 'info');
+  }
+}
+
+// ----------------------------------------------------------
+// Compile Converted Output Table (Strictly in Image 1 Format)
+// ----------------------------------------------------------
+function compileConvertedOutput() {
+  convState.compiledOutput = [];
+
+  const autoMap = {};
+  convState.autoMatches.forEach(m => {
+    autoMap[m.templateId] = m.workingId;
+  });
+
+  const workingMap = {};
+  convState.workingRecords.forEach(w => {
+    workingMap[w.id] = w;
+  });
+
+  convState.templateRecords.forEach((tmpl, idx) => {
+    let matchedWorkId = convState.manualMappings[tmpl.id];
+    let status = 'empty';
+
+    if (matchedWorkId && matchedWorkId !== 'skip') {
+      status = 'manual';
+    } else if (matchedWorkId === 'skip') {
+      status = 'empty';
+    } else if (autoMap[tmpl.id]) {
+      matchedWorkId = autoMap[tmpl.id];
+      status = 'matched';
+    }
+
+    const matchedWorking = matchedWorkId ? workingMap[matchedWorkId] : null;
+
+    // Start reading: use template start reading or working previous reading
+    const finalStartReading = tmpl.startReading || (matchedWorking ? matchedWorking.previousReading : '');
+    // Current reading: filled directly from matched working record
+    const finalCurrentReading = matchedWorking ? matchedWorking.currentReading : '';
+
+    convState.compiledOutput.push({
+      sr: idx + 1,
+      templateId: tmpl.id,
+      customerName: tmpl.name,
+      lastBillDate: tmpl.lastBillDate || '2026-09-30',
+      startReading: finalStartReading,
+      currentReading: finalCurrentReading,
+      rate: tmpl.rate || '',
+      adjustmentSurcharge: tmpl.adjustment || '',
+      taxDuty: tmpl.tax || '0',
+      remarks: tmpl.remarks || '0',
+      status: status,
+      workingName: matchedWorking ? matchedWorking.originalName : ''
+    });
+  });
+
+  const totalBadge = document.getElementById('convTotalRowsBadge');
+  if (totalBadge) totalBadge.textContent = convState.compiledOutput.length;
+}
+
+function renderConverterOutputTable() {
+  const tbody = document.getElementById('convOutputTableBody');
+  if (!tbody) return;
+
+  const searchVal = (document.getElementById('convSearchInput')?.value || '').toLowerCase().trim();
+  const filterVal = document.getElementById('convFilterStatus')?.value || 'all';
+
+  let filtered = convState.compiledOutput.slice();
+
+  if (filterVal !== 'all') {
+    filtered = filtered.filter(row => row.status === filterVal);
+  }
+
+  if (searchVal) {
+    filtered = filtered.filter(row => {
+      const name = (row.customerName || '').toLowerCase();
+      const wName = (row.workingName || '').toLowerCase();
+      return name.includes(searchVal) || wName.includes(searchVal);
+    });
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem; color:#9ca3af;">No rows match filter.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  filtered.forEach((row, idx) => {
+    let statusBadge = '<span class="conv-badge-tag conv-badge-empty">No Reading</span>';
+    if (row.status === 'matched') {
+      statusBadge = '<span class="conv-badge-tag conv-badge-matched">Auto-Matched</span>';
+    } else if (row.status === 'manual') {
+      statusBadge = '<span class="conv-badge-tag conv-badge-manual">Manually Approved</span>';
+    }
+
+    const hasReadingStyle = row.currentReading ? 'background:rgba(16, 185, 129, 0.08); font-weight:700; color:#10b981;' : '';
+
+    html += `
+      <tr data-row-idx="${row.sr - 1}">
+        <td style="text-align:center; color:#9ca3af; font-weight:600;">${row.sr}</td>
+        <td style="font-weight:700; color:#ffffff;">
+          <input type="text" class="rem-te-input conv-cell-input" data-field="customerName" data-idx="${row.sr - 1}" value="${escapeHtml(row.customerName)}" />
+        </td>
+        <td style="text-align:center;">
+          <input type="text" class="rem-te-input conv-cell-input" data-field="lastBillDate" data-idx="${row.sr - 1}" value="${escapeHtml(row.lastBillDate)}" style="text-align:center;" />
+        </td>
+        <td style="text-align:right;">
+          <input type="text" class="rem-te-input conv-cell-input" data-field="startReading" data-idx="${row.sr - 1}" value="${escapeHtml(row.startReading)}" style="text-align:right;" />
+        </td>
+        <td style="text-align:right;">
+          <input type="text" class="rem-te-input conv-cell-input" data-field="currentReading" data-idx="${row.sr - 1}" value="${escapeHtml(row.currentReading)}" style="text-align:right; ${hasReadingStyle}" />
+        </td>
+        <td style="text-align:right;">
+          <input type="text" class="rem-te-input conv-cell-input" data-field="rate" data-idx="${row.sr - 1}" value="${escapeHtml(row.rate)}" style="text-align:right;" />
+        </td>
+        <td style="text-align:right;">
+          <input type="text" class="rem-te-input conv-cell-input" data-field="adjustmentSurcharge" data-idx="${row.sr - 1}" value="${escapeHtml(row.adjustmentSurcharge)}" style="text-align:right;" />
+        </td>
+        <td style="text-align:center;">
+          <input type="text" class="rem-te-input conv-cell-input" data-field="taxDuty" data-idx="${row.sr - 1}" value="${escapeHtml(row.taxDuty)}" style="text-align:center;" />
+        </td>
+        <td>
+          <input type="text" class="rem-te-input conv-cell-input" data-field="remarks" data-idx="${row.sr - 1}" value="${escapeHtml(row.remarks)}" />
+        </td>
+        <td style="text-align:center;">${statusBadge}</td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+
+  // Bind cell edit changes
+  tbody.querySelectorAll('.conv-cell-input').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+      const field = e.target.getAttribute('data-field');
+      if (convState.compiledOutput[idx]) {
+        convState.compiledOutput[idx][field] = e.target.value;
+      }
+    });
+  });
+}
+
+// ----------------------------------------------------------
+// Excel & CSV Download (Image 1 Format)
+// ----------------------------------------------------------
+function downloadConvertedExcel() {
+  if (!convState.compiledOutput.length) {
+    compileConvertedOutput();
+  }
+  if (!convState.compiledOutput.length) {
+    showToast('No converted data to export. Please process files first.', 'error');
+    return;
+  }
+
+  try {
+    showToast('Generating Excel (.xlsx) file...', 'info');
+
+    // Headers exactly as shown in Image 1:
+    // Customer Name | Last Bill Date | Start Reading | Current Reading | Rate | Adjustment Surcharge | Tax / Duty | Remarks
+    const headerRow = [
+      'Customer Name',
+      'Last Bill Date',
+      'Start Reading',
+      'Current Reading',
+      'Rate',
+      'Adjustment Surcharge',
+      'Tax / Duty',
+      'Remarks'
+    ];
+
+    const dataRows = convState.compiledOutput.map(r => {
+      // Parse numbers if numeric
+      const startNum = parseFloat(String(r.startReading).replace(/,/g, ''));
+      const currNum = parseFloat(String(r.currentReading).replace(/,/g, ''));
+      const rateNum = parseFloat(String(r.rate).replace(/,/g, ''));
+      const adjNum = parseFloat(String(r.adjustmentSurcharge).replace(/,/g, ''));
+      const taxNum = parseFloat(String(r.taxDuty).replace(/,/g, ''));
+
+      return [
+        r.customerName,
+        r.lastBillDate,
+        !isNaN(startNum) ? startNum : r.startReading,
+        !isNaN(currNum) ? currNum : (r.currentReading || ''),
+        !isNaN(rateNum) ? rateNum : (r.rate || ''),
+        !isNaN(adjNum) ? adjNum : (r.adjustmentSurcharge || ''),
+        !isNaN(taxNum) ? taxNum : (r.taxDuty || 0),
+        r.remarks != null ? r.remarks : 0
+      ];
+    });
+
+    const worksheetData = [headerRow, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+
+    // Auto set column widths
+    ws['!cols'] = [
+      { wch: 24 }, // Customer Name
+      { wch: 15 }, // Last Bill Date
+      { wch: 16 }, // Start Reading
+      { wch: 16 }, // Current Reading
+      { wch: 10 }, // Rate
+      { wch: 22 }, // Adjustment Surcharge
+      { wch: 12 }, // Tax / Duty
+      { wch: 14 }  // Remarks
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Billing Readings');
+
+    const fileName = 'Mega_Mall_Billing_Converted_' + (new Date().toISOString().split('T')[0]) + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    showToast('Downloaded ' + fileName, 'success');
+  } catch (err) {
+    console.error('Excel download error:', err);
+    showToast('Failed to export Excel file: ' + err.message, 'error');
+  }
+}
+
+function downloadConvertedCsv() {
+  if (!convState.compiledOutput.length) {
+    compileConvertedOutput();
+  }
+  if (!convState.compiledOutput.length) {
+    showToast('No converted data to export.', 'error');
+    return;
+  }
+
+  try {
+    const headerRow = ['Customer Name', 'Last Bill Date', 'Start Reading', 'Current Reading', 'Rate', 'Adjustment Surcharge', 'Tax / Duty', 'Remarks'];
+    const csvRows = [headerRow.join(',')];
+
+    convState.compiledOutput.forEach(r => {
+      const escapeCsv = (str) => {
+        const val = String(str != null ? str : '');
+        return val.includes(',') ? ('"' + val.replace(/"/g, '""') + '"') : val;
+      };
+      csvRows.push([
+        escapeCsv(r.customerName),
+        escapeCsv(r.lastBillDate),
+        escapeCsv(r.startReading),
+        escapeCsv(r.currentReading),
+        escapeCsv(r.rate),
+        escapeCsv(r.adjustmentSurcharge),
+        escapeCsv(r.taxDuty),
+        escapeCsv(r.remarks)
+      ].join(','));
+    });
+
+    const blob = new Blob([csvRows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Mega_Mall_Billing_Converted_' + (new Date().toISOString().split('T')[0]) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Downloaded CSV file.', 'success');
+  } catch (err) {
+    showToast('Failed to download CSV: ' + err.message, 'error');
+  }
+}
+
+function clearAllConverterData() {
+  if (confirm('Clear all uploaded files and reset converter?')) {
+    convState.templateFile = null;
+    convState.templateWorkbook = null;
+    convState.templateRawRows = [];
+    convState.templateRecords = [];
+    convState.workingFile = null;
+    convState.workingWorkbook = null;
+    convState.workingRawRows = [];
+    convState.workingRecords = [];
+    convState.autoMatches = [];
+    convState.manualMappings = {};
+    convState.compiledOutput = [];
+
+    document.getElementById('convTemplateDropzone').style.display = 'block';
+    document.getElementById('convTemplateDetails').style.display = 'none';
+    document.getElementById('convTemplateFileStatus').textContent = 'Waiting for file';
+    document.getElementById('convTemplateFileStatus').className = 'conv-status-pill conv-pill-waiting';
+
+    document.getElementById('convWorkingDropzone').style.display = 'block';
+    document.getElementById('convWorkingDetails').style.display = 'none';
+    document.getElementById('convWorkingFileStatus').textContent = 'Waiting for file';
+    document.getElementById('convWorkingFileStatus').className = 'conv-status-pill conv-pill-waiting';
+
+    checkEnableProcessButton();
+    switchConverterTab('upload');
+    showToast('Converter reset.', 'info');
+  }
+}
+
+// ----------------------------------------------------------
+// Load Demo Data (From User Screenshots: Image 1 & Image 2)
+// ----------------------------------------------------------
+function loadConverterDemoData() {
+  // Demo Template Data (Image 1 Format)
+  convState.templateRecords = [
+    { id: 'tmpl_1', name: 'KFC', cleanName: 'kfc', lastBillDate: '2026-09-30', startReading: '1107202.4', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' },
+    { id: 'tmpl_2', name: 'BONANZA', cleanName: 'bonanza', lastBillDate: '2026-09-30', startReading: '99989.4', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' },
+    { id: 'tmpl_3', name: 'IDEAS', cleanName: 'ideas', lastBillDate: '2026-09-30', startReading: '275048', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' },
+    { id: 'tmpl_4', name: 'SERVIS', cleanName: 'servis', lastBillDate: '2026-09-30', startReading: '63947', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' },
+    { id: 'tmpl_5', name: 'Shop Zirrotti', cleanName: 'shop zirrotti', lastBillDate: '2026-09-30', startReading: '101', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' },
+    { id: 'tmpl_6', name: 'marfeen', cleanName: 'marfeen', lastBillDate: '2026-09-30', startReading: '652', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' },
+    { id: 'tmpl_7', name: 'SAYA', cleanName: 'saya', lastBillDate: '2026-09-30', startReading: '93513', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' },
+    { id: 'tmpl_8', name: 'STYLO METER 1', cleanName: 'stylo', lastBillDate: '2026-09-30', startReading: '22939', currentReading: '', rate: '', adjustment: '', tax: '0', remarks: '0' }
+  ];
+
+  // Demo Working Data (Image 2 Format with Previous Amounts)
+  convState.workingRecords = [
+    { id: 'work_1', originalName: '*Bonanza', name: '*Bonanza', cleanName: 'bonanza', previousReading: '99,989', currentReading: '102,037.8', amount: '192,091' },
+    { id: 'work_2', originalName: '*Ideas', name: '*Ideas', cleanName: 'ideas', previousReading: '275,048', currentReading: '275,326', amount: '26,065' },
+    { id: 'work_3', originalName: '*Servis', name: '*Servis', cleanName: 'servis', previousReading: '63,947', currentReading: '65,494.3', amount: '145,072' },
+    { id: 'work_4', originalName: 'Shop Zirrotti', name: 'Shop Zirrotti', cleanName: 'shop zirrotti', previousReading: '101', currentReading: '140', amount: '3,691' },
+    { id: 'work_5', originalName: 'marfan', name: 'marfan', cleanName: 'marfan', previousReading: '652', currentReading: '825', amount: '16,220' },
+    { id: 'work_6', originalName: '*Saya', name: '*Saya', cleanName: 'saya', previousReading: '93,513', currentReading: '97,595', amount: '382,678' },
+    { id: 'work_7', originalName: '*Stylo Meter 1', name: '*Stylo Meter 1', cleanName: 'stylo', previousReading: '22,939', currentReading: '23,723', amount: '73,544' }
+  ];
+
+  document.getElementById('convTemplateDropzone').style.display = 'none';
+  document.getElementById('convTemplateDetails').style.display = 'block';
+  document.getElementById('convTemplateFileName').textContent = 'Demo_Template_Image1.xlsx';
+  document.getElementById('convTemplateFileInfo').textContent = '8 Customer Rows - Image 1 Format';
+  document.getElementById('convTemplateFileStatus').textContent = 'Demo Loaded';
+  document.getElementById('convTemplateFileStatus').className = 'conv-status-pill conv-pill-ready';
+
+  document.getElementById('convWorkingDropzone').style.display = 'none';
+  document.getElementById('convWorkingDetails').style.display = 'block';
+  document.getElementById('convWorkingFileName').textContent = 'Demo_Working_Readings_Image2.xlsx';
+  document.getElementById('convWorkingFileInfo').textContent = '7 Customer Readings with Amounts';
+  document.getElementById('convWorkingFileStatus').textContent = 'Demo Loaded';
+  document.getElementById('convWorkingFileStatus').className = 'conv-status-pill conv-pill-ready';
+
+  checkEnableProcessButton();
+  runConverterMatching();
+  showToast('Loaded demo dataset from screenshots. Notice the marfeen ↔ marfan mismatch approval!', 'success');
+}
+
+function initConverterApp() {
+  setupConverterUploads();
 }
 

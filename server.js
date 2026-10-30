@@ -1517,6 +1517,11 @@ app.get('/api/rents/download/master-csv', requireRentsAuth, (req, res) => {
   }
 });
 
+// Dedicated route for Excel Billing Data Converter
+app.get(['/convert', '/convert/', '/converter', '/converter/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Dedicated route for KernelX Admin Console
 app.get(['/kernelx', '/kernelx/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

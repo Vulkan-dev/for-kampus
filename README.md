@@ -25,6 +25,13 @@ Automated monthly water billing invoice generator for **The Mega Mall** and **Ka
   - **Vector PDF & Word (.docx) Exports**: Direct high-precision PDF download and official Word (.docx) export with clean text formatting and zero fill underlines.
   - **100% Client-Side Privacy (Zero Server Database)**: All tenant details, dues, and customized notices reside exclusively in browser `localStorage`.
   - **Session Export & Import**: Export any active reminder session to an offline `.json` file and import it anytime on another machine or browser to seamlessly resume work without sending confidential financial records to any cloud/server database.
+- **Excel Billing Data Rearranger & Converter (`/convert`)**:
+  - Automatically matches and rearranges working meter readings into the official template format (Image 1: `Customer Name`, `Last Bill Date`, `Start Reading`, `Current Reading`, `Rate`, `Adjustment Surcharge`, `Tax / Duty`, `Remarks`).
+  - Supports multi-sheet selection for both Template and Working workbooks.
+  - Intelligent name normalization and fuzzy matching (stripping `*`, punctuation, prefixes).
+  - Dedicated **Mismatch Resolution Panel**: Only problematic/unmatched customer names appear in dropdowns, complete with previous readings and amounts for effortless manual pairing and approval.
+  - Direct 1-click download of converted Excel (`.xlsx`) and CSV files.
+  - Built-in 1-click sample demo dataset to test with instant sample data.
 
 ---
 

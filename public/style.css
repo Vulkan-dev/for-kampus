@@ -2838,7 +2838,7 @@ input:checked + .slider:before {
    Matte Obsidian & Slate Theme (Zero Blue Glow)
    ========================================================== */
 
-/* Route Isolation: Force hide main water invoice login screen and layouts on /reminders */
+/* Route Isolation: Force hide main water invoice login screen and layouts on /reminders and /convert */
 html.route-reminders #loginScreen,
 body.route-reminders #loginScreen,
 .route-reminders #loginScreen,
@@ -2849,7 +2849,22 @@ body.route-reminders .app-container,
 html.route-reminders #rentsApp,
 body.route-reminders #rentsApp,
 html.route-reminders #kernelxApp,
-body.route-reminders #kernelxApp {
+body.route-reminders #kernelxApp,
+html.route-reminders #converterApp,
+body.route-reminders #converterApp,
+html.route-convert #loginScreen,
+body.route-convert #loginScreen,
+.route-convert #loginScreen,
+html.route-convert .app-header,
+body.route-convert .app-header,
+html.route-convert .app-container,
+body.route-convert .app-container,
+html.route-convert #rentsApp,
+body.route-convert #rentsApp,
+html.route-convert #remindersApp,
+body.route-convert #remindersApp,
+html.route-convert #kernelxApp,
+body.route-convert #kernelxApp {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
@@ -2859,6 +2874,11 @@ body.route-reminders #kernelxApp {
 
 html.route-reminders #remindersApp,
 body.route-reminders #remindersApp {
+  display: flex !important;
+}
+
+html.route-convert #converterApp,
+body.route-convert #converterApp {
   display: flex !important;
 }
 
@@ -3824,3 +3844,327 @@ body.route-reminders #remindersApp {
     transform: none !important;
   }
 }
+
+/* ==========================================================
+   Excel Billing Data Converter Portal Styles (/convert)
+   Matte Obsidian & Slate Theme
+   ========================================================== */
+.converter-wrapper {
+  min-height: 100vh;
+  background-color: #090a0d;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.converter-header {
+  height: 60px;
+  background: #101217;
+  border-bottom: 1px solid #1c202a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  gap: 1rem;
+}
+
+.converter-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.converter-brand-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #161820;
+  border: 1px solid #242936;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.converter-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.converter-subtitle {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.converter-view-switcher {
+  display: flex;
+  align-items: center;
+  background: #141720;
+  border: 1px solid #222632;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.conv-tab-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.conv-tab-btn:hover {
+  color: #ffffff;
+}
+
+.conv-tab-btn.active {
+  background: #222736;
+  color: #ffffff;
+}
+
+.converter-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.converter-workspace {
+  padding: 1.5rem;
+  max-width: 1750px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.conv-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 950px) {
+  .conv-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.conv-card {
+  background: #111317;
+  border: 1px solid #222632;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.conv-card-header {
+  padding: 1rem 1.25rem;
+  background: #141720;
+  border-bottom: 1px solid #1c202a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.conv-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.conv-card-desc {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin: 0.15rem 0 0 0;
+}
+
+.conv-card-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #1c202a;
+  border: 1px solid #2a3040;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.conv-card-body {
+  padding: 1.25rem;
+}
+
+.conv-dropzone {
+  border: 2px dashed #2a3040;
+  border-radius: 8px;
+  padding: 2.25rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  background: #0d0f14;
+  transition: all 0.15s ease;
+}
+
+.conv-dropzone:hover,
+.conv-dropzone.dragover {
+  border-color: #10b981;
+  background: #0d1e17;
+}
+
+.conv-file-meta {
+  background: #0d0f14;
+  border: 1px solid #222632;
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.conv-select,
+.conv-input {
+  width: 100%;
+  background: #07080a;
+  border: 1px solid #262a36;
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.conv-select:focus,
+.conv-input:focus {
+  border-color: #4b5563;
+}
+
+.conv-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #d1d5db;
+  margin-bottom: 0.35rem;
+  display: block;
+}
+
+.conv-col-tags-box {
+  background: #090b0e;
+  border: 1px solid #1c2028;
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+}
+
+.conv-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.conv-chip {
+  background: #181c26;
+  border: 1px solid #282f40;
+  color: #d1d5db;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.conv-status-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.conv-pill-waiting {
+  background: #232733;
+  color: #9ca3af;
+  border: 1px solid #33384a;
+}
+
+.conv-pill-ready {
+  background: #0d281e;
+  color: #10b981;
+  border: 1px solid #10b981;
+}
+
+.conv-mismatch-row {
+  background: #0c0e12;
+  border: 1px solid #222632;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: border-color 0.15s ease;
+}
+
+.conv-mismatch-row:hover {
+  border-color: #3b4356;
+}
+
+.conv-mismatch-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 1.25rem;
+  align-items: flex-end;
+}
+
+@media (max-width: 950px) {
+  .conv-mismatch-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.conv-badge-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.conv-badge-matched {
+  background: #0d281e;
+  color: #10b981;
+  border: 1px solid #10b981;
+}
+
+.conv-badge-manual {
+  background: #2b1f11;
+  color: #fbbf24;
+  border: 1px solid #6b4315;
+}
+
+.conv-badge-empty {
+  background: #2b1216;
+  color: #f87171;
+  border: 1px solid #6b1d24;
+}
+
